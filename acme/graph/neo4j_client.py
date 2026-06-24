@@ -39,7 +39,10 @@ class Neo4jClient:
             return False
 
     async def _init_constraints(self) -> None:
-        queries = [
+        migrations = [
+            "MATCH (e:Entity) WHERE e.tenant_id IS NULL SET e.tenant_id = 'default'",
+            "MATCH ()-[r]->() WHERE r.tenant_id IS NULL SET r.tenant_id = 'default'",
+            "DROP CONSTRAINT entity_name IF EXISTS",
             "CREATE INDEX entity_type IF NOT EXISTS FOR (e:Entity) ON (e.entity_type)",
             "CREATE INDEX entity_tenant IF NOT EXISTS FOR (e:Entity) ON (e.tenant_id)",
             "CREATE INDEX knowledge_type IF NOT EXISTS FOR (e:Entity) ON (e.knowledge_type)",
@@ -47,15 +50,17 @@ class Neo4jClient:
             CREATE CONSTRAINT entity_tenant_name IF NOT EXISTS
             FOR (e:Entity) REQUIRE (e.tenant_id, e.name) IS UNIQUE
             """,
-            "MATCH (e:Entity) WHERE e.tenant_id IS NULL SET e.tenant_id = 'default'",
         ]
         async with self.driver.session() as session:
-            for query in queries:
+            for query in migrations:
                 try:
                     await session.run(query)
-                except Exception:
-                    if "entity_tenant_name" not in query and "entity_name" not in query:
-                        raise
+                except Exception as exc:
+                    if "EquivalentSchemaRuleAlreadyExists" in str(exc):
+                        continue
+                    if "entity_tenant_name" in query or "entity_name" in query:
+                        continue
+                    raise
 
     async def upsert_entity(
         self,

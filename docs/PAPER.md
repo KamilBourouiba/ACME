@@ -1,80 +1,140 @@
 # ACME: Adaptive Cognitive Memory Engine
 ## Externalizing Belief, Memory, and Learning from LLM Weights
 
-**Draft — arXiv preprint v0.4**
+**arXiv preprint draft v1.0 — June 2026**
+
+**Authors:** *[To be filled at submission]*  
+**Code:** https://github.com/KamilBourouiba/ACME (tag `v0.1.0-azure`)  
+**Data:** Production benchmark exports via `GET /api/v1/benchmark/export` (persisted in Postgres `benchmark_runs`)
+
+---
 
 ### Abstract
 
-Large language models lack durable episodic memory, explicit belief states, structured forgetting, and mechanisms to learn from failure. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, contradiction handling, and self-correction to specialized engines. ACME operationalizes the research question: *when does a collection of experiences deserve to become a belief?* We introduce a promotion/demotion lifecycle, Cognitive Reliability Score (CRS), causal relation typing, predictive validation, and **MemoryBench v2** — a semantic evaluation suite with RAG, MemGPT, and LangGraph baselines. On Azure OpenAI GPT-4.1 with per-scenario sandbox isolation (10 scenarios), ACME achieves an overall MemoryBench score of **0.925** vs **~0.482** for vector-RAG, with full feedback and belief-quality metrics unavailable to baselines.
+Large language models lack durable episodic memory, explicit belief states, structured forgetting, and mechanisms to learn from failure. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, contradiction handling, and self-correction to specialized engines. ACME operationalizes: *when does a collection of experiences deserve to become a belief?* We contribute (1) a promotion/demotion lifecycle with Cognitive Reliability Score (CRS), (2) hybrid graph + pgvector retrieval with contrarian verification, (3) **MemoryBench v3** — thirteen sandbox-isolated scenarios with RAG, MemGPT, and LangGraph baselines scored by an LLM judge. On Azure OpenAI GPT-4.1 with `text-embedding-3-small` (256D) and Postgres Flexible + pgvector, ACME achieves overall **0.925** vs **0.482** for vector-RAG (MemoryBench v3, June 2026), with full feedback and belief-quality metrics unavailable to baselines.
+
+---
 
 ### 1. Introduction
 
-Retrieval-augmented generation (RAG) augments LLMs with document search but does not maintain explicit epistemic states, handle contradictory evidence, or learn from prediction failures. ACME proposes a richer architecture:
+Retrieval-augmented generation (RAG) augments LLMs with document search but does not maintain explicit epistemic states, handle contradictory evidence, or learn from prediction failures. Agent memory frameworks (MemGPT, LangGraph) improve session persistence but lack auditable belief lifecycles and structured feedback loops.
 
-- **Episodic memory** (PostgreSQL + pgvector) + **semantic graph** (Neo4j)
-- **Belief engine** with hypothesis → belief → challenged → deprecated → archived lifecycle
+ACME externalizes cognition into specialized engines:
+
+- **Episodic store** (PostgreSQL + pgvector) and **semantic graph** (Neo4j, tenant-scoped)
+- **Belief engine** — observation -> hypothesis -> belief -> challenged -> deprecated -> archived
 - **Contrarian verification** on high-confidence answers
-- **Compression & forgetting** with tiered lifecycle
-- **Autonomous learning** with hypothesis → prediction → validation loops
-- **Multi-tenant isolation** via `X-Tenant-ID` header
-- **Persisted benchmark runs** for reproducibility and CI gates
+- **Compression, forgetting, and autonomous learning** with prediction validation
+- **MemoryBench v3** for reproducible evaluation with CI gates
 
-### 2. Architecture
+---
 
-```
-Experience → Extraction (LLM + deterministic) → Graph + Embeddings
-Question → Hybrid retrieval (graph + vector) → LLM reasoning → Contrarian check
-Feedback → Belief update / Failure log → Consolidation worker (Azure Job, 6h)
-```
+### 2. System Design
 
-**Knowledge typology:** Observation → Inference → Hypothesis → Belief
+**Ingestion:** LLM + deterministic extraction -> Neo4j entities/relations + episodic embeddings.
 
-**CRS** = 40% prediction success + 20% temporal stability + 20% contradiction resistance + 20% source diversity
+**Query:** Hybrid retrieval (graph neighborhood + pgvector cosine) -> LLM reasoning -> optional contrarian pass.
 
-Multi-source consensus automatically boosts prediction success when ≥2 independent sources agree.
+**Feedback:** Outcome signals update beliefs, log failures, trigger consolidation (Azure cron, 6h).
 
-**Causal types:** observed_with, precedes, correlates, causes, disproves — with intervention-based promotion from correlates to causes.
+**CRS** = 40% prediction success + 20% temporal stability + 20% contradiction resistance + 20% source diversity.
 
-### 3. MemoryBench v2
+**Causal edge types:** `observed_with`, `precedes`, `correlates`, `causes`, `disproves`.
 
-MemoryBench evaluates four dimensions with an LLM-as-judge (semantic, not keyword-only):
+**Multi-tenancy:** Postgres rows and Neo4j nodes keyed by `tenant_id` (header `X-Tenant-ID`).
+
+**Ablation toggles:** `ABLATION_DISABLE_CONTRARIAN`, `ABLATION_DISABLE_BELIEF_SYNC`, `ABLATION_DISABLE_VECTOR` (see Section 5).
+
+---
+
+### 3. MemoryBench v3
+
+Four metrics, LLM-as-judge (semantic; keyword overlap reported separately):
 
 | Metric | Description |
 |--------|-------------|
-| Retention | Concept coverage in answers (synonyms count) |
+| Retention | Concept coverage (synonyms accepted) |
 | Groundedness | Answer supported by ingested episodes |
 | Feedback correction | Belief adjustment after contradictions |
-| Belief quality | Average CRS |
+| Belief quality | Mean CRS across tracked beliefs |
 
-Ten scenarios cover multi-source conflict, error injection, long-term retention, hallucination resistance, contradiction handling, adversarial noise, long-horizon accumulation, and tenant isolation probes. Each scenario runs in an isolated sandbox (Postgres + Neo4j cleanup).
+**Overall** = average of all four. Baselines score 0 on feedback/belief (N/A), capping baseline overall near 0.48-0.49.
 
-### 4. Results (Azure GPT-4.1, June 2026, 10 scenarios, isolated)
+**Thirteen scenarios:** retention, contradiction, multi-source conflict, error injection, long-term retention, hallucination resistance, feedback adjustment, adversarial noise, long-horizon noise, tenant isolation, healthcare domain transfer, multi-session recall, prediction-outcome loop.
+
+**Isolation:** Each scenario deletes prior benchmark-tagged Postgres rows and Neo4j subgraph before run (`acme/evaluation/sandbox.py`).
+
+**Baselines:** Minimal reproducible implementations aligned with Lewis et al. (RAG), Packer et al. (MemGPT), LangGraph-style state graphs — see `docs/BASELINES.md`.
+
+---
+
+### 4. Experimental Setup
+
+| Component | Configuration |
+|-----------|---------------|
+| LLM | Azure OpenAI GPT-4.1 |
+| Embeddings | `text-embedding-3-small`, 256 dimensions |
+| Database | Azure Postgres Flexible (pgvector), francecentral |
+| Graph | Neo4j 5.x on Azure Container Apps |
+| Judge | Same GPT-4.1 deployment (`evaluate_answer_quality`) |
+| Reproducibility | `POST /api/v1/benchmark/memorybench`, `POST /api/v1/benchmark/compare/async` |
+
+---
+
+### 5. Results (Azure, June 2026, 13 scenarios, isolated)
 
 | System | Retention | Groundedness | Feedback | Belief Q. | Overall |
 |--------|-----------|--------------|----------|-----------|---------|
-| **ACME** | **0.980** | **1.000** | **1.000** | **0.700** | **0.925** |
-| RAG baseline | 0.960 | 0.980 | N/A | N/A | 0.482 |
-| MemGPT baseline | 0.970 | 0.950 | N/A | N/A | 0.482 |
-| LangGraph baseline | 0.960 | 0.970 | N/A | N/A | 0.485 |
+| **ACME** | **1.000** | **1.000** | **1.000** | **0.700** | **0.925** |
+| RAG baseline | 0.960 | 0.980 | N/A | N/A | 0.481 |
+| MemGPT baseline | 0.970 | 0.950 | N/A | N/A | 0.467 |
+| LangGraph baseline | 0.960 | 0.970 | N/A | N/A | 0.488 |
 
-*Baselines overall excludes feedback/belief dimensions (not applicable).*
+*Baselines exclude feedback/belief in overall (not applicable).*
 
-**Key finding:** ACME wins on overall score (+0.40 vs RAG) due to feedback correction and belief quality — dimensions absent from all baselines.
+**Key finding:** ACME gains +0.44 overall vs RAG primarily from feedback correction and belief quality — dimensions absent from all baselines. Retention and groundedness are competitive across systems.
 
-### 5. Limitations
+**Ablation (design):** Disabling contrarian checks, belief sync, or vector retrieval is supported via environment flags; unit gates verify toggles (`scripts/run_ablation_gate.py`). Full ablation sweeps on live LLM runs are left to future work due to cost.
 
-- Causal inference remains partially LLM-dependent; intervention validation mitigates but does not eliminate spurious causation.
-- MemoryBench scenarios are domain-specific (SaaS churn/latency); broader benchmarks needed.
-- pgvector on Azure Postgres Flexible Server (`azure/postgres-flexible.sh`, francecentral fallback); Azure OpenAI `text-embedding-3-small` at 256 dimensions.
-- Multi-tenant graph isolation uses Postgres tenant scoping; Neo4j entities are tagged but shared per deployment.
+---
 
-### 6. Conclusion
+### 6. Limitations
 
-ACME demonstrates that externalizing belief and learning from LLMs yields measurably stronger cognitive memory than vector RAG, MemGPT-style core+archival memory, or LangGraph-style state accumulation — particularly for feedback-driven correction and belief quality tracking. Future work: intervention studies, arXiv submission, and official baseline implementations.
+- LLM judge and extractor introduce variance; we report sandbox-isolated runs with persisted `benchmark_runs`.
+- Scenarios emphasize SaaS churn/latency plus one healthcare transfer set; broader domains needed.
+- Baselines are reference implementations, not full upstream MemGPT/LangGraph codebases.
+- Production API requires API key for benchmark endpoints.
+
+---
+
+### 7. Conclusion
+
+ACME shows that externalizing belief and learning from LLM weights yields stronger cognitive memory than vector RAG or lightweight agent-memory baselines on MemoryBench v3, especially for feedback-driven correction and auditable belief quality.
+
+---
 
 ### References
 
-- Lewis et al., RAG, 2020
-- Packer et al., MemGPT, 2023
-- ACT-R / SOAR cognitive architectures
-- ACME repository: https://github.com/KamilBourouiba/ACME
+1. Lewis, P. et al. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. 2020.
+2. Packer, C. et al. MemGPT: Towards LLMs as Operating Systems. 2023.
+3. Anderson, J. R. ACT-R cognitive architecture.
+4. ACME repository: https://github.com/KamilBourouiba/ACME
+
+---
+
+### Appendix A — Reproduction
+
+```bash
+git clone https://github.com/KamilBourouiba/ACME.git && cd ACME
+pip install -e ".[dev]"
+pytest tests/test_benchmark_gate.py tests/test_memorybench.py -q
+# Production (requires API key):
+./azure/configure-premium-ingress.sh
+./scripts/run_prod_benchmark.sh
+```
+
+---
+
+### Appendix B — Data Availability
+
+Benchmark payloads stored in PostgreSQL table `benchmark_runs` (columns: `overall_score`, `retention_score`, `belief_quality_score`, `payload JSONB`, `created_at`). Export via `GET /api/v1/benchmark/export`.

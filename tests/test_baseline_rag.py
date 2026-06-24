@@ -26,4 +26,4 @@ async def test_rag_baseline_single_scenario():
 
 
 def test_default_scenarios_count():
-    assert len(DEFAULT_SCENARIOS) >= 10
+    assert len(DEFAULT_SCENARIOS) >= 13

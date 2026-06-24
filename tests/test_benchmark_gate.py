@@ -11,7 +11,7 @@ def _result(**kwargs) -> MemoryBenchResult:
         "hallucination_resistance_score": 1.0,
         "belief_quality_score": 0.65,
         "overall_score": 0.90,
-        "details": {"failures": [], "scenarios_run": 10},
+        "details": {"failures": [], "scenarios_run": 13},
     }
     defaults.update(kwargs)
     return MemoryBenchResult(**defaults)
@@ -29,7 +29,7 @@ def test_gate_fails_low_overall():
 def test_gate_fails_scenario_failures():
     with pytest.raises(BenchmarkGateError, match="failures"):
         check_memorybench_gate(
-            _result(details={"failures": ["scenario_a"], "scenarios_run": 10}),
+            _result(details={"failures": ["scenario_a"], "scenarios_run": 13}),
         )
 
 

@@ -7,5 +7,8 @@ if ! command -v pandoc &>/dev/null; then
   echo "Install pandoc: brew install pandoc basictex" >&2
   exit 1
 fi
-pandoc "${ROOT}/docs/PAPER.md" -o "$OUT" --pdf-engine=pdflatex -V geometry:margin=1in
+pandoc "${ROOT}/docs/PAPER.md" -o "$OUT" \
+  --pdf-engine=xelatex \
+  -V geometry:margin=1in \
+  -V mainfont="Helvetica"
 echo "✅ Wrote $OUT"

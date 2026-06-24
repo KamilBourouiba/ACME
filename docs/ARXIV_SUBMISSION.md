@@ -1,38 +1,49 @@
-# arXiv submission checklist — ACME v0.1.0
+# arXiv submission checklist — ACME v1.0
 
-**Source:** `docs/PAPER.md` (draft v0.3 → promote to v0.4 at submit time)
+**Source manuscript:** `docs/PAPER.md`  
+**PDF:** `docs/PAPER.pdf` (generate: `./scripts/export_paper_pdf.sh`)  
+**Release:** https://github.com/KamilBourouiba/ACME/releases/tag/v0.1.0-azure
 
-## Pre-submission
+## Pre-submission checklist
 
-- [ ] Update author list, affiliations, and ORCID
-- [ ] Export PDF from PAPER.md (pandoc or LaTeX template)
-- [ ] Verify benchmark numbers match latest `GET /benchmark/export` from prod
-- [ ] Add data availability: Azure deployment URL + `benchmark_runs` table schema
-- [ ] Code availability: repository URL + tag `v0.1.0-azure`
+- [x] Manuscript structure (abstract, methods, results, limitations, reproduction appendix)
+- [x] Benchmark methodology documented (MemoryBench v3, 13 scenarios, LLM judge)
+- [x] Code + tag available on GitHub
+- [x] Baseline methodology in `docs/BASELINES.md`
+- [ ] **Author list, affiliations, ORCID** — fill before submit
+- [ ] Verify scores match latest `benchmark-results/compare-latest.json` after prod run
+- [ ] Upload PDF to arXiv
 
-## Suggested metadata
+## arXiv metadata
 
 | Field | Value |
 |-------|-------|
-| Title | ACME: Adaptive Cognitive Memory Engine — Externalizing Belief, Memory, and Learning from LLM Weights |
-| Categories | cs.AI, cs.CL, cs.LG |
-| Comments | MemoryBench v2 benchmark; code at \<repo\> |
+| **Title** | ACME: Adaptive Cognitive Memory Engine — Externalizing Belief, Memory, and Learning from LLM Weights |
+| **Abstract** | Copy from `docs/PAPER.md` §Abstract (plain text) |
+| **Categories** | Primary: **cs.AI** — Secondary: cs.CL, cs.LG |
+| **Comments** | 13-page preprint; MemoryBench v3; code at https://github.com/KamilBourouiba/ACME |
 
-## Key claims to keep
+## Key claims (verify against latest benchmark export)
 
-1. ACME overall **0.925** vs RAG **0.482** on MemoryBench v2 (10 scenarios, LLM judge).
-2. Gains driven by feedback correction + belief quality (CRS), not retention alone.
-3. Per-scenario sandbox isolation for reproducibility.
+1. ACME overall **0.925** vs RAG **0.481** on MemoryBench v3 (13 scenarios, GPT-4.1 judge, June 2026 prod run).
+2. Gains driven by **feedback correction + belief quality (CRS)**, not retention alone.
+3. Per-scenario **sandbox isolation** (Postgres + Neo4j) for reproducibility.
 
 ## Submission steps (arxiv.org)
 
-1. Register account / obtain endorsement if required
-2. Upload PDF + source (optional)
-3. Paste abstract from PAPER.md §Abstract
-4. Select categories cs.AI primary
-5. Submit; arXiv ID will be assigned within ~24–48h
+1. Create account / obtain endorsement if required
+2. **Submit new paper** -> Upload `docs/PAPER.pdf`
+3. Paste title + abstract from manuscript
+4. Select categories: cs.AI (primary), cs.CL, cs.LG
+5. Add comment: "MemoryBench v3 benchmark; code https://github.com/KamilBourouiba/ACME"
+6. Submit — arXiv ID assigned within ~24-48h
 
 ## Post-submission
 
-- [ ] Update README citation block with arXiv ID
-- [ ] Pin release notes `RELEASE_v0.1.0.md` with arXiv link
+- [ ] Add `\arxiv{XXXX.XXXXX}` to README citation block
+- [ ] Update `RELEASE_v0.1.0.md` with arXiv link
+- [ ] Tweet / announce with benchmark table screenshot
+
+## Data & code availability statement (for abstract/comments)
+
+> Code: https://github.com/KamilBourouiba/ACME (MIT). Benchmark payloads persisted in PostgreSQL `benchmark_runs`; reproduce via `./scripts/run_prod_benchmark.sh` with Azure OpenAI credentials.

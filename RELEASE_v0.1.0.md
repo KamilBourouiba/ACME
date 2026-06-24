@@ -1,40 +1,39 @@
-# ACME v0.1.0-azure
+# ACME v0.1.0-azure (arxiv-ready)
 
 **Date:** 2026-06-24  
 **API:** https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io  
-**Revision:** `acme-api--pgflex-*` (Azure Postgres Flexible + pgvector, francecentral)
+**Revision:** `acme-api--neo4jfix2`  
+**Repo:** https://github.com/KamilBourouiba/ACME
 
-## Highlights
+## MemoryBench v3 (13 scenarios, prod, June 2026)
 
-- MemoryBench v2: **10 scenarios**, sandbox-isolated (Postgres + Neo4j)
-- Production scores (GPT-4.1, Azure OpenAI embeddings 256D):
-  - **ACME overall 0.925** (retention 0.980, groundedness 1.000, belief 0.700)
-  - RAG 0.482 · MemGPT 0.482 · LangGraph 0.485
-- Azure OpenAI `text-embedding-3-small` deployment + pgvector on Flexible Server
-- Persisted benchmark runs, CI gates (`BENCHMARK_MIN_OVERALL=0.85`)
-- Consolidation worker (6h cron), premium ingress (30 min timeout)
-- Compare async endpoint + export
+| System | Overall |
+|--------|---------|
+| **ACME** | **0.925** |
+| RAG | 0.481 |
+| MemGPT | 0.467 |
+| LangGraph | 0.488 |
 
-## Deploy
+ACME retention/groundedness/feedback: **1.000** · belief quality: **0.700** · failures: **none**
 
-```bash
-./azure/deploy.sh
-./azure/embedding-deploy.sh
-FALLBACK_LOCATION=francecentral ./azure/postgres-flexible.sh
-./azure/configure-premium-ingress.sh
-./azure/consolidation-job.sh
-```
+Reproduce: `./azure/configure-premium-ingress.sh && ./scripts/run_prod_benchmark.sh`
 
-## Tests
+## Stack
 
-```bash
-make test
-BENCHMARK_MIN_OVERALL=0.85 BENCHMARK_MIN_BELIEF_QUALITY=0.55 pytest tests/test_benchmark_gate.py -q
-```
+- Azure OpenAI GPT-4.1 + `text-embedding-3-small` (256D)
+- Postgres Flexible (francecentral) + pgvector
+- Neo4j tenant-scoped graph (`tenant_id`, composite unique key)
+- Premium ingress (30 min) for benchmarks; ~$100/mo budget — see `docs/AZURE_COSTS.md`
+- API key on benchmark endpoints (`azure/set-api-key.sh`)
+
+## arXiv
+
+- Manuscript: `docs/PAPER.md`
+- PDF: `docs/PAPER.pdf` (`./scripts/export_paper_pdf.sh`)
+- Checklist: `docs/ARXIV_SUBMISSION.md`
 
 ## Docs
 
 - [README.md](README.md)
-- [docs/PAPER.md](docs/PAPER.md)
 - [docs/BASELINES.md](docs/BASELINES.md)
-- [docs/ARXIV_SUBMISSION.md](docs/ARXIV_SUBMISSION.md)
+- [docs/AZURE_COSTS.md](docs/AZURE_COSTS.md)

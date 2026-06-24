@@ -451,10 +451,10 @@ Ablation env vars: `ABLATION_DISABLE_CONTRARIAN`, `ABLATION_DISABLE_BELIEF_SYNC`
 
 | System | Retention | Groundedness | Feedback | Belief Q. | Overall |
 |--------|-----------|--------------|----------|-----------|---------|
-| **ACME** | **0.980** | **1.000** | **1.000** | **0.700** | **0.925** |
-| RAG baseline | 0.960 | 0.980 | N/A | N/A | 0.482 |
-| MemGPT baseline | 0.970 | 0.950 | N/A | N/A | 0.482 |
-| LangGraph baseline | 0.960 | 0.970 | N/A | N/A | 0.485 |
+| **ACME** | **1.000** | **1.000** | **1.000** | **0.700** | **0.925** |
+| RAG baseline | 0.960 | 0.980 | N/A | N/A | 0.481 |
+| MemGPT baseline | 0.970 | 0.950 | N/A | N/A | 0.467 |
+| LangGraph baseline | 0.960 | 0.970 | N/A | N/A | 0.488 |
 
 *Baselines exclude feedback/belief dimensions (not applicable). Run `POST /benchmark/compare` or `/compare/async` to refresh.*
 

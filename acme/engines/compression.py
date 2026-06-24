@@ -38,7 +38,7 @@ class CompressionEngine:
         self.ollama = ollama
         self.tenant_id = tenant_id
         self.events = EventStore(session)
-        self.beliefs = BeliefEngine(session)
+        self.beliefs = BeliefEngine(session, tenant_id=tenant_id)
         self.forgetting = ForgettingEngine(session)
 
     async def compress(self, request: CompressionRequest) -> CompressionResponse:
