@@ -10,9 +10,11 @@
 | System | Overall |
 |--------|---------|
 | **ACME** | **0.925** |
-| RAG | 0.481 |
-| MemGPT | 0.467 |
-| LangGraph | 0.488 |
+| RAG | 0.487 |
+| MemGPT | 0.487 |
+| LangGraph | 0.469 |
+
+*Run job `3b31e5e3`, 24 June 2026. See `docs/BENCHMARK_RESULTS.md`.*
 
 ACME retention/groundedness/feedback: **1.000** · belief quality: **0.700** · failures: **none**
 

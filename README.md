@@ -450,16 +450,16 @@ Optional: set `API_KEY` env + `X-API-Key` header (prod: `./azure/set-api-key.sh`
 
 Ablation env vars: `ABLATION_DISABLE_CONTRARIAN`, `ABLATION_DISABLE_BELIEF_SYNC`, `ABLATION_DISABLE_VECTOR`.
 
-### Latest Azure results (GPT-4.1, June 2026, 10 scenarios, isolated)
+### Latest Azure results (GPT-4.1, 24 June 2026, 13 scenarios, isolated)
 
 | System | Retention | Groundedness | Feedback | Belief Q. | Overall |
 |--------|-----------|--------------|----------|-----------|---------|
 | **ACME** | **1.000** | **1.000** | **1.000** | **0.700** | **0.925** |
-| RAG baseline | 0.960 | 0.980 | N/A | N/A | 0.481 |
-| MemGPT baseline | 0.970 | 0.950 | N/A | N/A | 0.467 |
-| LangGraph baseline | 0.960 | 0.970 | N/A | N/A | 0.488 |
+| RAG baseline | 0.969 | 0.977 | N/A | N/A | 0.487 |
+| MemGPT baseline | 0.977 | 0.969 | N/A | N/A | 0.487 |
+| LangGraph baseline | 0.900 | 0.977 | N/A | N/A | 0.469 |
 
-*Baselines exclude feedback/belief dimensions (not applicable). Run `POST /benchmark/compare` or `/compare/async` to refresh.*
+*Production run job `3b31e5e3`. GPT-4.1-mini sensitivity: ACME **0.858** vs RAG **0.473** — see `docs/BENCHMARK_RESULTS.md`.*
 
 CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=0.55`.
 
@@ -467,7 +467,7 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 ## Future work
 
-- arXiv publication of `docs/PAPER.md`
+- arXiv submission of `docs/PAPER.pdf` (author: Mohamed Kamil Bourouiba)
 - Official MemGPT/LangGraph baseline implementations
 - Neo4j per-tenant graph partitioning
 

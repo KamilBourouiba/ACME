@@ -3,15 +3,16 @@
 
 **arXiv preprint draft v1.0 — June 2026**
 
-**Authors:** *[To be filled at submission]*  
-**Code:** https://github.com/KamilBourouiba/ACME (tag `v0.1.0-azure`)  
+**Author:** Mohamed Kamil Bourouiba  
+**Code:** https://github.com/KamilBourouiba/ACME (tag `v0.1.1-arxiv`, commit `main`)  
+**Project site:** https://kamilbourouiba.github.io/ACME/  
 **Data:** Production benchmark exports via `GET /api/v1/benchmark/export` (persisted in Postgres `benchmark_runs`)
 
 ---
 
 ### Abstract
 
-Large language models lack durable episodic memory, explicit belief states, structured forgetting, and mechanisms to learn from failure. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, contradiction handling, and self-correction to specialized engines. ACME operationalizes: *when does a collection of experiences deserve to become a belief?* We contribute (1) a promotion/demotion lifecycle with Cognitive Reliability Score (CRS), (2) hybrid graph + pgvector retrieval with contrarian verification, (3) **MemoryBench v3** — thirteen sandbox-isolated scenarios with RAG, MemGPT, and LangGraph baselines scored by an LLM judge. On Azure OpenAI GPT-4.1 with `text-embedding-3-small` (256D) and Postgres Flexible + pgvector, ACME achieves overall **0.925** vs **0.482** for vector-RAG (MemoryBench v3, June 2026), with full feedback and belief-quality metrics unavailable to baselines.
+Large language models lack durable episodic memory, explicit belief states, structured forgetting, and mechanisms to learn from failure. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, contradiction handling, and self-correction to specialized engines. ACME operationalizes: *when does a collection of experiences deserve to become a belief?* We contribute (1) a promotion/demotion lifecycle with Cognitive Reliability Score (CRS), (2) hybrid graph + pgvector retrieval with contrarian verification, (3) **MemoryBench v3** — thirteen sandbox-isolated scenarios with RAG, MemGPT, and LangGraph baselines scored by an LLM judge. On Azure OpenAI GPT-4.1 with `text-embedding-3-small` (256D) and Postgres Flexible + pgvector, ACME achieves overall **0.925** vs **0.487** for vector-RAG (MemoryBench v3, 24 June 2026 production run, job `3b31e5e3`), with full feedback and belief-quality metrics unavailable to baselines.
 
 ---
 
@@ -81,18 +82,29 @@ Four metrics, LLM-as-judge (semantic; keyword overlap reported separately):
 
 ---
 
-### 5. Results (Azure, June 2026, 13 scenarios, isolated)
+### 5. Results (Azure production, 24 June 2026, 13 scenarios, isolated)
+
+**Run metadata:** API revision `acme-api--membenchfix`; compare job `3b31e5e3-72b1-4ce3-b6c2-848cf94e4128`; duration 725 s; zero scenario failures.
 
 | System | Retention | Groundedness | Feedback | Belief Q. | Overall |
 |--------|-----------|--------------|----------|-----------|---------|
 | **ACME** | **1.000** | **1.000** | **1.000** | **0.700** | **0.925** |
-| RAG baseline | 0.960 | 0.980 | N/A | N/A | 0.481 |
-| MemGPT baseline | 0.970 | 0.950 | N/A | N/A | 0.467 |
-| LangGraph baseline | 0.960 | 0.970 | N/A | N/A | 0.488 |
+| RAG baseline | 0.969 | 0.977 | N/A | N/A | 0.487 |
+| MemGPT baseline | 0.977 | 0.969 | N/A | N/A | 0.487 |
+| LangGraph baseline | 0.900 | 0.977 | N/A | N/A | 0.469 |
 
-*Baselines exclude feedback/belief in overall (not applicable).*
+*Baselines exclude feedback/belief in overall (not applicable). Scores rounded to three decimals from persisted `benchmark_runs` export.*
 
-**Key finding:** ACME gains +0.44 overall vs RAG primarily from feedback correction and belief quality — dimensions absent from all baselines. Retention and groundedness are competitive across systems.
+**Key finding:** ACME gains **+0.44** overall vs RAG primarily from feedback correction and belief quality — dimensions absent from all baselines. Retention and groundedness are competitive across systems (all ≥ 0.90 on applicable metrics).
+
+**Model sensitivity (GPT-4.1-mini):** Using the same pipeline with Azure OpenAI **GPT-4.1-mini** as extractor, reasoner, and judge (job `107d02c0`, 639 s), ACME retains a **+0.39** overall advantage vs RAG (0.858 vs 0.473). Retention and groundedness drop versus GPT-4.1, but feedback correction stays at 1.000 and belief quality at 0.700 — confirming that cognitive layers compensate when the base model is weaker.
+
+| System | Retention | Groundedness | Feedback | Belief Q. | Overall |
+|--------|-----------|--------------|----------|-----------|---------|
+| **ACME** | **0.892** | **0.838** | **1.000** | **0.700** | **0.858** |
+| RAG baseline | 0.908 | 0.985 | N/A | N/A | 0.473 |
+| MemGPT baseline | 0.915 | 1.000 | N/A | N/A | 0.479 |
+| LangGraph baseline | 0.854 | 0.862 | N/A | N/A | 0.429 |
 
 **Ablation (design):** Disabling contrarian checks, belief sync, or vector retrieval is supported via environment flags; unit gates verify toggles (`scripts/run_ablation_gate.py`). Full ablation sweeps on live LLM runs are left to future work due to cost.
 

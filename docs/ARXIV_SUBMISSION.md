@@ -10,8 +10,8 @@
 - [x] Benchmark methodology documented (MemoryBench v3, 13 scenarios, LLM judge)
 - [x] Code + tag available on GitHub
 - [x] Baseline methodology in `docs/BASELINES.md`
-- [ ] **Author list, affiliations, ORCID** — fill before submit
-- [ ] Verify scores match latest `benchmark-results/compare-latest.json` after prod run
+- [x] **Author:** Mohamed Kamil Bourouiba
+- [x] Verify scores match latest prod runs (`docs/BENCHMARK_RESULTS.md`, job `3b31e5e3`)
 - [ ] Upload PDF to arXiv
 
 ## arXiv metadata
@@ -25,7 +25,7 @@
 
 ## Key claims (verify against latest benchmark export)
 
-1. ACME overall **0.925** vs RAG **0.481** on MemoryBench v3 (13 scenarios, GPT-4.1 judge, June 2026 prod run).
+1. ACME overall **0.925** vs RAG **0.487** on MemoryBench v3 (13 scenarios, GPT-4.1, 24 June 2026, job `3b31e5e3`).
 2. Gains driven by **feedback correction + belief quality (CRS)**, not retention alone.
 3. Per-scenario **sandbox isolation** (Postgres + Neo4j) for reproducibility.
 
