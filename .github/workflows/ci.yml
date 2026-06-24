@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: acme
+          POSTGRES_PASSWORD: acme
+          POSTGRES_DB: acme
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Unit tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://acme:acme@localhost:5432/acme
+          LLM_PROVIDER: ollama
+          PGVECTOR_ENABLED: "true"
+        run: |
+          PYTHONPATH=. pytest tests/ -q \
+            --ignore=tests/test_integration.py \
+            --ignore=tests/test_ollama_live.py
+
+      - name: Benchmark score gate
+        env:
+          BENCHMARK_MIN_OVERALL: "0.85"
+          BENCHMARK_MIN_BELIEF_QUALITY: "0.55"
+        run: |
+          PYTHONPATH=. pytest tests/test_benchmark_gate.py tests/test_memorybench.py tests/test_baseline_rag.py -q

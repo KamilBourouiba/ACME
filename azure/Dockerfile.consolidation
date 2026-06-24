@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY acme ./acme
+COPY scripts/consolidation_worker.py ./scripts/
+
+RUN pip install --no-cache-dir httpx pydantic pydantic-settings
+
+CMD ["python", "scripts/consolidation_worker.py", "--interval", "0"]
