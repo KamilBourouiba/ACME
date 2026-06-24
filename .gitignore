@@ -16,3 +16,4 @@ htmlcov/
 azure/postgres-flex.env
 azure/deployment.env
 azure/api-key.env
+docs/PAPER.pdf

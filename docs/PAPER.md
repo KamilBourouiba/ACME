@@ -77,4 +77,4 @@ ACME demonstrates that externalizing belief and learning from LLMs yields measur
 - Lewis et al., RAG, 2020
 - Packer et al., MemGPT, 2023
 - ACT-R / SOAR cognitive architectures
-- ACME repository: https://github.com/acme/ACME
+- ACME repository: https://github.com/KamilBourouiba/ACME

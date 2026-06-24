@@ -270,7 +270,7 @@ FALLBACK_LOCATION=francecentral ./azure/postgres-flexible.sh
 
 **Production (Azure, June 2026):** `https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io` — Postgres Flexible (`acme-pg-flex`, francecentral) + pgvector, GPT-4.1, Azure embeddings `text-embedding-3-small` (256D).
 
-See [RELEASE_v0.1.0.md](RELEASE_v0.1.0.md), [docs/BASELINES.md](docs/BASELINES.md), [docs/ARXIV_SUBMISSION.md](docs/ARXIV_SUBMISSION.md).
+See [RELEASE_v0.1.0.md](RELEASE_v0.1.0.md), [docs/BASELINES.md](docs/BASELINES.md), [docs/ARXIV_SUBMISSION.md](docs/ARXIV_SUBMISSION.md). Repo: https://github.com/KamilBourouiba/ACME
 
 ---
 
@@ -296,7 +296,7 @@ See [RELEASE_v0.1.0.md](RELEASE_v0.1.0.md), [docs/BASELINES.md](docs/BASELINES.m
 | `POST` | `/api/v1/contradictions` | Record contradiction against a belief |
 | `GET` | `/api/v1/meta-learning` | Meta-learning metric snapshot |
 | `GET` | `/api/v1/metrics` | Operational metrics (beliefs, CRS, episodes) |
-| `POST` | `/api/v1/benchmark/memorybench` | Run MemoryBench v2 (10 scenarios, isolated sandbox) |
+| `POST` | `/api/v1/benchmark/memorybench` | Run MemoryBench v3 (13 scenarios, isolated sandbox) |
 | `POST` | `/api/v1/benchmark/compare` | ACME vs RAG / MemGPT / LangGraph (~5 min) |
 | `POST` | `/api/v1/benchmark/compare/async` | Start compare job (poll `.../jobs/{id}`) |
 | `GET` | `/api/v1/benchmark/compare/jobs/{job_id}` | Compare job status + result |
@@ -350,7 +350,7 @@ Scoring uses an **LLM-as-judge** (`evaluate_answer_quality`) with deterministic 
 curl -X POST http://localhost:8000/api/v1/benchmark/memorybench
 ```
 
-Scenarios live in `acme/evaluation/memorybench.py` (**10 scenarios**, sandbox-isolated per run). Compare against baselines:
+Scenarios live in `acme/evaluation/memorybench.py` (**13 scenarios**, sandbox-isolated per run). Compare against baselines:
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/benchmark/memorybench
@@ -427,7 +427,7 @@ CI (`.github/workflows/ci.yml`) runs unit tests against `pgvector/pgvector:pg16`
 - **Graph scaling**: semantic graph growth requires ongoing compression and entity merging (partially addressed by compression + forgetting engines).
 - **Causal inference**: mitigated by explicit `causal_type` on edges and deterministic normalization; `causes` requires explicit linguistic evidence.
 - **Confidence inflation**: mitigated by CRS, multi-source requirements, demotion lifecycle, and contrarian checks.
-- **Multi-tenant isolation**: Postgres and API routes are tenant-scoped via `X-Tenant-ID`; Neo4j uses benchmark tags for cleanup but shares a graph per deployment.
+- **Multi-tenant isolation**: Postgres, API routes, and Neo4j graph entities are scoped via `X-Tenant-ID` (composite key `tenant_id + name` in Neo4j).
 - **pgvector**: enabled on container Postgres (`pgvector/pgvector:pg16`); SQLAlchemy casts use `CAST(:vec AS vector)` (not `:vec::vector`). Falls back to JSONB cosine when the extension or column update fails.
 
 ---
@@ -436,14 +436,16 @@ CI (`.github/workflows/ci.yml`) runs unit tests against `pgvector/pgvector:pg16`
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/v1/benchmark/memorybench` | MemoryBench v2 — 10 scenarios, isolated sandbox |
+| `POST /api/v1/benchmark/memorybench` | MemoryBench v3 — 13 scenarios, isolated sandbox |
 | `POST /api/v1/benchmark/compare` | ACME vs RAG, MemGPT, LangGraph (~5 min; needs premium ingress on Azure) |
 | `POST /api/v1/benchmark/compare/async` | Compare in background — poll `GET .../compare/jobs/{id}` |
 | `GET /api/v1/benchmark/runs/latest` | Latest persisted run (Postgres `benchmark_runs`) |
 | `GET /api/v1/benchmark/export` | JSON export of latest compare run |
 | `GET /api/v1/metrics` | Operational metrics (CRS, beliefs, episodes) |
 
-Optional: set `API_KEY` env + `X-API-Key` header; benchmark endpoints rate-limited (`BENCHMARK_RATE_LIMIT_PER_HOUR`, default 10/hour).
+Optional: set `API_KEY` env + `X-API-Key` header (prod: `./azure/set-api-key.sh`); benchmark endpoints rate-limited (`BENCHMARK_RATE_LIMIT_PER_HOUR`, default 10/hour).
+
+Ablation env vars: `ABLATION_DISABLE_CONTRARIAN`, `ABLATION_DISABLE_BELIEF_SYNC`, `ABLATION_DISABLE_VECTOR`.
 
 ### Latest Azure results (GPT-4.1, June 2026, 10 scenarios, isolated)
 
