@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from acme.config import settings
 from acme.db.session import SessionLocal
+from acme.evaluation.compare_mutex import CompareAlreadyRunningError, is_compare_running
 from acme.evaluation.comparison import run_benchmark_comparison
 from acme.graph.neo4j_client import neo4j_client
 from acme.llm.factory import llm_client
@@ -33,15 +34,18 @@ def list_jobs(limit: int = 20) -> list[dict[str, Any]]:
 
 
 async def start_compare_job(*, tenant_id: str | None = None) -> str:
+    tid = tenant_id or settings.default_tenant_id
+    if is_compare_running(tid):
+        raise CompareAlreadyRunningError(tid)
     job_id = str(uuid4())
     _jobs[job_id] = {
         "job_id": job_id,
         "type": "benchmark_compare",
         "status": "running",
-        "tenant_id": tenant_id or settings.default_tenant_id,
+        "tenant_id": tid,
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
-    asyncio.create_task(_run_compare_job(job_id, tenant_id=tenant_id))
+    asyncio.create_task(_run_compare_job(job_id, tenant_id=tid))
     return job_id
 
 

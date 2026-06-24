@@ -290,7 +290,12 @@ async def run_benchmark_comparison(
 ) -> BenchmarkComparisonResult:
     verify_api_key(request)
     check_benchmark_rate_limit(request)
-    return await orchestrator.run_benchmark_comparison()
+    from acme.evaluation.compare_mutex import CompareAlreadyRunningError
+
+    try:
+        return await orchestrator.run_benchmark_comparison()
+    except CompareAlreadyRunningError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/benchmark/compare/async")
@@ -299,9 +304,13 @@ async def run_benchmark_comparison_async(request: Request) -> dict:
     verify_api_key(request)
     check_benchmark_rate_limit(request)
     from acme.evaluation.benchmark_jobs import start_compare_job
+    from acme.evaluation.compare_mutex import CompareAlreadyRunningError
 
     tenant_id = getattr(request.state, "tenant_id", settings.default_tenant_id)
-    job_id = await start_compare_job(tenant_id=tenant_id)
+    try:
+        job_id = await start_compare_job(tenant_id=tenant_id)
+    except CompareAlreadyRunningError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {
         "job_id": job_id,
         "status": "running",

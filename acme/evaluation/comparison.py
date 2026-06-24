@@ -14,6 +14,19 @@ async def run_benchmark_comparison(
     *,
     persist: bool = True,
 ) -> BenchmarkComparisonResult:
+    from acme.evaluation.compare_mutex import compare_slot
+
+    tenant_id = getattr(orchestrator, "tenant_id", "default")
+    async with compare_slot(tenant_id):
+        return await _run_benchmark_comparison(orchestrator, llm, persist=persist)
+
+
+async def _run_benchmark_comparison(
+    orchestrator,
+    llm: BaseLLMClient,
+    *,
+    persist: bool = True,
+) -> BenchmarkComparisonResult:
     acme_result = await run_memorybench_with_orchestrator(orchestrator)
     rag_runner = RAGBaselineRunner(llm)
     memgpt_runner = MemGPTBaselineRunner(llm)
@@ -48,7 +61,7 @@ def _build_export(orchestrator, acme, rag, memgpt, langgraph) -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": __version__,
         "isolation": "sandbox_per_scenario",
-        "benchmark_version": "v2",
+        "benchmark_version": "v3",
         "systems": {
             "acme": acme.model_dump(),
             "rag_baseline": rag.model_dump(),
