@@ -329,9 +329,12 @@ async def _run_scenario(orchestrator, scenario: MemoryBenchScenario) -> dict[str
             orchestrator, scenario, qr.session_id, beliefs_before, qr.beliefs_used
         )
     elif qr.session_id:
-        await orchestrator.feedback(
-            FeedbackRequest(session_id=qr.session_id, outcome=scenario.feedback_outcome)
-        )
+        try:
+            await orchestrator.feedback(
+                FeedbackRequest(session_id=qr.session_id, outcome=scenario.feedback_outcome)
+            )
+        except Exception:
+            feedback_score = 0.0
 
     beliefs = await orchestrator.beliefs.list_beliefs(min_confidence=0.0)
     belief_quality = sum(b.crs for b in beliefs) / len(beliefs) if beliefs else 0.0

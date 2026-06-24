@@ -11,15 +11,91 @@ import time
 import httpx
 
 
+def _load_api_key() -> str | None:
+    key = os.getenv("ACME_API_KEY") or os.getenv("API_KEY")
+    if key:
+        return key
+    env_file = os.path.join(os.path.dirname(__file__), "..", "azure", "api-key.env")
+    if os.path.isfile(env_file):
+        for line in open(env_file):
+            line = line.strip()
+            if line.startswith("API_KEY="):
+                return line.split("=", 1)[1]
+    return None
+
+
 def _headers() -> dict[str, str]:
-    headers: dict[str, str] = {}
-    api_key = os.getenv("ACME_API_KEY") or os.getenv("API_KEY")
-    if api_key:
-        headers["X-API-Key"] = api_key
-    return headers
+    api_key = _load_api_key()
+    return {"X-API-Key": api_key} if api_key else {}
 
 
-async def demo(base: str) -> None:
+def _normalize_comparison(data: dict) -> dict:
+    """Normalize export / runs/latest / job result into display shape."""
+    if "payload" in data and isinstance(data["payload"], dict):
+        data = data["payload"]
+    if data.get("comparison_table") and data.get("acme"):
+        return data
+    systems = data.get("systems") or {}
+    acme = systems.get("acme") or data.get("acme") or {}
+    rag = systems.get("rag_baseline") or data.get("rag_baseline") or {}
+    table: list[dict] = []
+    if acme and rag:
+        for metric in ("retention_score", "hallucination_resistance_score", "overall_score"):
+            a = acme.get(metric)
+            r = rag.get(metric)
+            if isinstance(a, (int, float)) and isinstance(r, (int, float)):
+                table.append({"metric": metric, "acme": a, "rag_baseline": r, "delta": a - r})
+    return {"comparison_table": table, "acme": acme, "rag_baseline": rag}
+
+
+async def _load_persisted_comparison(client: httpx.AsyncClient, api: str) -> dict:
+    for path in (f"{api}/benchmark/runs/latest?run_type=compare", f"{api}/benchmark/export"):
+        resp = await client.get(path)
+        if resp.status_code == 200:
+            return _normalize_comparison(resp.json())
+    raise RuntimeError("No persisted compare run — run ./scripts/run_prod_benchmark.sh first")
+
+
+async def _run_compare_or_fallback(
+    client: httpx.AsyncClient,
+    api: str,
+    *,
+    cached: bool = False,
+    max_polls: int = 24,
+) -> tuple[dict, str]:
+    """Return (comparison, source_label)."""
+    if cached:
+        print("   Using last persisted compare run (--benchmark cached)")
+        return await _load_persisted_comparison(client, api), "persisted (cached)"
+    job_resp = await client.post(f"{api}/benchmark/compare/async")
+    if job_resp.status_code == 429:
+        print("   Rate limit hit — using last persisted compare run")
+        return await _load_persisted_comparison(client, api), "persisted (rate limit)"
+    if job_resp.status_code != 200:
+        print(f"   Compare start HTTP {job_resp.status_code} — using last persisted compare run")
+        return await _load_persisted_comparison(client, api), "persisted (start failed)"
+
+    job = job_resp.json()
+    job_id = job.get("job_id")
+    if not job_id:
+        print("   No job_id in response — using last persisted compare run")
+        return await _load_persisted_comparison(client, api), "persisted (no job_id)"
+
+    print(f"   Job {job_id} started — polling…")
+    for _ in range(max_polls):
+        status = (await client.get(f"{api}/benchmark/compare/jobs/{job_id}")).json()
+        if status["status"] == "completed":
+            return status["result"], "live"
+        if status["status"] == "failed":
+            err = status.get("error", "compare job failed")
+            print(f"   Job failed ({err}) — using last persisted compare run")
+            return await _load_persisted_comparison(client, api), "persisted (job failed)"
+        await asyncio.sleep(5)
+    print("   Job timed out — using last persisted compare run")
+    return await _load_persisted_comparison(client, api), "persisted (timeout)"
+
+
+async def demo(base: str, *, benchmark: str = "cached") -> None:
     base = base.rstrip("/")
     api = f"{base}/api/v1"
     headers = _headers()
@@ -56,40 +132,48 @@ async def demo(base: str) -> None:
 
         print("5) MemoryBench + baseline comparison (async)")
         started = time.time()
-        job = (await client.post(f"{api}/benchmark/compare/async")).json()
-        job_id = job["job_id"]
-        print(f"   Job {job_id} started — polling…")
-        comparison = None
-        for _ in range(120):
-            status = (await client.get(f"{api}/benchmark/compare/jobs/{job_id}")).json()
-            if status["status"] == "completed":
-                comparison = status["result"]
-                break
-            if status["status"] == "failed":
-                raise RuntimeError(status.get("error", "compare job failed"))
-            await asyncio.sleep(5)
-        if comparison is None:
-            raise TimeoutError("compare job did not complete within 10 minutes")
+        comparison, source = await _run_compare_or_fallback(
+            client, api, cached=(benchmark == "cached")
+        )
         elapsed = time.time() - started
-        table = comparison["comparison_table"]
-        print(f"   Completed in {elapsed:.0f}s\n")
-        print(f"   {'Metric':<35} {'ACME':>8} {'RAG':>8} {'Δ':>8}")
-        print("   " + "-" * 62)
-        for row in table:
-            print(f"   {row['metric']:<35} {row['acme']:>8.3f} {row['rag_baseline']:>8.3f} {row['delta']:>+8.3f}")
-        print(f"\n   ACME overall: {comparison['acme']['overall_score']:.3f}")
-        print(f"   RAG overall:  {comparison['rag_baseline']['overall_score']:.3f}")
+        if source != "live":
+            print(f"   (scores from {source})")
+        table = comparison.get("comparison_table") or []
+        if table:
+            print(f"   Completed in {elapsed:.0f}s\n")
+            print(f"   {'Metric':<35} {'ACME':>8} {'RAG':>8} {'Δ':>8}")
+            print("   " + "-" * 62)
+            for row in table:
+                acme_v = row["acme"]
+                rag_v = row["rag_baseline"]
+                if isinstance(acme_v, (int, float)) and isinstance(rag_v, (int, float)):
+                    delta = row.get("delta", acme_v - rag_v)
+                    print(f"   {row['metric']:<35} {acme_v:>8.3f} {rag_v:>8.3f} {delta:>+8.3f}")
+                else:
+                    acme_s = f"{acme_v:.3f}" if isinstance(acme_v, (int, float)) else str(acme_v)
+                    rag_s = f"{rag_v:.3f}" if isinstance(rag_v, (int, float)) else str(rag_v)
+                    print(f"   {row['metric']:<35} {acme_s:>8} {rag_s:>8} {'—':>8}")
+        acme_score = comparison.get("acme", {}).get("overall_score", 0)
+        rag_score = comparison.get("rag_baseline", {}).get("overall_score", 0)
+        print(f"\n   ACME overall: {acme_score:.3f}")
+        print(f"   RAG overall:  {rag_score:.3f}")
         print("\n=== Demo complete ===")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default=os.getenv("ACME_API_URL", "http://localhost:8000"))
+    parser.add_argument(
+        "--benchmark",
+        choices=("cached", "live"),
+        default="cached",
+        help="cached: show last prod compare scores (fast); live: run async compare with fallback",
+    )
     args = parser.parse_args()
     try:
-        asyncio.run(demo(args.url))
+        asyncio.run(demo(args.url, benchmark=args.benchmark))
         return 0
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, RuntimeError) as exc:
         print(f"Demo failed: {exc}", file=sys.stderr)
         return 1
 
