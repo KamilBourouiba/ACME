@@ -459,7 +459,7 @@ Ablation env vars: `ABLATION_DISABLE_CONTRARIAN`, `ABLATION_DISABLE_BELIEF_SYNC`
 | MemGPT baseline | 0.977 | 0.969 | N/A | N/A | 0.487 |
 | LangGraph baseline | 0.900 | 0.977 | N/A | N/A | 0.469 |
 
-*Production run job `3b31e5e3`. GPT-4.1-mini sensitivity: ACME **0.858** vs RAG **0.473** — see `docs/BENCHMARK_RESULTS.md`.*
+*Production run job `3b31e5e3`. Model sensitivity: GPT-4.1-mini ACME **0.858** vs RAG **0.473**; GPT-5.4 ACME **0.873** vs RAG **0.474** — see `docs/BENCHMARK_RESULTS.md`.*
 
 CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=0.55`.
 

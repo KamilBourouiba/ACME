@@ -106,6 +106,15 @@ Four metrics, LLM-as-judge (semantic; keyword overlap reported separately):
 | MemGPT baseline | 0.915 | 1.000 | N/A | N/A | 0.479 |
 | LangGraph baseline | 0.854 | 0.862 | N/A | N/A | 0.429 |
 
+**Model sensitivity (GPT-5.4):** With Azure OpenAI **GPT-5.4** (job `eb68f028`, 620 s), ACME scores **0.873** overall vs RAG **0.474** (**+0.40**). Retention recovers to 0.952 (near baselines) while feedback and belief layers remain at 1.000 and 0.701.
+
+| System | Retention | Groundedness | Feedback | Belief Q. | Overall |
+|--------|-----------|--------------|----------|-----------|---------|
+| **ACME** | **0.952** | **0.839** | **1.000** | **0.701** | **0.873** |
+| RAG baseline | 0.964 | 0.931 | N/A | N/A | 0.474 |
+| MemGPT baseline | 0.975 | 0.939 | N/A | N/A | 0.478 |
+| LangGraph baseline | 0.973 | 0.950 | N/A | N/A | 0.481 |
+
 **Ablation (design):** Disabling contrarian checks, belief sync, or vector retrieval is supported via environment flags; unit gates verify toggles (`scripts/run_ablation_gate.py`). Full ablation sweeps on live LLM runs are left to future work due to cost.
 
 ---

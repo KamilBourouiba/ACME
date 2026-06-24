@@ -49,8 +49,31 @@
 
 ---
 
+## Run 3 — GPT-5.4 (model sensitivity)
+
+| Field | Value |
+|-------|-------|
+| Job ID | `eb68f028-e373-4cdf-a5c7-00747094300a` |
+| Completed | 2026-06-24T19:27Z (approx.) |
+| Duration | 620 s |
+| Deployment | `gpt-5.4` (Azure OpenAI, `TESTING-CHAT-BETA`) |
+| Failures | none |
+| Note | Required `max_completion_tokens` API param (fixed in `acme/llm/azure_openai.py`) |
+
+| System | Retention | Groundedness | Feedback | Belief | Overall |
+|--------|-----------|--------------|----------|--------|---------|
+| **ACME** | 0.952 | 0.839 | 1.000 | 0.701 | **0.873** |
+| RAG | 0.964 | 0.931 | — | — | 0.474 |
+| MemGPT | 0.975 | 0.939 | — | — | 0.478 |
+| LangGraph | 0.973 | 0.950 | — | — | 0.481 |
+
+**Δ ACME vs RAG:** +0.399 overall
+
+---
+
 ## Takeaways
 
 1. On GPT-4.1, ACME matches or exceeds baselines on retention/groundedness **and** adds full feedback/belief metrics.
 2. On GPT-4.1-mini, baselines score higher on retention-only dimensions, but ACME still wins overall via feedback + belief layers.
-3. Belief quality (CRS mean) stays **0.700** across both models — stable cognitive substrate independent of LLM tier.
+3. On GPT-5.4, ACME reaches **0.873** overall with belief quality **0.701** — cognitive layers remain the differentiator (+0.40 vs RAG).
+4. Belief quality (CRS mean) stays **~0.700** across all three models — stable cognitive substrate independent of LLM tier.

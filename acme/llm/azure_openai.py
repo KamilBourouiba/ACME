@@ -51,7 +51,7 @@ class AzureOpenAIClient(BaseLLMClient):
         payload: dict[str, Any] = {
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": settings.azure_openai_max_tokens,
+            "max_completion_tokens": settings.azure_openai_max_tokens,
         }
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
