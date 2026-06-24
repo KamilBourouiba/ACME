@@ -4,7 +4,7 @@
 **arXiv preprint draft v1.0 — June 2026**
 
 **Author:** Mohamed Kamil Bourouiba  
-**Code:** https://github.com/KamilBourouiba/ACME (tag `v0.1.1-arxiv`, commit `main`)  
+**Code:** https://github.com/KamilBourouiba/ACME (tag `v0.1.1-arxiv`)  
 **Project site:** https://kamilbourouiba.github.io/ACME/  
 **Data:** Production benchmark exports via `GET /api/v1/benchmark/export` (persisted in Postgres `benchmark_runs`)
 
