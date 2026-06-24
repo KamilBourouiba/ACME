@@ -20,12 +20,12 @@ Large language models lack durable episodic memory, explicit belief states, stru
 
 Retrieval-augmented generation (RAG) [9] augments LLMs with document search but does not maintain explicit epistemic states, handle contradictory evidence, or learn from prediction failures. Dense and hybrid retrievers [14,15] improve recall yet remain stateless: they neither promote stable beliefs nor demote refuted hypotheses. Agent memory frameworks — MemGPT [10], generative agents [16], and LangGraph-style orchestration [11] — extend context windows via paging or state graphs but lack auditable belief lifecycles and structured feedback loops comparable to cognitive architectures [3,17].
 
-Episodic and semantic memory have long been distinguished in psychology and AI [18,19]. Recent work on long-term conversational memory (MemGPT, memory streams [16], Zep [20]) focuses on *what to store and retrieve*, not *when accumulated evidence warrants belief*. ACME closes this gap with an explicit promotion pipeline (Observation → Inference → Hypothesis → Belief) and symmetric demotion under contradiction — aligning with truth-maintenance and belief-revision traditions [21,22].
+Episodic and semantic memory have long been distinguished in psychology and AI [18,19]. Recent work on long-term conversational memory (MemGPT, memory streams [16], Zep [20]) focuses on *what to store and retrieve*, not *when accumulated evidence warrants belief*. ACME closes this gap with an explicit promotion pipeline (Observation -> Inference -> Hypothesis -> Belief) and symmetric demotion under contradiction — aligning with truth-maintenance and belief-revision traditions [21,22].
 
 ACME externalizes cognition into specialized engines:
 
 - **Episodic store** (PostgreSQL + pgvector [23]) and **semantic graph** (Neo4j [24], tenant-scoped)
-- **Belief engine** — observation → hypothesis → belief → challenged → deprecated → archived
+- **Belief engine** — observation -> hypothesis -> belief -> challenged -> deprecated -> archived
 - **Contrarian verification** on high-confidence answers [7,8]
 - **Compression, forgetting, and autonomous learning** with prediction validation [25,26]
 - **MemoryBench v3** for reproducible evaluation with CI gates
@@ -50,9 +50,9 @@ ACME externalizes cognition into specialized engines:
 
 ### 3. System Design
 
-**Ingestion:** LLM extraction [40] plus deterministic normalization → Neo4j entities/relations + episodic embeddings [23].
+**Ingestion:** LLM extraction [40] plus deterministic normalization -> Neo4j entities/relations + episodic embeddings [23].
 
-**Query:** Hybrid retrieval (graph neighborhood [24,30] + pgvector cosine [5]) → LLM reasoning → optional contrarian pass [7,8] when confidence ≥ 0.8.
+**Query:** Hybrid retrieval (graph neighborhood [24,30] + pgvector cosine [5]) -> LLM reasoning -> optional contrarian pass [7,8] when confidence >= 0.8.
 
 **Feedback:** Outcome signals update beliefs [21], log failures [33], trigger consolidation (scheduled consolidation, 6 h).
 
