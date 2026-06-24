@@ -84,6 +84,18 @@ DEFAULT_SCENARIOS: list[MemoryBenchScenario] = [
         feedback_outcome="success",
     ),
     MemoryBenchScenario(
+        name="knowledge_update",
+        episodes=[
+            {"content": "Q1 report: checkout bugs were the main driver of SMB churn.", "tags": ["checkout", "churn"], "source_type": "database", "source_id": "ku-q1"},
+            {"content": "Q3 update: pricing changes replaced checkout as the primary SMB churn driver.", "tags": ["pricing", "churn", "update"], "source_type": "database", "source_id": "ku-q3"},
+            {"content": "Analyst note: prior checkout hypothesis superseded by pricing evidence for SMB.", "tags": ["pricing", "update"], "source_type": "human_expert", "source_id": "ku-audit"},
+        ],
+        query="What is the current main driver of SMB churn?",
+        expected_concepts=["pricing", "churn", "update"],
+        expected_keywords=["pricing"],
+        feedback_outcome="success",
+    ),
+    MemoryBenchScenario(
         name="long_term_retention",
         episodes=[
             {"content": "Q1: API latency spike correlated with support tickets.", "tags": ["latency"], "source_type": "api", "source_id": "q1"},
@@ -385,7 +397,7 @@ async def run_memorybench_with_orchestrator(
         details={
             "scoring_method": "semantic_llm_judge",
             "isolation": "sandbox_per_scenario",
-            "benchmark_version": "v3",
+            "benchmark_version": "v3.1",
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "scenarios_run": len(scenarios),
             "scenarios": scenario_results,

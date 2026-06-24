@@ -61,7 +61,7 @@ def _build_export(orchestrator, acme, rag, memgpt, langgraph) -> dict:
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": __version__,
         "isolation": "sandbox_per_scenario",
-        "benchmark_version": "v3",
+        "benchmark_version": "v3.1",
         "systems": {
             "acme": acme.model_dump(),
             "rag_baseline": rag.model_dump(),

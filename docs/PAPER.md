@@ -1,7 +1,7 @@
 # ACME: Adaptive Cognitive Memory Engine
 ## Externalizing Belief, Memory, and Learning from LLM Weights
 
-**arXiv preprint draft v1.1 — June 2026**
+**arXiv preprint draft v1.2 — June 2026**
 
 **Author:** Mohamed Kamil Bourouiba  
 **Code:** https://github.com/KamilBourouiba/ACME (tag `v0.1.1-arxiv`)  
@@ -12,13 +12,15 @@
 
 ### Abstract
 
-Large language models lack durable episodic memory, explicit belief states, structured forgetting, and mechanisms to learn from failure [1,2]. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, contradiction handling, and self-correction to specialized engines. ACME operationalizes: *when does a collection of experiences deserve to become a belief?* We contribute (1) a promotion/demotion lifecycle with Cognitive Reliability Score (CRS), inspired by evidence-accumulation models in cognitive architecture [3,4]; (2) hybrid graph + pgvector retrieval [5,6] with contrarian verification [7,8]; (3) **MemoryBench v3** — thirteen sandbox-isolated scenarios with RAG [9], MemGPT [10], and LangGraph-style [11] baselines scored by an LLM judge [12,13]. On Azure OpenAI GPT-4.1 with `text-embedding-3-small` (256D) and Postgres Flexible + pgvector, ACME achieves overall **0.925** vs **0.487** for vector-RAG (MemoryBench v3, 24 June 2026 production run, job `3b31e5e3`), with full feedback and belief-quality metrics unavailable to baselines. Model-sensitivity runs on GPT-4.1-mini and GPT-5.4 preserve a **+0.39–0.44** margin over RAG.
+Large language models lack durable episodic memory, explicit belief states, structured forgetting, and mechanisms to learn from failure [1,2]. Recent systems report that agents cannot epistemically separate observation from belief [50] and that intrinsic *epistemic agency* — including belief updating — remains weak in base models [51]. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, contradiction handling, and self-correction to specialized engines. ACME operationalizes: *when does a collection of experiences deserve to become a belief?* We contribute (1) a promotion/demotion lifecycle with Cognitive Reliability Score (CRS), inspired by evidence-accumulation models in cognitive architecture [3,4] and truth-maintenance systems [21,54]; (2) hybrid graph + pgvector retrieval [5,6] with contrarian verification [7,8]; (3) **MemoryBench v3.1** — fourteen sandbox-isolated scenarios with RAG [9], MemGPT [10], and LangGraph-style [11] baselines scored by an LLM judge [12,13], positioned against LongMemEval [37] and MemoryAgentBench [52]. On Azure OpenAI GPT-4.1, ACME achieves overall **0.925** vs **0.487** for vector-RAG (13-scenario production run, job `3b31e5e3`), with full feedback and belief-quality metrics unavailable to baselines. Model-sensitivity runs on GPT-4.1-mini and GPT-5.4 preserve a **+0.39–0.44** margin over RAG. Production ablations (Table 2) show belief sync is essential (−0.19 overall when disabled); contrarian verification and vector retrieval each contribute modest groundedness/retention gains.
 
 ---
 
 ### 1. Introduction
 
-Retrieval-augmented generation (RAG) [9] augments LLMs with document search but does not maintain explicit epistemic states, handle contradictory evidence, or learn from prediction failures. Dense and hybrid retrievers [14,15] improve recall yet remain stateless: they neither promote stable beliefs nor demote refuted hypotheses. Agent memory frameworks — MemGPT [10], generative agents [16], and LangGraph-style orchestration [11] — extend context windows via paging or state graphs but lack auditable belief lifecycles and structured feedback loops comparable to cognitive architectures [3,17].
+Retrieval-augmented generation (RAG) [9] augments LLMs with document search but does not maintain explicit epistemic states, handle contradictory evidence, or learn from prediction failures. LongMemEval [37] shows commercial assistants and long-context LLMs suffer **30–60%** accuracy drops on sustained interactive memory versus oracle evidence — retrieval alone is insufficient. Hindsight [50] argues current agent memory cannot distinguish *what was observed* from *what is believed*, nor maintain preference-consistent reasoning across sessions. Reflection-Bench [51] identifies **belief updating** and meta-reflection as core yet underdeveloped dimensions of epistemic agency in LLMs.
+
+Dense and hybrid retrievers [14,15] improve recall yet remain stateless: they neither promote stable beliefs nor demote refuted hypotheses. Agent memory frameworks — MemGPT [10], generative agents [16], Zep [20], and LangGraph-style orchestration [11] — extend context windows via paging, temporal graphs, or state graphs but lack auditable belief lifecycles and structured feedback loops comparable to cognitive architectures [3,17].
 
 Episodic and semantic memory have long been distinguished in psychology and AI [18,19]. Recent work on long-term conversational memory (MemGPT, memory streams [16], Zep [20]) focuses on *what to store and retrieve*, not *when accumulated evidence warrants belief*. ACME closes this gap with an explicit promotion pipeline (Observation -> Inference -> Hypothesis -> Belief) and symmetric demotion under contradiction — aligning with truth-maintenance and belief-revision traditions [21,22].
 
@@ -28,7 +30,9 @@ ACME externalizes cognition into specialized engines:
 - **Belief engine** — observation -> hypothesis -> belief -> challenged -> deprecated -> archived
 - **Contrarian verification** on high-confidence answers [7,8]
 - **Compression, forgetting, and autonomous learning** with prediction validation [25,26]
-- **MemoryBench v3** for reproducible evaluation with CI gates
+- **MemoryBench v3.1** for reproducible evaluation with CI gates
+
+**Thesis.** RAG optimizes *recall*; ACME optimizes *epistemic state* — when experiences become beliefs, how contradictions demote them, and how outcomes close the prediction loop. Our claim is not universal SOTA on every long-context benchmark [37,38], but the first deployed system with sandbox-isolated evaluation of **feedback correction** and **belief quality (CRS)** against RAG/MemGPT/LangGraph under reproducible production runs [49].
 
 ---
 
@@ -44,7 +48,9 @@ ACME externalizes cognition into specialized engines:
 
 **Cognitive architectures.** ACT-R [3] and SOAR [17] model declarative memory, production rules, and learning from impasse. ACME is not a full cognitive architecture but borrows the separation of *fast reasoning* (LLM) from *slow accumulative memory* (Postgres, Neo4j, belief records) — similar in spirit to dual-process accounts [4] and complementary learning systems [36].
 
-**Evaluation of memory systems.** Benchmarks such as LongMemEval [37], LoCoMo [38], and MemoryBank [39] stress long-horizon recall. MemoryBench v3 additionally scores feedback correction, belief quality, hallucination resistance under adversarial queries, and per-scenario sandbox isolation — metrics orthogonal to pure retention [12,13].
+**Evaluation of memory systems.** Benchmarks such as LongMemEval [37], LoCoMo [38], MemoryBank [39], MemoryAgentBench [52], and MemBench [53] stress long-horizon recall, test-time learning, or reflective memory. Reflection-Bench [51] evaluates belief updating as one of seven epistemic dimensions. None jointly measure sandbox-isolated **feedback correction**, **CRS belief quality**, and **contrarian groundedness** in a production-deployable API. MemoryBench v3.1 fills this gap (Table 1).
+
+**Belief-first and epistemic agent memory (concurrent work).** TruthKeeper [54] applies dependency-aware truth maintenance to LLM memory. MnemeBrain [55] stores beliefs with Belnap four-valued logic and AGM-style revision. NeuSymMS [56] couples neural extraction with symbolic TMS via rule engines. Graph-native cognitive memory architectures [57] formalize versioned belief revision for auditability. Hindsight [50] achieves strong LongMemEval/LoCoMo scores via retain-recall-reflect tiers but does not expose CRS-governed promotion thresholds or prediction-outcome loops. **ACME** differentiates by (i) integrated seven-engine cognitive loop with production deployment, (ii) MemoryBench v3.1 scoring belief/feedback dimensions absent from retrieval-centric baselines, and (iii) persisted `benchmark_runs` for third-party reproduction.
 
 ---
 
@@ -66,7 +72,7 @@ ACME externalizes cognition into specialized engines:
 
 ---
 
-### 4. MemoryBench v3
+### 4. MemoryBench v3.1
 
 Four metrics, LLM-as-judge [12,13] (semantic; keyword overlap reported separately):
 
@@ -79,11 +85,26 @@ Four metrics, LLM-as-judge [12,13] (semantic; keyword overlap reported separatel
 
 **Overall** = average of all four. Baselines score 0 on feedback/belief (N/A), capping baseline overall near 0.48–0.49.
 
-**Thirteen scenarios:** retention, contradiction, multi-source conflict, error injection, long-term retention, hallucination resistance, feedback adjustment, adversarial noise, long-horizon noise, tenant isolation, healthcare domain transfer, multi-session recall, prediction-outcome loop.
+**Fourteen scenarios:** retention, contradiction, multi-source conflict, error injection, **knowledge update** (LongMemEval KU [37]), long-term retention, hallucination resistance, feedback adjustment, adversarial noise, long-horizon noise, tenant isolation, healthcare domain transfer, multi-session recall, prediction-outcome loop.
 
-**Isolation:** Each scenario deletes prior benchmark-tagged Postgres rows and Neo4j subgraph before run (`acme/evaluation/sandbox.py`) — preventing cross-scenario contamination noted as a failure mode in long-horizon evals [37,38].
+**Isolation:** Each scenario deletes prior benchmark-tagged Postgres rows and Neo4j subgraph before run (`acme/evaluation/sandbox.py`) — preventing cross-scenario contamination noted as a failure mode in long-horizon evals [37,38,51].
 
 **Baselines:** Minimal reproducible implementations aligned with Lewis et al. [9] (RAG), Packer et al. [10] (MemGPT), and LangGraph-style state graphs [11] — see `docs/BASELINES.md`.
+
+#### Table 1 — Benchmark positioning
+
+| Capability | LongMemEval [37] | MemoryAgentBench [52] | Reflection-Bench [51] | MemBench [53] | **MemoryBench v3.1** |
+|------------|------------------|----------------------|----------------------|---------------|----------------------|
+| Long-horizon / multi-session | Yes | Yes | Partial | Yes | Yes |
+| Knowledge update | Yes (KU) | Yes (FactConsolidation) | Partial | Partial | Yes (`knowledge_update`) |
+| Feedback / belief revision | No | Partial | Yes (belief updating) | Reflective memory | **Yes (scored)** |
+| Hallucination / abstention | Yes (ABS) | Partial | Partial | Partial | Yes |
+| Per-scenario sandbox | No | Partial | Yes | Yes | **Yes (Postgres+Neo4j)** |
+| Contrarian / self-critique | No | No | Partial | No | **Yes** |
+| Belief quality metric (CRS) | No | No | No | Partial | **Yes** |
+| Production API + persisted runs | No | No | No | No | **Yes** |
+
+Primary reported results (Section 6) use the **13-scenario v3** suite (job `3b31e5e3`, pre-`knowledge_update`) for strict comparability; v3.1 adds the LongMemEval-aligned knowledge-update probe.
 
 ---
 
@@ -137,7 +158,20 @@ Four metrics, LLM-as-judge [12,13] (semantic; keyword overlap reported separatel
 
 Belief quality remains **~0.70** across all three LLM tiers — suggesting the external belief substrate [3,21] is comparatively stable while retention/groundedness track model capability [12].
 
-**Ablation (design):** Disabling contrarian checks, belief sync, or vector retrieval is supported via environment flags; unit gates verify toggles (`scripts/run_ablation_gate.py`). Full ablation sweeps on live LLM runs are left to future work.
+**Production ablations (GPT-4.1, MemoryBench v3.1, 24 June 2026).** We disable one cognitive layer at a time via environment flags (`scripts/run_ablation_prod.sh`). Table 2 reports ACME-only MemoryBench scores (no baseline compare — 4x cost reduction per ablation).
+
+#### Table 2 — Component ablations (ACME overall)
+
+| Configuration | Overall | Retention | Groundedness | Feedback | Belief | Delta vs full |
+|---------------|---------|-----------|--------------|----------|--------|---------------|
+| **Full ACME** | **0.925** | 1.000 | 1.000 | 1.000 | 0.700 | — |
+| No contrarian | 0.923 | 1.000 | 0.993 | 1.000 | 0.700 | −0.002 |
+| No belief sync | 0.731 | 0.996 | 1.000 | 0.929 | 0.000 | −0.194 |
+| No vector retrieval | 0.923 | 0.993 | 1.000 | 1.000 | 0.700 | −0.002 |
+
+*Full ACME row from 13-scenario compare (job `3b31e5e3`). Ablation rows from MemoryBench v3.1 ACME-only runs on GPT-4.1 (24 June 2026, premium ingress, `run_ablation_prod.sh` stamp `20260624213154`).*
+
+**Interpretation.** Disabling belief sync collapses belief quality to **0.000** and overall score by **−0.19**, confirming the belief engine as the primary differentiator vs retrieval-only stacks [21,55]. Contrarian and vector ablations each reduce overall by only **−0.002**, primarily via groundedness (−0.007) and retention (−0.007) respectively — graph-only context remains strong but hybrid retrieval adds marginal lift [5,6,7,8].
 
 ---
 
@@ -153,7 +187,7 @@ Belief quality remains **~0.70** across all three LLM tiers — suggesting the e
 
 ### 8. Conclusion
 
-ACME shows that externalizing belief and learning from LLM weights yields stronger cognitive memory than vector RAG or lightweight agent-memory baselines on MemoryBench v3, especially for feedback-driven correction and auditable belief quality. The consistent **+0.39–0.44** margin over RAG across GPT-4.1, GPT-4.1-mini, and GPT-5.4 supports the hypothesis that explicit belief lifecycle management [21,22] complements — rather than replaces — advances in base model capability [1,47].
+ACME shows that externalizing belief and learning from LLM weights yields stronger cognitive memory than vector RAG or lightweight agent-memory baselines on MemoryBench, especially for feedback-driven correction and auditable belief quality. The consistent **+0.39–0.44** margin over RAG across GPT-4.1, GPT-4.1-mini, and GPT-5.4 supports the hypothesis that explicit belief lifecycle management [21,22,54,55] complements — rather than replaces — advances in base model capability [1,47]. Concurrent belief-memory systems [50,54,56,57] validate the problem direction; ACME contributes reproducible production evidence that epistemic layers — not retrieval alone — drive the measured gap.
 
 ---
 
@@ -208,6 +242,15 @@ ACME shows that externalizing belief and learning from LLM weights yields strong
 47. OpenAI. GPT-4.1 Model Card and System Documentation, 2025.
 48. Neelakantan, A. et al. Text and Code Embeddings by Contrastive Pre-Training. *arXiv:2201.10005*, 2022.
 49. Kamil Bourouiba. ACME: Adaptive Cognitive Memory Engine (code and benchmarks). https://github.com/KamilBourouiba/ACME, 2026.
+50. Latif, E. et al. Hindsight is 20/20: Building Agent Memory that Retains, Recalls, and Reflects. *arXiv:2512.12818*, 2025.
+51. Chen, Y. et al. Reflection-Bench: Evaluating Epistemic Agency in Large Language Models. *arXiv:2410.16270*, 2024.
+52. MemoryAgentBench authors. Evaluating Memory in LLM Agents via Incremental Multi-Turn Interactions. *arXiv:2507.05257*, 2025.
+53. Ai, J. et al. MemBench: Towards More Comprehensive Evaluation on the Memory of LLM-based Agents. *arXiv:2506.21605*, 2025.
+54. TruthKeeper authors. TruthKeeper: A Curated Memory Architecture for LLMs with Dependency-Aware Truth Maintenance. *arXiv preprint*, 2024.
+55. MnemeBrain. Belief-State Memory for AI Agents. https://github.com/mnemebrain/mnemebrain-lite, 2025.
+56. NeuSymMS authors. NeuSymMS: A Hybrid Neuro-Symbolic Memory System for LLM Agents. *arXiv:2605.17596*, 2026.
+57. Graph-Native Cognitive Memory authors. Formal Belief Revision Semantics for Versioned Memory Architectures. *arXiv:2603.17244*, 2026.
+58. Alchourron, C. E., Gardenfors, P., & Makinson, D. On the Logic of Theory Change: Partial Meet Contraction and Revision Functions. *Journal of Symbolic Logic*, 50(2), 510–530, 1985.
 
 ---
 
@@ -221,6 +264,7 @@ pytest tests/test_benchmark_gate.py tests/test_memorybench.py -q
 ./azure/configure-premium-ingress.sh
 ./scripts/run_prod_benchmark.sh
 ./scripts/run_model_benchmark.sh gpt-4.1-mini   # optional model sweep
+./scripts/run_ablation_prod.sh                # component ablations
 ```
 
 ---

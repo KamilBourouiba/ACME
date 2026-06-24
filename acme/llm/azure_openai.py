@@ -1,5 +1,6 @@
 """Azure OpenAI inference layer (GPT-4.1, etc.)."""
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -10,6 +11,7 @@ from acme.llm.base import BaseLLMClient
 
 class AzureOpenAIClient(BaseLLMClient):
     provider_name = "azure_openai"
+    _max_retries = 6
 
     def __init__(self) -> None:
         self.endpoint = settings.azure_openai_endpoint.rstrip("/")
@@ -27,6 +29,33 @@ class AzureOpenAIClient(BaseLLMClient):
             return True
         except Exception:
             return False
+
+    async def _post_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        *,
+        headers: dict[str, str],
+        payload: dict[str, Any],
+    ) -> httpx.Response:
+        delay = 2.0
+        last_exc: Exception | None = None
+        for attempt in range(self._max_retries):
+            response = await client.post(url, headers=headers, json=payload)
+            if response.status_code != 429:
+                return response
+            retry_after = response.headers.get("retry-after")
+            wait = float(retry_after) if retry_after else delay
+            if attempt < self._max_retries - 1:
+                await asyncio.sleep(wait)
+                delay = min(delay * 2, 60.0)
+                continue
+            last_exc = httpx.HTTPStatusError(
+                "429 Too Many Requests",
+                request=response.request,
+                response=response,
+            )
+        raise last_exc or RuntimeError("Azure OpenAI request failed")
 
     async def generate(
         self,
@@ -58,7 +87,7 @@ class AzureOpenAIClient(BaseLLMClient):
 
         headers = {"api-key": self.api_key, "Content-Type": "application/json"}
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(url, headers=headers, json=payload)
+            response = await self._post_with_retry(client, url, headers=headers, payload=payload)
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()

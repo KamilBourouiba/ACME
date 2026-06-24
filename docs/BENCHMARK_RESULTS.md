@@ -77,3 +77,26 @@
 2. On GPT-4.1-mini, baselines score higher on retention-only dimensions, but ACME still wins overall via feedback + belief layers.
 3. On GPT-5.4, ACME reaches **0.873** overall with belief quality **0.701** — cognitive layers remain the differentiator (+0.40 vs RAG).
 4. Belief quality (CRS mean) stays **~0.700** across all three models — stable cognitive substrate independent of LLM tier.
+
+---
+
+## MemoryBench v3.1 (14 scenarios)
+
+| Field | Value |
+|-------|-------|
+| Version | `v3.1` (+ `knowledge_update` scenario, LongMemEval KU-aligned) |
+| Reproduce | `POST /api/v1/benchmark/memorybench` (ACME-only, ~7 min) |
+| Ablation sweep | `./scripts/run_ablation_prod.sh` |
+
+Primary paper results (Section 6) remain on **13-scenario v3** for baseline comparability (job `3b31e5e3`).
+
+### Ablation sweep (v3.1, GPT-4.1, 24 June 2026)
+
+| Configuration | Overall | Retention | Groundedness | Feedback | Belief |
+|---------------|---------|-----------|--------------|----------|--------|
+| Full ACME (compare v3) | 0.925 | 1.000 | 1.000 | 1.000 | 0.700 |
+| No contrarian | 0.923 | 1.000 | 0.993 | 1.000 | 0.700 |
+| No belief sync | 0.731 | 0.996 | 1.000 | 0.929 | 0.000 |
+| No vector | 0.923 | 0.993 | 1.000 | 1.000 | 0.700 |
+
+Reproduce: `./azure/configure-premium-ingress.sh && ./scripts/run_ablation_prod.sh`

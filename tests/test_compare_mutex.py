@@ -36,7 +36,7 @@ async def test_compare_slot_allows_different_tenants():
 
 def test_build_export_benchmark_version_v3():
     export = _build_export(None, _fake_result(), _fake_result(), _fake_result(), _fake_result())
-    assert export["benchmark_version"] == "v3"
+    assert export["benchmark_version"] == "v3.1"
 
 
 def _fake_result():
