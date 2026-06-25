@@ -46,7 +46,17 @@ LongMemEval measures **QA accuracy over chat history** (retrieval + reading). Me
 
 Published reference (LongMemEval paper, GPT-4o family): commercial assistants and long-context models show **30–60%** drops vs oracle on sustained memory. Use oracle subset scores for apples-to-apples adapter comparisons.
 
-### Production results — knowledge-update (June 2026)
+### Production results — full oracle 500 Q (v4 routing, June 2026)
+
+| System | Overall | KU | Multi-session | Preference | Abstention |
+|--------|---------|-----|---------------|------------|------------|
+| **ACME** | **0.848** | **0.944** | **0.793** | **0.933** | **0.733** |
+| MemGPT | 0.786 | 0.875 | 0.802 | 0.533 | 0.600 |
+| RAG | 0.780 | 0.889 | 0.793 | 0.433 | 0.667 |
+
+Jobs: v3 `705eb2ff`/`26e288da` + v4 `c81eaa91` (241 Q). Combined: `benchmark-results/longmemeval-v4-combined.json`.
+
+### Production results — knowledge-update only (v3, superseded for routing)
 
 | System | Overall | KU | Abstention |
 |--------|---------|-----|------------|
