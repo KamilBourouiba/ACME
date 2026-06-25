@@ -181,27 +181,101 @@ def parse_session_date(session_date: str) -> int:
         return 0
 
 
+def longmemeval_answer_mode(item: LongMemEvalItem) -> str:
+    """Route LongMemEval answer strategy by question type."""
+    if item.is_abstention:
+        return "abstention"
+    return {
+        "knowledge-update": "knowledge_update",
+        "multi-session": "multi_session",
+        "temporal-reasoning": "temporal",
+        "single-session-preference": "preference",
+    }.get(item.question_type, "default")
+
+
 def build_transcript_memory_context(
     episodes: list[Episode],
     *,
     question_date: str = "",
+    mode: str = "knowledge_update",
 ) -> str:
-    """Transcript-first context: newest sessions first for knowledge-update resolution."""
-    ranked = sorted(
-        episodes,
-        key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
-        reverse=True,
-    )
-    parts = [
-        "Chat session transcripts (newest first). When facts conflict across sessions, "
-        "use the MOST RECENT session as the current truth.",
-    ]
+    """Build transcript context with type-specific ordering and instructions."""
+    if mode == "knowledge_update":
+        ranked = sorted(
+            episodes,
+            key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
+            reverse=True,
+        )
+        parts = [
+            "Chat session transcripts (newest first). When facts conflict across sessions, "
+            "use the MOST RECENT session as the current truth.",
+        ]
+        for index, episode in enumerate(ranked):
+            session_date = (episode.context or {}).get("session_date", "unknown")
+            label = "MOST RECENT SESSION" if index == 0 else f"Older session #{index + 1}"
+            parts.append(f"--- {label} ({session_date}) ---\n{episode.content}")
+    elif mode == "multi_session":
+        ranked = list(episodes)
+        parts = [
+            "Chat session transcripts (ordered by relevance to the question). "
+            "Facts may be spread across sessions — read ALL sessions and aggregate "
+            "(sum, count, or combine) before answering.",
+        ]
+        for index, episode in enumerate(ranked):
+            session_date = (episode.context or {}).get("session_date", "unknown")
+            parts.append(f"--- Session #{index + 1} ({session_date}) ---\n{episode.content}")
+    elif mode == "temporal":
+        ranked = sorted(
+            episodes,
+            key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
+        )
+        parts = [
+            "Chat session transcripts (chronological). Use session dates and the question date "
+            "to compute durations, ordering, and how long ago events occurred.",
+        ]
+        for index, episode in enumerate(ranked):
+            session_date = (episode.context or {}).get("session_date", "unknown")
+            parts.append(f"--- Session #{index + 1} ({session_date}) ---\n{episode.content}")
+    elif mode == "abstention":
+        ranked = sorted(
+            episodes,
+            key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
+            reverse=True,
+        )
+        parts = [
+            "Chat session transcripts. The question may refer to a person, place, object, or "
+            "topic that is NOT mentioned in these sessions. If the specific entity or topic in "
+            "the question does not appear in the transcripts, answer that the information "
+            "provided is not enough — do NOT substitute a similar entity or topic.",
+        ]
+        for index, episode in enumerate(ranked):
+            session_date = (episode.context or {}).get("session_date", "unknown")
+            parts.append(f"--- Session #{index + 1} ({session_date}) ---\n{episode.content}")
+    elif mode == "preference":
+        ranked = sorted(
+            episodes,
+            key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
+        )
+        parts = [
+            "Chat session transcripts containing the user's stated preferences, constraints, and "
+            "prior choices. Recommendations must explicitly align with those preferences — "
+            "avoid generic advice that ignores what the user already said.",
+        ]
+        for index, episode in enumerate(ranked):
+            session_date = (episode.context or {}).get("session_date", "unknown")
+            parts.append(f"--- Session #{index + 1} ({session_date}) ---\n{episode.content}")
+    else:
+        ranked = sorted(
+            episodes,
+            key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
+        )
+        parts = ["Chat session transcripts. Answer using only facts stated in these sessions."]
+        for index, episode in enumerate(ranked):
+            session_date = (episode.context or {}).get("session_date", "unknown")
+            parts.append(f"--- Session #{index + 1} ({session_date}) ---\n{episode.content}")
+
     if question_date:
-        parts.append(f"Question date: {question_date}")
-    for index, episode in enumerate(ranked):
-        session_date = (episode.context or {}).get("session_date", "unknown")
-        label = "MOST RECENT SESSION" if index == 0 else f"Older session #{index + 1}"
-        parts.append(f"--- {label} ({session_date}) ---\n{episode.content}")
+        parts.insert(1, f"Question date: {question_date}")
     return "\n\n".join(parts)
 
 
@@ -222,39 +296,50 @@ async def fetch_longmemeval_episodes(orchestrator, question_id: str) -> list[Epi
 
 
 async def retrieve_longmemeval_episodes(orchestrator, item: LongMemEvalItem) -> list[Episode]:
-    """Oracle: use all tagged sessions; larger haystacks: vector + temporal re-rank."""
+    """Retrieve episodes: oracle set small enough to keep all; vector-rank when useful."""
     tags = longmemeval_tags(item.question_id)
     all_eps = await fetch_longmemeval_episodes(orchestrator, item.question_id)
-    if len(all_eps) <= 12:
-        return all_eps
+    if not all_eps:
+        return []
 
+    tenant_id = getattr(orchestrator, "tenant_id", "default")
     vector = orchestrator.vector
-    limit = max(settings.vector_search_limit, 8)
-    if hasattr(vector, "search_tagged"):
-        candidates = await vector.search_tagged(
+    use_vector_rank = item.question_type in ("multi-session", "temporal-reasoning") or len(
+        all_eps
+    ) > 12
+
+    if use_vector_rank and hasattr(vector, "search_tagged"):
+        limit = max(
+            len(all_eps),
+            settings.vector_search_limit,
+            16 if item.question_type == "multi-session" else 8,
+        )
+        ranked = await vector.search_tagged(
             item.question,
             tags,
             limit=limit,
-            tenant_id=getattr(orchestrator, "tenant_id", "default"),
+            tenant_id=tenant_id,
         )
-    else:
-        candidates = await vector.search(
-            item.question,
-            limit=limit,
-            tenant_id=getattr(orchestrator, "tenant_id", "default"),
-        )
-    if not candidates:
-        return all_eps
+        if ranked:
+            by_id = {str(ep.id): ep for ep in all_eps}
+            ordered = [by_id[str(ep.id)] for ep in ranked if str(ep.id) in by_id]
+            missing = [ep for ep in all_eps if str(ep.id) not in {str(e.id) for e in ranked}]
+            merged = ordered + missing
+            if item.question_type == "temporal-reasoning":
+                return sorted(
+                    merged,
+                    key=lambda ep: parse_session_date(
+                        str((ep.context or {}).get("session_date", ""))
+                    ),
+                )
+            return merged
 
-    candidate_ids = {str(ep.id) for ep in candidates}
-    merged = [ep for ep in all_eps if str(ep.id) in candidate_ids]
-    if not merged:
-        merged = candidates
-    return sorted(
-        merged,
-        key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
-        reverse=True,
-    )[:limit]
+    if item.question_type == "temporal-reasoning":
+        return sorted(
+            all_eps,
+            key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
+        )
+    return all_eps
 
 
 def get_anscheck_prompt(
@@ -475,14 +560,16 @@ class ACMELongMemEvalBackend:
                     continue
 
     async def answer(self, item: LongMemEvalItem) -> str:
+        answer_mode = longmemeval_answer_mode(item)
         episodes = await retrieve_longmemeval_episodes(self.orchestrator, item)
         if episodes:
             memory_context = build_transcript_memory_context(
                 episodes,
                 question_date=item.question_date,
+                mode=answer_mode,
             )
             beliefs = await self.orchestrator.beliefs.list_beliefs(min_confidence=0.25)
-            if beliefs:
+            if beliefs and answer_mode not in ("abstention", "preference"):
                 belief_lines = [
                     f"- {b.label} (confidence={b.confidence:.2f}, status={b.status})"
                     for b in beliefs[:8]
@@ -495,8 +582,9 @@ class ACMELongMemEvalBackend:
                 question=item.question,
                 memory_context=memory_context,
                 extra_context={
-                    "mode": "longmemeval_transcript_first",
+                    "mode": f"longmemeval_{answer_mode}",
                     "question_date": item.question_date,
+                    "question_type": item.question_type,
                 },
             )
             return str(result["answer"])

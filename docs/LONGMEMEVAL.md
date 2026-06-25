@@ -59,6 +59,13 @@ Reproduce: `bash scripts/run_longmemeval_prod.sh` → `benchmark-results/longmem
 
 ACME **transcript-first** path (`retrieve_longmemeval_episodes` + newest-first `build_transcript_memory_context` + `ollama.reason`) replaces graph-only query for LongMemEval; beliefs remain secondary context and KU demotion runs on ingest.
 
+**v4 type routing (June 2026):** `longmemeval_answer_mode()` selects strategy per question type:
+- `knowledge_update` — newest-first transcripts (KU)
+- `multi_session` — vector-ranked + aggregate-all-sessions prompt
+- `temporal` — chronological + date arithmetic prompt
+- `abstention` (`*_abs`) — refuse when entity/topic not in context
+- `preference` — cite user-stated preferences, not generic advice
+
 ## Architecture
 
 ```

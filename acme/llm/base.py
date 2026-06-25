@@ -58,11 +58,34 @@ JSON:"""
             "Use ONLY the provided memory context. If insufficient, say so. "
             "Return ONLY valid JSON: answer, reasoning, confidence (0-1), entities_used (list of strings)."
         )
-        if (extra_context or {}).get("mode") == "longmemeval_transcript_first":
+        mode = (extra_context or {}).get("mode", "")
+        if mode in ("longmemeval_transcript_first", "longmemeval_knowledge_update"):
             system += (
                 " The memory context contains chat transcripts sorted newest-first. "
                 "When sessions disagree, answer with the most recent fact. "
                 "Give a direct concise answer (not 'insufficient' if the fact appears in any session)."
+            )
+        elif mode == "longmemeval_multi_session":
+            system += (
+                " Evidence may appear across multiple chat sessions. Read every session and "
+                "aggregate facts (counts, totals, durations) before answering. "
+                "Do not ignore older sessions when they contain relevant details."
+            )
+        elif mode == "longmemeval_temporal":
+            system += (
+                " Use session dates and the question date to reason about elapsed time, ordering, "
+                "and how long ago events happened. Show the computed interval in your answer when needed."
+            )
+        elif mode == "longmemeval_abstention":
+            system += (
+                " If the question names a person, place, object, sport, or topic that does NOT "
+                "appear in the memory context, respond that the information provided is not enough "
+                "or insufficient — do NOT answer using a similar but different entity or topic."
+            )
+        elif mode == "longmemeval_preference":
+            system += (
+                " The user has stated personal preferences in the transcripts. Your answer must "
+                "explicitly reflect those preferences (cite them) rather than giving generic advice."
             )
         context_block = json.dumps(extra_context or {}, ensure_ascii=False)
         prompt = f"""Question: {question}

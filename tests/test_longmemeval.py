@@ -17,6 +17,7 @@ from acme.evaluation.longmemeval import (
     get_anscheck_prompt,
     judge_longmemeval_answer,
     load_longmemeval_dataset,
+    longmemeval_answer_mode,
     parse_session_date,
     parse_yes_no_judge,
     run_longmemeval,
@@ -126,9 +127,55 @@ def test_build_transcript_memory_context_newest_first():
         content="new session",
         context={"session_date": "2023/06/01 (Thu) 00:58"},
     )
-    ctx = build_transcript_memory_context([old, new], question_date="2023/06/02")
+    ctx = build_transcript_memory_context([old, new], question_date="2023/06/02", mode="knowledge_update")
     assert ctx.index("new session") < ctx.index("old session")
     assert "MOST RECENT" in ctx
+
+
+def test_build_transcript_multi_session_aggregate_hint():
+    from types import SimpleNamespace
+
+    ep = SimpleNamespace(content="session A", context={"session_date": "2023/01/01"})
+    ctx = build_transcript_memory_context([ep], mode="multi_session")
+    assert "aggregate" in ctx.lower()
+
+
+def test_longmemeval_answer_mode_routing():
+    base = load_longmemeval_dataset(FIXTURE, limit=1)[0]
+    assert longmemeval_answer_mode(base) == "default"
+    ku = LongMemEvalItem(
+        question_id=base.question_id,
+        question_type="knowledge-update",
+        question=base.question,
+        answer=base.answer,
+        question_date=base.question_date,
+        haystack_session_ids=base.haystack_session_ids,
+        haystack_dates=base.haystack_dates,
+        haystack_sessions=base.haystack_sessions,
+    )
+    assert longmemeval_answer_mode(ku) == "knowledge_update"
+    abst = LongMemEvalItem(
+        question_id=f"{base.question_id}_abs",
+        question_type="knowledge-update",
+        question=base.question,
+        answer="not enough info",
+        question_date=base.question_date,
+        haystack_session_ids=base.haystack_session_ids,
+        haystack_dates=base.haystack_dates,
+        haystack_sessions=base.haystack_sessions,
+    )
+    assert longmemeval_answer_mode(abst) == "abstention"
+    pref = LongMemEvalItem(
+        question_id="p1",
+        question_type="single-session-preference",
+        question=base.question,
+        answer=base.answer,
+        question_date=base.question_date,
+        haystack_session_ids=base.haystack_session_ids,
+        haystack_dates=base.haystack_dates,
+        haystack_sessions=base.haystack_sessions,
+    )
+    assert longmemeval_answer_mode(pref) == "preference"
 
 
 @pytest.mark.asyncio
