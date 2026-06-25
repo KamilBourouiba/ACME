@@ -73,8 +73,9 @@ JSON:"""
             )
         elif mode == "longmemeval_temporal":
             system += (
-                " Use session dates and the question date to reason about elapsed time, ordering, "
-                "and how long ago events happened. Show the computed interval in your answer when needed."
+                " Use session dates, the precomputed timeline, and the question date. "
+                "Compute elapsed time step by step (subtract dates) before answering. "
+                "State the interval explicitly (days, weeks, or months) in the final answer."
             )
         elif mode == "longmemeval_abstention":
             system += (

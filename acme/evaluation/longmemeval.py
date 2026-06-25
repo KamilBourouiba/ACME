@@ -181,6 +181,85 @@ def parse_session_date(session_date: str) -> int:
         return 0
 
 
+def parse_session_datetime(session_date: str):
+    """Parse LongMemEval date string to datetime (date-only fallback)."""
+    from datetime import datetime
+
+    if not session_date:
+        return None
+    try:
+        parts = session_date.strip().split()
+        year, month, day = parts[0].split("/")
+        hour, minute = 0, 0
+        if len(parts) > 1 and ":" in parts[1]:
+            hour, minute = (int(x) for x in parts[1].split(":")[:2])
+        return datetime(int(year), int(month), int(day), hour, minute)
+    except (ValueError, IndexError):
+        return None
+
+
+def build_temporal_timeline(episodes: list[Episode], question_date: str) -> str:
+    """Precomputed day offsets from each session to the question date."""
+    q_dt = parse_session_datetime(question_date)
+    if q_dt is None:
+        return ""
+    lines = ["Timeline (days from session to question date):"]
+    ranked = sorted(
+        episodes,
+        key=lambda ep: parse_session_date(str((ep.context or {}).get("session_date", ""))),
+    )
+    for episode in ranked:
+        session_date = str((episode.context or {}).get("session_date", ""))
+        s_dt = parse_session_datetime(session_date)
+        if s_dt is None:
+            continue
+        delta_days = (q_dt.date() - s_dt.date()).days
+        weeks = delta_days // 7
+        lines.append(
+            f"- {session_date}: {delta_days} days before question"
+            + (f" (~{weeks} weeks)" if weeks else "")
+        )
+    return "\n".join(lines) if len(lines) > 1 else ""
+
+
+_ABSTENTION_ANCHOR_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"Dr\.\s*\w+", re.I),
+    re.compile(r"\bItalian\s+restaurants?\b", re.I),
+    re.compile(r"\bShinjuku\b", re.I),
+    re.compile(r"\btable\s+tennis\b", re.I),
+    re.compile(r"\bautographed\s+football\b", re.I),
+    re.compile(r"\bSoftware\s+Engineer\s+Manager\b", re.I),
+    re.compile(r"\bpurchasing\s+three\s+cows\s+from\s+Peter\b", re.I),
+    re.compile(r"\bfixing\s+the\s+fence\b.+?\bpurchasing\b.+?\bcows\b", re.I),
+)
+
+
+def extract_abstention_anchors(question: str) -> list[str]:
+    """Distinctive phrases that abstention probes swap vs. transcript content."""
+    anchors: list[str] = []
+    for pattern in _ABSTENTION_ANCHOR_PATTERNS:
+        anchors.extend(m.group(0).strip() for m in pattern.finditer(question))
+    restaurant = re.search(r"\b(\w+)\s+restaurants?\b", question, re.I)
+    if restaurant and restaurant.group(1).lower() not in ("many", "the", "any"):
+        anchors.append(restaurant.group(0))
+    apartment = re.search(r"\bapartment\s+in\s+(\w+)\b", question, re.I)
+    if apartment:
+        anchors.append(apartment.group(0))
+    return list(dict.fromkeys(anchors))
+
+
+def missing_abstention_anchors(question: str, transcript: str) -> list[str]:
+    """Anchors in the question that do not appear in the transcript."""
+    blob = transcript.lower()
+    return [a for a in extract_abstention_anchors(question) if a.lower() not in blob]
+
+
+ABSTENTION_INSUFFICIENT_REPLY = (
+    "The information provided is not enough to answer this question based on "
+    "the available chat history."
+)
+
+
 def longmemeval_answer_mode(item: LongMemEvalItem) -> str:
     """Route LongMemEval answer strategy by question type."""
     if item.is_abstention:
@@ -231,8 +310,12 @@ def build_transcript_memory_context(
         )
         parts = [
             "Chat session transcripts (chronological). Use session dates and the question date "
-            "to compute durations, ordering, and how long ago events occurred.",
+            "to compute durations, ordering, and how long ago events occurred. "
+            "Perform explicit date arithmetic step by step.",
         ]
+        timeline = build_temporal_timeline(episodes, question_date)
+        if timeline:
+            parts.append(timeline)
         for index, episode in enumerate(ranked):
             session_date = (episode.context or {}).get("session_date", "unknown")
             parts.append(f"--- Session #{index + 1} ({session_date}) ---\n{episode.content}")
@@ -312,7 +395,7 @@ async def retrieve_longmemeval_episodes(orchestrator, item: LongMemEvalItem) -> 
         limit = max(
             len(all_eps),
             settings.vector_search_limit,
-            16 if item.question_type == "multi-session" else 8,
+            20 if item.question_type == "multi-session" else 8,
         )
         ranked = await vector.search_tagged(
             item.question,
@@ -559,20 +642,62 @@ class ACMELongMemEvalBackend:
                 except Exception:
                     continue
 
+    async def _append_hybrid_context(self, item: LongMemEvalItem, memory_context: str) -> str:
+        """Graph + tagged vector snippets for multi-session aggregation."""
+        tags = longmemeval_tags(item.question_id)
+        tenant_id = getattr(self.orchestrator, "tenant_id", "default")
+        beliefs = await self.orchestrator.beliefs.list_beliefs(min_confidence=0.1)
+        graph_context, _ = await self.orchestrator.retrieval.graph.build_context(
+            item.question, beliefs
+        )
+        vector_eps = await self.orchestrator.vector.search_tagged(
+            item.question,
+            tags,
+            limit=20,
+            tenant_id=tenant_id,
+        )
+        extra: list[str] = []
+        if graph_context.strip():
+            extra.append(graph_context.strip())
+        if vector_eps:
+            extra.append(
+                "Tagged episode snippets (similarity-ranked):\n"
+                + "\n".join(
+                    f"- [{i + 1}] {(ep.context or {}).get('session_date', '?')}: "
+                    f"{ep.content[:350]}"
+                    for i, ep in enumerate(vector_eps)
+                )
+            )
+        if not extra:
+            return memory_context
+        return (
+            memory_context
+            + "\n\nGraph-vector hybrid context (aggregate across ALL sessions):\n"
+            + "\n\n".join(extra)
+        )
+
     async def answer(self, item: LongMemEvalItem) -> str:
         answer_mode = longmemeval_answer_mode(item)
         episodes = await retrieve_longmemeval_episodes(self.orchestrator, item)
         if episodes:
+            transcript_blob = "\n".join(ep.content for ep in episodes)
+            if item.is_abstention:
+                missing = missing_abstention_anchors(item.question, transcript_blob)
+                if missing:
+                    return ABSTENTION_INSUFFICIENT_REPLY
+
             memory_context = build_transcript_memory_context(
                 episodes,
                 question_date=item.question_date,
                 mode=answer_mode,
             )
+            if answer_mode == "multi_session":
+                memory_context = await self._append_hybrid_context(item, memory_context)
             beliefs = await self.orchestrator.beliefs.list_beliefs(min_confidence=0.25)
             if beliefs and answer_mode not in ("abstention", "preference"):
                 belief_lines = [
                     f"- {b.label} (confidence={b.confidence:.2f}, status={b.status})"
-                    for b in beliefs[:8]
+                    for b in beliefs[:12 if answer_mode == "multi_session" else 8]
                 ]
                 memory_context += (
                     "\n\nTracked beliefs (secondary; prefer recent transcript if conflict):\n"

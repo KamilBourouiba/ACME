@@ -9,6 +9,12 @@ mkdir -p "$OUT"
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 
 TYPES="${LONGMEMEVAL_TYPES:-knowledge-update}"
+# Set LONGMEMEVAL_TYPES=all for full oracle split (500 Q)
+if [[ "${LONGMEMEVAL_TYPES}" == "all" ]]; then
+  TYPES=""
+else
+  TYPES="${LONGMEMEVAL_TYPES}"
+fi
 LIMIT="${LONGMEMEVAL_LIMIT:-}"
 SYSTEMS="${LONGMEMEVAL_SYSTEMS:-acme,rag,memgpt}"
 POLL_SEC="${LONGMEMEVAL_POLL_SEC:-30}"
@@ -24,7 +30,13 @@ HDR=(-H "X-API-Key: ${API_KEY}" -H "Content-Type: application/json")
 
 BODY=$(python3 - <<PY
 import json, os
-types = "${TYPES}".split(",") if "${TYPES}" else None
+types_raw = os.environ.get("LONGMEMEVAL_TYPES", "knowledge-update").strip()
+if types_raw == "all":
+    types = None
+elif types_raw:
+    types = types_raw.split(",")
+else:
+    types = None
 limit_raw = os.environ.get("LONGMEMEVAL_LIMIT", "").strip()
 limit = int(limit_raw) if limit_raw else None
 systems = "${SYSTEMS}".split(",")
@@ -42,7 +54,7 @@ bash "${ROOT}/azure/configure-premium-ingress.sh" 2>/dev/null || true
 echo "==> Health"
 curl -sf "${API}/api/v1/health" | tee "$OUT/longmemeval-health-${STAMP}.json"
 
-echo "==> Start LongMemEval async (types=${TYPES})"
+echo "==> Start LongMemEval async (types=${TYPES:-all})"
 START_RESP=$(curl -sf -X POST "${API}/api/v1/benchmark/longmemeval/async" "${HDR[@]}" -d "$BODY")
 echo "$START_RESP" | tee "$OUT/longmemeval-start-${STAMP}.json"
 JOB_ID=$(python3 -c "import json,sys; print(json.load(sys.stdin)['job_id'])" <<<"$START_RESP")

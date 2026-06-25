@@ -18,8 +18,10 @@ from acme.evaluation.longmemeval import (
     judge_longmemeval_answer,
     load_longmemeval_dataset,
     longmemeval_answer_mode,
+    missing_abstention_anchors,
     parse_session_date,
     parse_yes_no_judge,
+    retrieve_longmemeval_episodes,
     run_longmemeval,
 )
 from acme.schemas import QueryResponse
@@ -176,6 +178,61 @@ def test_longmemeval_answer_mode_routing():
         haystack_sessions=base.haystack_sessions,
     )
     assert longmemeval_answer_mode(pref) == "preference"
+
+
+def test_missing_abstention_anchors_detects_wrong_doctor():
+    transcript = "You see Dr. Smith every week for therapy."
+    missing = missing_abstention_anchors("How often do I see Dr. Johnson?", transcript)
+    assert any("Johnson" in m for m in missing)
+
+
+def test_missing_abstention_anchors_ok_when_present():
+    transcript = "I tried four Korean restaurants in my city."
+    missing = missing_abstention_anchors("How many Korean restaurants have I tried?", transcript)
+    assert missing == []
+
+
+@pytest.mark.asyncio
+async def test_acme_abstention_short_circuit():
+    base = load_longmemeval_dataset(FIXTURE, limit=1)[0]
+    item = LongMemEvalItem(
+        question_id="test_abs",
+        question_type="knowledge-update",
+        question="How often do I see Dr. Johnson?",
+        answer="not enough",
+        question_date=base.question_date,
+        haystack_session_ids=base.haystack_session_ids,
+        haystack_dates=base.haystack_dates,
+        haystack_sessions=base.haystack_sessions,
+    )
+    from types import SimpleNamespace
+
+    ep = SimpleNamespace(
+        content="You see Dr. Smith weekly.",
+        context={"session_date": "2023/01/01"},
+    )
+    orchestrator = MagicMock()
+    orchestrator.tenant_id = "default"
+    orchestrator.beliefs = MagicMock()
+    orchestrator.beliefs.list_beliefs = AsyncMock(return_value=[])
+    orchestrator.ollama = MagicMock()
+    orchestrator.ollama.reason = AsyncMock()
+
+    backend = ACMELongMemEvalBackend(orchestrator)
+
+    async def fake_retrieve(*_args, **_kwargs):
+        return [ep]
+
+    import acme.evaluation.longmemeval as lme
+
+    original = lme.retrieve_longmemeval_episodes
+    lme.retrieve_longmemeval_episodes = fake_retrieve
+    try:
+        answer = await backend.answer(item)
+    finally:
+        lme.retrieve_longmemeval_episodes = original
+    assert "not enough" in answer.lower()
+    orchestrator.ollama.reason.assert_not_called()
 
 
 @pytest.mark.asyncio
