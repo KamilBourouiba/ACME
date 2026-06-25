@@ -119,6 +119,38 @@ Reproduce: `bash scripts/run_longmemeval_prod.sh`
 
 ---
 
+## LongMemEval — remaining types (422 Q)
+
+| Field | Value |
+|-------|-------|
+| Job ID | `26e288da-d5dc-47a9-a399-46170b43894b` |
+| Completed | 2026-06-25 (poll) |
+| Duration | 18 643 s (~5.2 h) |
+| Types | single-session-*, multi-session, temporal-reasoning |
+| Failures | none |
+
+| System | Overall | Multi-session | Temporal | SS-user | SS-asst | SS-pref |
+|--------|---------|---------------|----------|---------|---------|---------|
+| **ACME** | **0.787** | **0.760** | **0.709** | **1.000** | **1.000** | **0.567** |
+| RAG | 0.761 | 0.810 | 0.622 | 1.000 | 0.964 | 0.400 |
+| MemGPT | 0.763 | 0.769 | 0.630 | 1.000 | 0.982 | 0.533 |
+
+---
+
+## LongMemEval — combined oracle (500 Q)
+
+| System | Overall | KU | Multi-session | Temporal | SS-user | SS-asst | SS-pref |
+|--------|---------|-----|---------------|----------|---------|---------|---------|
+| **ACME** | **0.804** | **0.897** | **0.744** | **0.684** | **0.986** | **1.000** | **0.567** |
+| MemGPT | 0.780 | 0.872 | 0.752 | 0.609 | 1.000 | 0.982 | 0.533 |
+| RAG | 0.776 | 0.859 | 0.789 | 0.602 | 1.000 | 0.964 | 0.400 |
+
+**Δ ACME vs RAG (500 Q):** +0.028 overall
+
+Summary: `benchmark-results/longmemeval-v3-combined.json`
+
+---
+
 ### Ablation sweep (v3.1, GPT-4.1, 24 June 2026)
 
 | Configuration | Overall | Retention | Groundedness | Feedback | Belief |

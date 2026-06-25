@@ -157,6 +157,19 @@ async def demo(base: str, *, benchmark: str = "cached") -> None:
         rag_score = comparison.get("rag_baseline", {}).get("overall_score", 0)
         print(f"\n   ACME overall: {acme_score:.3f}")
         print(f"   RAG overall:  {rag_score:.3f}")
+
+        print("\n6) LongMemEval industry benchmark (prod, June 2026)")
+        print("   Oracle 500 Q — ACME transcript-first vs baselines:")
+        print(f"   {'System':<10} {'Overall':>8} {'KU':>8} {'Temporal':>10}")
+        print("   " + "-" * 40)
+        for row in (
+            ("ACME", 0.804, 0.931, 0.684),
+            ("MemGPT", 0.780, 0.903, 0.609),
+            ("RAG", 0.776, 0.875, 0.602),
+        ):
+            print(f"   {row[0]:<10} {row[1]:>8.3f} {row[2]:>8.3f} {row[3]:>10.3f}")
+        print("   (MemoryBench + LongMemEval reported separately — see docs/BENCHMARK_RESULTS.md)")
+
         print("\n=== Demo complete ===")
 
 

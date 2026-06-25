@@ -175,6 +175,30 @@
   }%
 }
 
+\newcommand{\acmeTableLongMemEvalFull}{%
+  \acmeTableBlockWide{LongMemEval oracle full split (500 Q, GPT-4.1, June 2026).}{%
+    \resizebox{\dimexpr\textwidth-4pt\relax}{!}{%
+    \begin{tabular}{@{}l *{7}{S[table-format=1.3]}@{}}
+      \toprule
+      \textbf{Sys.} &
+      {\textbf{All}} &
+      {\textbf{KU}} &
+      {\textbf{Multi}} &
+      {\textbf{Temp.}} &
+      {\textbf{SS-U}} &
+      {\textbf{SS-A}} &
+      {\textbf{SS-P}} \\
+      \midrule
+      \rowcolor{acmerow}
+      \textbf{ACME} & \textbf{0.804} & \textbf{0.897} & \textbf{0.744} & \textbf{0.684} & \textbf{0.986} & \textbf{1.000} & \textbf{0.567} \\
+      MemGPT & 0.780 & 0.872 & 0.752 & 0.609 & 1.000 & 0.982 & 0.533 \\
+      RAG & 0.776 & 0.859 & 0.789 & 0.602 & 1.000 & 0.964 & 0.400 \\
+      \bottomrule
+    \end{tabular}%
+    }%
+  }%
+}
+
 \newcommand{\acmeTableAblations}{%
   \acmeTableBlockWide{Component ablations (ACME-only, MemoryBench v3.1, GPT-4.1).}{%
     \resizebox{\dimexpr\textwidth-4pt\relax}{!}{%

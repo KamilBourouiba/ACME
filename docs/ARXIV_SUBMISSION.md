@@ -21,13 +21,14 @@
 | **Title** | ACME: Adaptive Cognitive Memory Engine — Externalizing Belief, Memory, and Learning from LLM Weights |
 | **Abstract** | Copy from `docs/PAPER.md` §Abstract (plain text) |
 | **Categories** | Primary: **cs.AI** — Secondary: cs.CL, cs.LG |
-| **Comments** | 13-page preprint; MemoryBench v3; code at https://github.com/KamilBourouiba/ACME |
+| **Comments** | 13-page preprint; MemoryBench v3 + LongMemEval oracle; code at https://github.com/KamilBourouiba/ACME |
 
 ## Key claims (verify against latest benchmark export)
 
 1. ACME overall **0.925** vs RAG **0.487** on MemoryBench v3 (13 scenarios, GPT-4.1, 24 June 2026, job `3b31e5e3`).
 2. Gains driven by **feedback correction + belief quality (CRS)**, not retention alone.
 3. Per-scenario **sandbox isolation** (Postgres + Neo4j) for reproducibility.
+4. LongMemEval oracle **500 Q**: ACME **0.804** vs RAG **0.776** (jobs `705eb2ff` + `26e288da`, June 2026); KU subset **93.1%** core accuracy with transcript-first path.
 
 ## Submission steps (arxiv.org)
 

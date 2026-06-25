@@ -349,6 +349,8 @@ yes/no judge prompts} from the reference implementation.
 
 \acmeTableLongMemEvalKU
 
+\acmeTableLongMemEvalFull
+
 \textbf{Protocol.} Each question resets sandbox state
 (\texttt{longmemeval} tag). Haystack sessions are serialized as
 multi-turn user/assistant transcripts and ingested as experiences. ACME
@@ -360,10 +362,10 @@ context; an independent LLM judge (same deployment family as
 MemoryBench) applies type-specific rubrics (\texttt{knowledge-update},
 \texttt{temporal-reasoning}, \texttt{abstention}, etc.).
 
-\textbf{Production run (June 2026):} job \texttt{705eb2ff}, API
-\texttt{acme-api:longmemeval-transcript}, 78 \texttt{knowledge-update}
-questions (72 core + 6 abstention probes), \textasciitilde59 min, zero
-errors.
+\textbf{Production runs (June 2026):} jobs \texttt{705eb2ff} (78 KU) +
+\texttt{26e288da} (422 other types), API
+\texttt{acme-api:longmemeval-transcript}, GPT-4.1, zero errors. Combined
+summary: \texttt{benchmark-results/longmemeval-v3-combined.json}.
 
 \textbf{Reproduction:}
 
@@ -382,7 +384,7 @@ measures \textbf{belief lifecycle and feedback} --- the two benchmarks
 are complementary and must not be merged into a single score.
 
 \begin{keyfinding}
-\textbf{Key finding.} On LongMemEval \texttt{knowledge-update} (oracle, GPT-4.1), ACME transcript-first reaches \textbf{93.1\%} KU accuracy vs.\ 87.5\% (RAG) and 90.3\% (MemGPT) --- closing the gap from graph-only retrieval (13.9\% KU in the prior run) while preserving MemoryBench belief/feedback advantages (Section 6).
+\textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1), ACME transcript-first reaches \textbf{80.4\%} overall vs.\ 77.6\% (RAG) and 78.0\% (MemGPT), with the largest gains on \texttt{knowledge-update} (89.7\% vs.\ 85.9\%) and \texttt{temporal-reasoning} (68.4\% vs.\ 60.2\%) while preserving MemoryBench belief/feedback advantages (Section 6).
 \end{keyfinding}
 
 \section{Experimental Setup}\label{experimental-setup}
@@ -463,6 +465,9 @@ ingress, stamp \texttt{20260624213154}).}
 \item Baselines are reference implementations, not full upstream MemGPT/LangGraph codebases [10,11].
 \item Production API requires API key for benchmark endpoints.
 \item CRS weights are hand-tuned; calibration against human epistemic judgments [41] is future work.
+\item \textbf{LongMemEval routing.} Transcript-first answering (newest session wins) is enabled for the LongMemEval adapter to resolve knowledge-update items; it is not the default MemoryBench query path (graph + CRS). This is intentional benchmark alignment [37] but blurs the single-pipeline story --- hybrid routing by question type is future work.
+\item \textbf{Multi-session gap.} On LongMemEval oracle (500 Q), RAG slightly exceeds ACME on \texttt{multi-session} (78.9\% vs.\ 74.4\%), suggesting dense vector recall still wins when evidence is spread across many sessions without explicit temporal conflict.
+\item \textbf{Abstention.} ACME abstention accuracy on LongMemEval probe questions remains $\sim$50\% (KU subset); conflating unrelated entities (e.g.\ Dr.\ Smith vs.\ Dr.\ Johnson) needs dedicated abstention prompts and entity-scope checks.
 \end{itemize}
 \end{keyfinding}
 
@@ -471,14 +476,19 @@ ingress, stamp \texttt{20260624213154}).}
 ACME shows that externalizing belief and learning from LLM weights
 yields stronger cognitive memory than vector RAG or lightweight
 agent-memory baselines on MemoryBench, especially for feedback-driven
-correction and auditable belief quality. The consistent
-\textbf{+0.39--0.44} margin over RAG across GPT-4.1, GPT-4.1-mini, and
-GPT-5.4 supports the hypothesis that explicit belief lifecycle
-management {[}21,22,54,55{]} complements --- rather than replaces ---
-advances in base model capability {[}1,47{]}. Concurrent belief-memory
-systems {[}50,54,56,57{]} validate the problem direction; ACME
-contributes reproducible production evidence that epistemic layers ---
-not retrieval alone --- drive the measured gap.
+correction and auditable belief quality. On the official LongMemEval
+oracle split (500 Q, GPT-4.1), transcript-first ACME reaches
+\textbf{80.4\%} overall vs.~\textbf{77.6\%} (RAG), with the largest
+margins on knowledge-update and temporal-reasoning types. The consistent
+\textbf{+0.39--0.44} margin over RAG on MemoryBench across GPT-4.1,
+GPT-4.1-mini, and GPT-5.4 supports the hypothesis that explicit belief
+lifecycle management {[}21,22,54,55{]} complements --- rather than
+replaces --- advances in base model capability {[}1,47{]}. Concurrent
+belief-memory systems {[}50,54,56,57{]} validate the problem direction;
+ACME contributes reproducible production evidence that epistemic layers
+--- not retrieval alone --- drive the measured gap on MemoryBench, while
+benchmark-specific transcript routing closes industry QA gaps without
+abandoning the cognitive substrate.
 
 \acmeBackMatterBegin
 \acmeReferencesBegin

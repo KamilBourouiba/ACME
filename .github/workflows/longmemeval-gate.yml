@@ -1,0 +1,23 @@
+name: LongMemEval Fixture Gate
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"  # Daily 03:00 UTC — fixture only (no prod API)
+
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: LongMemEval adapter + fixture judge tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://acme:acme@localhost:5432/acme
+          LLM_PROVIDER: ollama
+        run: |
+          PYTHONPATH=. pytest tests/test_longmemeval.py -q

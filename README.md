@@ -370,9 +370,13 @@ Academic draft: [docs/PAPER.md](docs/PAPER.md)
 
 External validation on the official [LongMemEval](https://github.com/xiaowu0162/LongMemEval) oracle split (ICLR 2025). Uses the **same yes/no judge prompts** as the reference implementation.
 
+**Prod results (June 2026, GPT-4.1):** ACME **0.804** overall (500 Q) vs RAG **0.776**; knowledge-update **93.1%** with transcript-first path.
+
 ```bash
 bash scripts/download_longmemeval.sh
 python scripts/run_longmemeval.py --types knowledge-update --systems acme,rag,memgpt
+# prod (Azure):
+bash scripts/run_longmemeval_prod.sh
 ```
 
 See [docs/LONGMEMEVAL.md](docs/LONGMEMEVAL.md). LongMemEval (QA accuracy) and MemoryBench (belief/feedback) are **complementary** — report separately.

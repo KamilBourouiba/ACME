@@ -50,4 +50,4 @@ jobs:
           BENCHMARK_MIN_OVERALL: "0.85"
           BENCHMARK_MIN_BELIEF_QUALITY: "0.55"
         run: |
-          PYTHONPATH=. pytest tests/test_benchmark_gate.py tests/test_memorybench.py tests/test_baseline_rag.py tests/test_ablation.py -q
+          PYTHONPATH=. pytest tests/test_benchmark_gate.py tests/test_memorybench.py tests/test_baseline_rag.py tests/test_ablation.py tests/test_longmemeval.py -q
