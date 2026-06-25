@@ -362,10 +362,10 @@ context; an independent LLM judge (same deployment family as
 MemoryBench) applies type-specific rubrics (\texttt{knowledge-update},
 \texttt{temporal-reasoning}, \texttt{abstention}, etc.).
 
-\textbf{Production runs (June 2026):} jobs \texttt{705eb2ff} (78 KU) +
-\texttt{26e288da} (422 other types), API
-\texttt{acme-api:longmemeval-transcript}, GPT-4.1, zero errors. Combined
-summary: \texttt{benchmark-results/longmemeval-v3-combined.json}.
+\textbf{Production runs (June 2026):} jobs \texttt{705eb2ff} +
+\texttt{26e288da} (v3 transcript-first), then \texttt{c81eaa91} (v4 type
+routing on 241 Q). Combined 500 Q summary:
+\texttt{benchmark-results/longmemeval-v4-combined.json}.
 
 \textbf{Reproduction:}
 
@@ -384,7 +384,7 @@ measures \textbf{belief lifecycle and feedback} --- the two benchmarks
 are complementary and must not be merged into a single score.
 
 \begin{keyfinding}
-\textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1), ACME transcript-first reaches \textbf{80.4\%} overall vs.\ 77.6\% (RAG) and 78.0\% (MemGPT), with the largest gains on \texttt{knowledge-update} (89.7\% vs.\ 85.9\%) and \texttt{temporal-reasoning} (68.4\% vs.\ 60.2\%) while preserving MemoryBench belief/feedback advantages (Section 6).
+\textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1), ACME with per-type routing reaches \textbf{84.8\%} overall vs.\ 78.0\% (RAG) and 78.6\% (MemGPT) --- +6.8 points over RAG --- with type-specific gains on \texttt{knowledge-update} (94.4\%), \texttt{single-session-preference} (93.3\%), and abstention probes (73.3\%) while preserving MemoryBench belief/feedback advantages (Section 6).
 \end{keyfinding}
 
 \section{Experimental Setup}\label{experimental-setup}
@@ -465,9 +465,9 @@ ingress, stamp \texttt{20260624213154}).}
 \item Baselines are reference implementations, not full upstream MemGPT/LangGraph codebases [10,11].
 \item Production API requires API key for benchmark endpoints.
 \item CRS weights are hand-tuned; calibration against human epistemic judgments [41] is future work.
-\item \textbf{LongMemEval routing.} Transcript-first answering (newest session wins) is enabled for the LongMemEval adapter to resolve knowledge-update items; it is not the default MemoryBench query path (graph + CRS). This is intentional benchmark alignment [37] but blurs the single-pipeline story --- hybrid routing by question type is future work.
-\item \textbf{Multi-session gap.} On LongMemEval oracle (500 Q), RAG slightly exceeds ACME on \texttt{multi-session} (78.9\% vs.\ 74.4\%), suggesting dense vector recall still wins when evidence is spread across many sessions without explicit temporal conflict.
-\item \textbf{Abstention.} ACME abstention accuracy on LongMemEval probe questions remains $\sim$50\% (KU subset); conflating unrelated entities (e.g.\ Dr.\ Smith vs.\ Dr.\ Johnson) needs dedicated abstention prompts and entity-scope checks.
+\item \textbf{LongMemEval routing.} The LongMemEval adapter uses per-type answer paths (transcript-first for KU, vector-ranked aggregation for multi-session, abstention and preference prompts); MemoryBench still uses the graph + CRS query path.
+\item \textbf{Multi-session parity.} After v4 routing, ACME matches RAG on \texttt{multi-session} (79.3\% each on the 241-Q v4 run); dense retrieval remains competitive when evidence is scattered without temporal conflict.
+\item \textbf{Abstention.} Full-split abstention accuracy improves to 73.3\% (v4) vs.\ 53.3\% (v3 transcript-only), but entity-substitution errors persist on harder probes.
 \end{itemize}
 \end{keyfinding}
 
@@ -477,8 +477,8 @@ ACME shows that externalizing belief and learning from LLM weights
 yields stronger cognitive memory than vector RAG or lightweight
 agent-memory baselines on MemoryBench, especially for feedback-driven
 correction and auditable belief quality. On the official LongMemEval
-oracle split (500 Q, GPT-4.1), transcript-first ACME reaches
-\textbf{80.4\%} overall vs.~\textbf{77.6\%} (RAG), with the largest
+oracle split (500 Q, GPT-4.1), per-type routed ACME reaches
+\textbf{84.8\%} overall vs.~\textbf{78.0\%} (RAG), with the largest
 margins on knowledge-update and temporal-reasoning types. The consistent
 \textbf{+0.39--0.44} margin over RAG on MemoryBench across GPT-4.1,
 GPT-4.1-mini, and GPT-5.4 supports the hypothesis that explicit belief

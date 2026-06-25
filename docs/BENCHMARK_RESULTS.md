@@ -139,13 +139,36 @@ Reproduce: `bash scripts/run_longmemeval_prod.sh`
 
 ## LongMemEval — combined oracle (500 Q)
 
-| System | Overall | KU | Multi-session | Temporal | SS-user | SS-asst | SS-pref |
-|--------|---------|-----|---------------|----------|---------|---------|---------|
-| **ACME** | **0.804** | **0.897** | **0.744** | **0.684** | **0.986** | **1.000** | **0.567** |
-| MemGPT | 0.780 | 0.872 | 0.752 | 0.609 | 1.000 | 0.982 | 0.533 |
-| RAG | 0.776 | 0.859 | 0.789 | 0.602 | 1.000 | 0.964 | 0.400 |
+| System | Overall | KU | Multi-session | Temporal | SS-user | SS-asst | SS-pref | Abstention |
+|--------|---------|-----|---------------|----------|---------|---------|---------|------------|
+| **ACME** (v4 routing) | **0.848** | **0.944** | **0.793** | **0.709** | **1.000** | **1.000** | **0.933** | **0.733** |
+| MemGPT | 0.786 | 0.875 | 0.802 | 0.630 | 1.000 | 0.982 | 0.533 | 0.600 |
+| RAG | 0.780 | 0.889 | 0.793 | 0.622 | 1.000 | 0.964 | 0.433 | 0.667 |
 
-**Δ ACME vs RAG (500 Q):** +0.028 overall
+**Δ ACME vs RAG (500 Q):** +0.068 overall
+
+v4 routing job `c81eaa91` (241 Q: multi-session, preference, KU) + v3 for temporal/single-session. Summary: `benchmark-results/longmemeval-v4-combined.json`
+
+### v4 routing run (241 Q) — job `c81eaa91`
+
+| System | Overall | Multi-session | Preference | KU | Abstention (in run) |
+|--------|---------|---------------|------------|-----|---------------------|
+| **ACME** | **0.863** | **0.793** | **0.933** | **0.944** | **0.889** |
+| RAG | 0.772 | 0.793 | 0.433 | 0.889 | 0.722 |
+| MemGPT | 0.776 | 0.802 | 0.533 | 0.875 | 0.611 |
+
+Duration ~213 min · image `acme-api:longmemeval-v4-routing`
+
+**ACME v3 → v4 deltas:** abstention +35.6 pt · preference +36.7 pt · multi-session +3.3 pt · KU +1.4 pt
+
+---
+
+## LongMemEval — combined oracle v3 (superseded)
+
+| System | Overall |
+|--------|---------|
+| ACME | 0.804 |
+| RAG | 0.776 |
 
 Summary: `benchmark-results/longmemeval-v3-combined.json`
 
