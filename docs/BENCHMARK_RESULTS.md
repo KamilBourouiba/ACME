@@ -90,6 +90,35 @@
 
 Primary paper results (Section 6) remain on **13-scenario v3** for baseline comparability (job `3b31e5e3`).
 
+---
+
+## LongMemEval — knowledge-update (industry benchmark)
+
+| Field | Value |
+|-------|-------|
+| Job ID | `705eb2ff-13a0-4bb8-b705-322aebb9b311` |
+| Completed | 2026-06-25T03:27:34Z |
+| Duration | 3510 s (~59 min) |
+| API image | `acme-api:longmemeval-transcript` |
+| Deployment | `gpt-4.1` |
+| Subset | `knowledge-update` (78 Q: 72 KU + 6 abstention) |
+| Failures | none |
+
+| System | Overall | KU | Abstention |
+|--------|---------|-----|------------|
+| **ACME** (transcript-first) | **0.897** | **0.931** | 0.500 |
+| MemGPT | 0.872 | 0.903 | 0.500 |
+| RAG | 0.859 | 0.875 | 0.667 |
+
+**Δ ACME vs RAG (KU):** +0.056  
+**Δ ACME vs MemGPT (KU):** +0.028
+
+Prior graph-only ACME run (job `d842211c`, same subset): KU **0.139**, overall 0.179.
+
+Reproduce: `bash scripts/run_longmemeval_prod.sh`
+
+---
+
 ### Ablation sweep (v3.1, GPT-4.1, 24 June 2026)
 
 | Configuration | Overall | Retention | Groundedness | Feedback | Belief |

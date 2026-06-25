@@ -1,5 +1,7 @@
 """Vector retrieval over episodic embeddings — pgvector when available, JSONB fallback."""
 
+import json
+
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,6 +113,67 @@ class VectorRetrievalEngine:
             .order_by(Episode.created_at.desc())
             .limit(500)
         )
+        episodes = list((await self.session.execute(stmt)).scalars().all())
+        scored = [
+            (cosine_similarity(query_vec, ep.embedding or []), ep)
+            for ep in episodes
+            if ep.embedding
+        ]
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [ep for _, ep in scored[:limit]]
+
+    async def search_tagged(
+        self,
+        question: str,
+        required_tags: list[str],
+        limit: int | None = None,
+        *,
+        tenant_id: str = "default",
+    ) -> list[Episode]:
+        """Vector search restricted to episodes containing all required tags."""
+        limit = limit or settings.vector_search_limit
+        query_vec = await self.embedder.embed(question)
+        if len(query_vec) != 256:
+            query_vec = deterministic_embed(question, dim=256)
+
+        tag_filters = " AND ".join(
+            f"tags @> CAST(:tag{i} AS jsonb)" for i in range(len(required_tags))
+        )
+        params: dict[str, object] = {"tenant_id": tenant_id, "limit": limit}
+        for i, tag in enumerate(required_tags):
+            params[f"tag{i}"] = json.dumps([tag])
+
+        if await self._use_pgvector():
+            stmt = text(
+                f"""
+                SELECT id FROM episodes
+                WHERE tenant_id = :tenant_id
+                  AND memory_tier NOT IN ('archive', 'deleted')
+                  AND embedding_vec IS NOT NULL
+                  AND {tag_filters}
+                ORDER BY embedding_vec <=> CAST(:query_vec AS vector)
+                LIMIT :limit
+                """
+            )
+            params["query_vec"] = self._vec_literal(query_vec)
+            rows = (await self.session.execute(stmt, params)).all()
+            if rows:
+                ids = [row[0] for row in rows]
+                episodes = (
+                    await self.session.execute(select(Episode).where(Episode.id.in_(ids)))
+                ).scalars().all()
+                order = {str(ep_id): idx for idx, ep_id in enumerate(ids)}
+                episodes.sort(key=lambda ep: order.get(str(ep.id), 999))
+                return episodes
+
+        stmt = (
+            select(Episode)
+            .where(Episode.tenant_id == tenant_id)
+            .where(Episode.memory_tier.notin_(["archive", "deleted"]))
+            .where(Episode.embedding.is_not(None))
+        )
+        for i, tag in enumerate(required_tags):
+            stmt = stmt.where(Episode.tags.contains([tag]))
         episodes = list((await self.session.execute(stmt)).scalars().all())
         scored = [
             (cosine_similarity(query_vec, ep.embedding or []), ep)

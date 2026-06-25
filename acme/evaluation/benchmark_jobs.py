@@ -79,3 +79,104 @@ async def _run_compare_job(job_id: str, *, tenant_id: str | None) -> None:
             "duration_sec": round(duration, 2),
             "error": str(exc),
         }
+
+
+async def start_longmemeval_job(
+    *,
+    tenant_id: str | None = None,
+    question_types: list[str] | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    systems: list[str] | None = None,
+    dataset_path: str | None = None,
+) -> str:
+    job_id = str(uuid4())
+    _jobs[job_id] = {
+        "job_id": job_id,
+        "type": "longmemeval",
+        "status": "running",
+        "tenant_id": tenant_id or settings.default_tenant_id,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "question_types": question_types,
+        "limit": limit,
+        "systems": systems or ["acme", "rag", "memgpt"],
+    }
+    asyncio.create_task(
+        _run_longmemeval_job(
+            job_id,
+            tenant_id=tenant_id,
+            question_types=question_types,
+            limit=limit,
+            offset=offset,
+            systems=systems,
+            dataset_path=dataset_path,
+        )
+    )
+    return job_id
+
+
+async def _run_longmemeval_job(
+    job_id: str,
+    *,
+    tenant_id: str | None,
+    question_types: list[str] | None,
+    limit: int | None,
+    offset: int,
+    systems: list[str] | None,
+    dataset_path: str | None,
+) -> None:
+    from acme.evaluation.baseline_memgpt import MemGPTBaselineRunner
+    from acme.evaluation.baseline_rag import RAGBaselineRunner
+    from acme.evaluation.longmemeval import (
+        ACMELongMemEvalBackend,
+        MemGPTLongMemEvalBackend,
+        RAGLongMemEvalBackend,
+        default_dataset_path,
+        run_longmemeval_comparison,
+    )
+
+    started = time.monotonic()
+    selected = [s.strip() for s in (systems or ["acme", "rag", "memgpt"]) if s.strip()]
+    try:
+        async with SessionLocal() as session:
+            backends = []
+            if "acme" in selected:
+                orchestrator = ACMEOrchestrator(
+                    session=session,
+                    graph=neo4j_client,
+                    ollama=llm_client,
+                    tenant_id=tenant_id or settings.default_tenant_id,
+                )
+                backends.append(ACMELongMemEvalBackend(orchestrator))
+            if "rag" in selected:
+                backends.append(RAGLongMemEvalBackend(RAGBaselineRunner(llm_client)))
+            if "memgpt" in selected:
+                backends.append(MemGPTLongMemEvalBackend(MemGPTBaselineRunner(llm_client)))
+
+            path = dataset_path or str(default_dataset_path())
+            result = await run_longmemeval_comparison(
+                backends,
+                dataset_path=path,
+                question_types=question_types,
+                limit=limit,
+                offset=offset,
+                llm_judge=llm_client,
+                use_llm_judge=True,
+            )
+            duration = time.monotonic() - started
+            _jobs[job_id] = {
+                **_jobs[job_id],
+                "status": "completed",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "duration_sec": round(duration, 2),
+                "result": result,
+            }
+    except Exception as exc:
+        duration = time.monotonic() - started
+        _jobs[job_id] = {
+            **_jobs.get(job_id, {"job_id": job_id}),
+            "status": "failed",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+            "duration_sec": round(duration, 2),
+            "error": str(exc),
+        }

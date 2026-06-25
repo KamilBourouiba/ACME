@@ -10,6 +10,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY acme ./acme
+COPY data/longmemeval ./data/longmemeval
 COPY pyproject.toml .
 
 RUN pip install --no-cache-dir .

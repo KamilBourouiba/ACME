@@ -46,7 +46,7 @@ class RAGBaselineRunner:
         )[:top_k]
         context = "\n".join(f"- {text}" for text, _ in ranked)
         result = await self.llm.reason(question=question, memory_context=context)
-        return result["answer"]
+        return str(result["answer"])
 
     async def _run_scenario(self, scenario: MemoryBenchScenario) -> dict[str, Any]:
         self.memory.episodes.clear()

@@ -17,3 +17,5 @@ azure/postgres-flex.env
 azure/deployment.env
 azure/api-key.env
 benchmark-results/
+data/longmemeval/longmemeval_*.json
+!data/longmemeval/fixture_oracle_sample.json

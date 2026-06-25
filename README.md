@@ -366,6 +366,17 @@ python scripts/consolidation_worker.py --url http://localhost:8000
 
 Academic draft: [docs/PAPER.md](docs/PAPER.md)
 
+### LongMemEval (industry standard)
+
+External validation on the official [LongMemEval](https://github.com/xiaowu0162/LongMemEval) oracle split (ICLR 2025). Uses the **same yes/no judge prompts** as the reference implementation.
+
+```bash
+bash scripts/download_longmemeval.sh
+python scripts/run_longmemeval.py --types knowledge-update --systems acme,rag,memgpt
+```
+
+See [docs/LONGMEMEVAL.md](docs/LONGMEMEVAL.md). LongMemEval (QA accuracy) and MemoryBench (belief/feedback) are **complementary** — report separately.
+
 ---
 
 ```

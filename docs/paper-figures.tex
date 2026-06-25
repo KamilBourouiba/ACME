@@ -1,0 +1,122 @@
+% ACME TikZ figures
+
+\tikzset{
+  acmebox/.style={
+    draw=acmefigblue!70,
+    rounded corners=4pt,
+    line width=0.55pt,
+    align=center,
+    font=\small\sffamily,
+    inner sep=5pt,
+    minimum width=3.35in,
+    minimum height=0.52in
+  },
+  acmeboxin/.style={acmebox, fill=acmein},
+  acmeboxmem/.style={acmebox, fill=acmemem},
+  acmeboxreason/.style={acmebox, fill=acmereason},
+  acmeboxfb/.style={acmebox, fill=acmefb},
+  acmearrow/.style={-{Stealth[length=2.2mm]}, line width=0.65pt, draw=acmefigblue!80},
+  acmeloop/.style={-{Stealth[length=2mm]}, line width=0.55pt, draw=acmefiggray, dashed}
+}
+
+\newcommand{\acmeFigureLoop}{%
+  \begin{figure*}[t]
+    \centering
+    \begin{tikzpicture}[
+      node distance=0.42in,
+      every node/.style={transform shape}
+    ]
+      \node[acmeboxin] (user) {User / Environment};
+      \node[acmeboxin, below=of user] (extract) {LLM Extraction};
+      \node[acmeboxmem, below=of extract] (store) {Episodic Store + Semantic Graph};
+      \node[acmeboxreason, below=of store] (belief) {Belief Engine};
+      \node[acmeboxreason, below=of belief] (retrieve) {Hybrid Retrieval + Contrarian Verification};
+      \node[acmeboxin, below=of retrieve] (answer) {Answer / Prediction};
+      \node[acmeboxfb, below=of answer] (feedback) {Feedback + Outcome Validation};
+
+      \draw[acmearrow] (user) -- (extract);
+      \draw[acmearrow] (extract) -- (store);
+      \draw[acmearrow] (store) -- (belief);
+      \draw[acmearrow] (belief) -- (retrieve);
+      \draw[acmearrow] (retrieve) -- (answer);
+      \draw[acmearrow] (answer) -- (feedback);
+
+      \draw[acmeloop] (feedback.east) -- ++(0.55in,0) |- node[pos=0.22, right, font=\scriptsize\sffamily, align=left] {Belief Update /\\Demotion /\\Consolidation} (belief.east);
+
+      \begin{scope}[on background layer]
+        \node[draw=acmefigblue!25, rounded corners=5pt, inner sep=6pt, fit=(user)(extract), label={[font=\scriptsize\sffamily\color{acmefiggray}]above left:Input / output}] {};
+        \node[draw=acmefigblue!25, rounded corners=5pt, inner sep=6pt, fit=(store), label={[font=\scriptsize\sffamily\color{acmefiggray}]above left:Memory stores}] {};
+        \node[draw=acmefigblue!25, rounded corners=5pt, inner sep=6pt, fit=(belief)(retrieve), label={[font=\scriptsize\sffamily\color{acmefiggray}]above left:Reasoning}] {};
+        \node[draw=acmefigblue!25, rounded corners=5pt, inner sep=6pt, fit=(feedback), label={[font=\scriptsize\sffamily\color{acmefiggray}]above left:Feedback / update}] {};
+      \end{scope}
+    \end{tikzpicture}
+    \caption{ACME cognitive loop: extraction, hybrid memory, belief governance, and closed-loop correction.}
+    \label{fig:acme-loop}
+  \end{figure*}%
+}
+
+\newcommand{\acmeFigureBelief}{%
+  \begin{figure}[t]
+    \centering
+    \begin{tikzpicture}[
+      node distance=0.24in and 0.08in,
+      every node/.style={transform shape},
+      scale=0.92, transform shape
+    ]
+      \node[acmeboxreason, minimum width=0.68in, minimum height=0.44in, font=\scriptsize\sffamily] (obs) {Observation};
+      \node[acmeboxreason, right=of obs, minimum width=0.64in] (inf) {Inference};
+      \node[acmeboxreason, right=of inf, minimum width=0.72in] (hyp) {Hypothesis};
+      \node[acmeboxreason, right=of hyp, minimum width=0.58in] (bel) {Belief};
+
+      \draw[acmearrow] (obs) -- (inf);
+      \draw[acmearrow] (inf) -- (hyp);
+      \draw[acmearrow] (hyp) -- (bel);
+
+      \node[font=\scriptsize\sffamily\color{acmefiggray}, above=0.06in of hyp] {evidence accumulation / CRS increase};
+
+      \node[acmeboxfb, below=0.48in of bel, minimum width=0.78in, minimum height=0.42in, font=\scriptsize\sffamily] (chal) {Challenged};
+      \node[acmeboxfb, below=of chal, minimum width=0.95in, minimum height=0.42in] (dep) {Deprecated / Archived};
+
+      \draw[acmearrow] (bel) -- (chal);
+      \draw[acmearrow] (chal) -- (dep);
+
+      \node[font=\scriptsize\sffamily\color{acmefiggray}, below=0.05in of chal] {contradiction / failed prediction};
+    \end{tikzpicture}
+    \caption{Belief lifecycle: promotion along evidence accumulation and demotion under contradiction.}
+    \label{fig:belief-lifecycle}
+  \end{figure}%
+}
+
+\newcommand{\acmeResultSummary}{%
+  \begin{figure*}[t]
+    \centering
+    \small\sffamily
+    \begin{tikzpicture}[
+      x=1in, y=0.36in,
+      bar/.style={rounded corners=1.5pt, minimum height=0.20in, inner sep=0pt, anchor=west},
+      lbl/.style={anchor=east, font=\small\sffamily},
+      val/.style={anchor=west, font=\small\sffamily}
+    ]
+      \def\barscale{2.85}
+      \node[lbl] at (0,3) {ACME};
+      \node[bar, fill=acmefigblue!75, minimum width={0.925*\barscale in}] at (0.05,3) {};
+      \node[val] at ($(0.05,3)+(0.925*\barscale in,0)+(0.06,0)$) {\textbf{0.925}};
+
+      \node[lbl] at (0,2) {RAG};
+      \node[bar, fill=acmefiggray!45, minimum width={0.487*\barscale in}] at (0.05,2) {};
+      \node[val] at ($(0.05,2)+(0.487*\barscale in,0)+(0.06,0)$) {0.487};
+
+      \node[lbl] at (0,1) {MemGPT};
+      \node[bar, fill=acmefiggray!35, minimum width={0.487*\barscale in}] at (0.05,1) {};
+      \node[val] at ($(0.05,1)+(0.487*\barscale in,0)+(0.06,0)$) {0.487};
+
+      \node[lbl] at (0,0) {LangGraph};
+      \node[bar, fill=acmefiggray!30, minimum width={0.469*\barscale in}] at (0.05,0) {};
+      \node[val] at ($(0.05,0)+(0.469*\barscale in,0)+(0.06,0)$) {0.469};
+
+      \node[font=\scriptsize\color{acmefiggray}, anchor=north] at (1.55,-0.5) {Overall score (GPT-4.1, MemoryBench v3.1, job \texttt{3b31e5e3})};
+    \end{tikzpicture}
+    \caption{Result summary: ACME leads primarily on feedback and belief-quality dimensions unavailable to baselines.}
+    \label{fig:result-summary}
+  \end{figure*}%
+}

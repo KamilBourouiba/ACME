@@ -1,0 +1,180 @@
+\usepackage{setspace}
+\setstretch{1.08}
+\usepackage{parskip}
+\setlength{\parskip}{0.42em plus 0.1em minus 0.08em}
+
+\usepackage{titlesec}
+\titleformat{\section}
+  {\sffamily\large\bfseries}{\thesection.}{0.6em}{}
+\titleformat{\subsection}
+  {\sffamily\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}
+  {\sffamily\normalsize\bfseries\itshape}{}{0em}{}
+\titlespacing*{\section}{0pt}{2.4ex plus 1ex minus .2ex}{1.1ex plus .2ex}
+\titlespacing*{\subsection}{0pt}{1.8ex plus .8ex minus .2ex}{0.8ex plus .2ex}
+\titlespacing*{\subsubsection}{0pt}{1.4ex plus .6ex minus .2ex}{0.5ex plus .2ex}
+
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{calc}
+\usepackage{colortbl}
+\usepackage{siunitx}
+\usepackage{makecell}
+\usepackage{adjustbox}
+\usepackage{needspace}
+\usepackage{placeins}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, backgrounds, calc}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+\renewcommand{\arraystretch}{1.35}
+\setlength{\tabcolsep}{7pt}
+
+\usepackage{microtype}
+\usepackage{enumitem}
+\setlist[itemize]{topsep=0.35em, itemsep=0.2em, parsep=0pt, leftmargin=1.4em}
+\setlist[enumerate]{topsep=0.35em, itemsep=0.2em, parsep=0pt, leftmargin=1.4em}
+
+\renewenvironment{abstract}{%
+  \vspace{0.2em}%
+  \begin{center}%
+  \begin{minipage}{0.92\linewidth}%
+  \textbf{\large\sffamily Abstract}\par\vspace{0.55em}%
+  \itshape\small%
+}{%
+  \end{minipage}%
+  \end{center}%
+  \vspace{0.85em}%
+}
+
+\definecolor{keybg}{RGB}{245,248,252}
+\definecolor{keyborder}{RGB}{0,82,120}
+\definecolor{acmefigblue}{RGB}{0,82,120}
+\definecolor{acmefiggray}{RGB}{100,110,125}
+\definecolor{acmefiglight}{RGB}{235,242,248}
+\definecolor{acmein}{RGB}{228,240,250}
+\definecolor{acmemem}{RGB}{220,236,228}
+\definecolor{acmereason}{RGB}{248,240,225}
+\definecolor{acmefb}{RGB}{238,228,246}
+\definecolor{acmerow}{RGB}{232,240,248}
+\definecolor{bannerbg}{RGB}{241,245,249}
+
+\newtcolorbox{keyfinding}{%
+  enhanced,
+  breakable,
+  colback=keybg,
+  colframe=white,
+  boxrule=0pt,
+  borderline west={2.5pt}{0pt}{keyborder},
+  left=7pt, right=7pt, top=5pt, bottom=5pt,
+  before skip=0.85em,
+  after skip=0.95em,
+  fontupper=\small
+}
+\newtcolorbox{contributions}{%
+  enhanced,
+  colback=keybg,
+  colframe=keyborder!50,
+  boxrule=0.35pt,
+  arc=2pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  fonttitle=\sffamily\bfseries\small,
+  title={Contributions},
+  before skip=0.6em,
+  after skip=0.85em,
+  fontupper=\small
+}
+\newtcolorbox{metabox}{%
+  enhanced,
+  colback=bannerbg,
+  colframe=keyborder!25,
+  boxrule=0.3pt,
+  arc=3pt,
+  left=10pt, right=10pt, top=6pt, bottom=6pt,
+  before skip=0pt,
+  after skip=0pt
+}
+\newtcolorbox{bannerbox}{%
+  enhanced,
+  colback=bannerbg,
+  colframe=keyborder!35,
+  boxrule=0.35pt,
+  arc=4pt,
+  left=8pt, right=8pt, top=7pt, bottom=7pt,
+  halign=center
+}
+
+\newcommand{\acmeTitleStrip}{%
+  \begin{bannerbox}
+    \small\sffamily\color{keyborder}
+    LLM \textrightarrow\ Episodic Memory \textrightarrow\ Belief Engine \textrightarrow\
+    Feedback Loop \textrightarrow\ Updated Beliefs
+  \end{bannerbox}%
+}
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\usepackage{caption}
+\captionsetup{skip=0.55em, labelfont={bf,sf}, font=small}
+\captionsetup[table]{position=above,skip=0.3em}
+
+\usepackage{fvextra}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\},xleftmargin=0.5em,fontsize=\footnotesize}
+
+\clubpenalty=3000
+\widowpenalty=3000
+\displaywidowpenalty=3000
+
+\newcommand{\acmeBackMatterBegin}{%
+  \FloatBarrier
+  \clearpage
+  \onecolumn
+}
+\newcommand{\acmeReferencesBegin}{%
+  \small
+  \setlength{\parskip}{0.32em}%
+  \setlength{\parindent}{-1.15em}%
+  \setlength{\leftskip}{1.15em}%
+}
+\newcommand{\acmeReferencesEnd}{%
+  \normalsize
+  \setlength{\parindent}{0pt}%
+  \setlength{\leftskip}{0pt}%
+}
+
+\sisetup{
+  table-format=1.3,
+  table-number-alignment=right,
+  detect-weight=true,
+  detect-family=true
+}
+
+\newcommand{\acmeTableHdr}{%
+  \textbf{System} &
+  {\textbf{Ret.}} &
+  {\textbf{Gnd.}} &
+  {\textbf{Fbk.}} &
+  {\textbf{Bel.}} &
+  {\textbf{Ovr.}} \\%
+}
+
+% Multi-line benchmark column headers (positioning tables)
+\newcommand{\acmeBenchCols}{%
+  \textbf{Capability} &
+  \makecell[c]{\textbf{LongMem}\\\textbf{Eval}} &
+  \makecell[c]{\textbf{MemAgent}\\\textbf{Bench}} &
+  \makecell[c]{\textbf{Reflection}\\\textbf{Bench}} &
+  \makecell[c]{\textbf{Mem}\\\textbf{Bench}} &
+  \makecell[c]{\textbf{Memory}\\\textbf{Bench}} \\%
+}
+\newcommand{\acmeBenchColsProp}{%
+  \textbf{Property} &
+  \makecell[c]{\textbf{LongMem}\\\textbf{Eval}} &
+  \makecell[c]{\textbf{MemAgent}\\\textbf{Bench}} &
+  \makecell[c]{\textbf{Reflection}\\\textbf{Bench}} &
+  \makecell[c]{\textbf{Mem}\\\textbf{Bench}} &
+  \makecell[c]{\textbf{Memory}\\\textbf{Bench}} \\%
+}

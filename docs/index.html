@@ -62,14 +62,16 @@
 
   <section id="problem">
     <div class="container">
-      <div class="section-label">Research question</div>
-      <h2>When does a collection of experiences deserve to become a belief?</h2>
-      <p class="section-intro">
-        Standard LLM stacks freeze knowledge in weights, lack durable episodic memory, and cannot learn
-        structurally from failure. RAG retrieves documents but has no explicit belief states or feedback loops.
-        ACME operationalizes a full cognitive lifecycle beyond retrieval.
-      </p>
-      <div class="grid-2">
+      <div class="section-head">
+        <div class="section-label">Research question</div>
+        <h2>When does a collection of experiences deserve to become a belief?</h2>
+        <p class="section-intro">
+          Standard LLM stacks freeze knowledge in weights, lack durable episodic memory, and cannot learn
+          structurally from failure. RAG retrieves documents but has no explicit belief states or feedback loops.
+          ACME operationalizes a full cognitive lifecycle beyond retrieval.
+        </p>
+      </div>
+      <div class="grid-2 content-block">
         <div class="card">
           <div class="card-icon icon-orange">⚠</div>
           <h3>LLM limitations</h3>
@@ -84,16 +86,18 @@
     </div>
   </section>
 
-  <section id="architecture">
+  <section id="architecture" class="section-alt">
     <div class="container">
-      <div class="section-label">System design</div>
-      <h2>Seven engines, one cognitive loop</h2>
-      <p class="section-intro">
-        Experiences flow through extraction into PostgreSQL (episodic + pgvector) and Neo4j (semantic graph).
-        Queries combine graph neighborhood retrieval with vector search, then optional contrarian challenge.
-        Feedback updates beliefs, logs failures, and triggers consolidation.
-      </p>
-      <div class="arch-diagram">                         ┌─────────────────────────────────────┐
+      <div class="section-head">
+        <div class="section-label">System design</div>
+        <h2>Seven engines, one cognitive loop</h2>
+        <p class="section-intro">
+          Experiences flow through extraction into PostgreSQL (episodic + pgvector) and Neo4j (semantic graph).
+          Queries combine graph neighborhood retrieval with vector search, then optional contrarian challenge.
+          Feedback updates beliefs, logs failures, and triggers consolidation.
+        </p>
+      </div>
+      <div class="arch-diagram content-block">                         ┌─────────────────────────────────────┐
                          │           LLM Provider              │
                          │   Azure OpenAI GPT-4.1 / Ollama     │
                          │  extraction · reasoning · judge     │
@@ -110,7 +114,7 @@
               │ Postgres │ │Neo4j│ │ CRS  │ │     │ │     │ │       │
               └──────────┘ └─────┘ └─────┘ └─────┘ └─────┘ └───────┘</div>
 
-      <div class="loop-steps" style="margin-top: 1.5rem;">
+      <div class="loop-steps content-block">
         <div class="loop-step"><strong>1</strong> Ingest &amp; extract</div>
         <div class="loop-step"><strong>2</strong> Graph + vector retrieve</div>
         <div class="loop-step"><strong>3</strong> Reason + contrarian</div>
@@ -120,7 +124,7 @@
         <div class="loop-step"><strong>7</strong> Learn &amp; predict</div>
       </div>
 
-      <div class="grid-3" style="margin-top: 2rem;">
+      <div class="grid-3 content-block">
         <div class="card">
           <div class="card-icon icon-purple">→</div>
           <h3>Belief lifecycle</h3>
@@ -142,15 +146,17 @@
 
   <section id="benchmark">
     <div class="container">
-      <div class="section-label">MemoryBench v3</div>
-      <h2>Production benchmark results</h2>
-      <p class="section-intro">
-        Thirteen sandbox-isolated scenarios scored by an LLM judge (Azure OpenAI GPT-4.1).
-        Each scenario cleans Postgres + Neo4j before run. Baselines (RAG, MemGPT, LangGraph) lack
-        feedback and belief layers — those metrics are N/A for them.
-      </p>
+      <div class="section-head">
+        <div class="section-label">MemoryBench v3.1</div>
+        <h2>Production benchmark results</h2>
+        <p class="section-intro">
+          Fourteen sandbox-isolated scenarios scored by an LLM judge (Azure OpenAI GPT-4.1).
+          Each scenario cleans Postgres + Neo4j before run. Baselines (RAG, MemGPT, LangGraph) lack
+          feedback and belief layers — those metrics are N/A for them.
+        </p>
+      </div>
 
-      <div class="bench-table-wrap">
+      <div class="bench-table-wrap content-block">
         <table>
           <thead>
             <tr>
@@ -219,12 +225,12 @@
         </table>
       </div>
 
-      <p style="margin-top: 1.25rem; color: var(--muted); font-size: 0.88rem;">
+      <p class="meta-note">
         Run date: 24 June 2026 · Duration: ~12 min · Judge: semantic LLM ·
         Reproduce: <code>./scripts/run_prod_benchmark.sh</code>
       </p>
 
-      <div class="grid-2" style="margin-top: 2rem;">
+      <div class="grid-2 content-block">
         <div class="card">
           <h3>Scenario coverage</h3>
           <p>Retention, contradiction handling, multi-source conflict, error injection, long-horizon noise, hallucination resistance, feedback/belief adjustment, adversarial noise, tenant isolation, healthcare transfer, multi-session recall, prediction-outcome loop.</p>
@@ -237,15 +243,17 @@
     </div>
   </section>
 
-  <section id="built">
+  <section id="built" class="section-alt">
     <div class="container">
-      <div class="section-label">Project delivery</div>
-      <h2>Everything built in this release</h2>
-      <p class="section-intro">
-        From research prototype to production Azure deployment, arXiv manuscript, CI gates, and investor demo — a complete reproducible stack.
-      </p>
+      <div class="section-head">
+        <div class="section-label">Project delivery</div>
+        <h2>Everything built in this release</h2>
+        <p class="section-intro">
+          From research prototype to production Azure deployment, arXiv manuscript, CI gates, and investor demo — a complete reproducible stack.
+        </p>
+      </div>
 
-      <div class="timeline">
+      <div class="timeline content-block">
         <div class="timeline-item">
           <h3>Core cognitive engine</h3>
           <p>FastAPI orchestrator with seven specialized engines, event store, hybrid retrieval, contrarian pass, and autonomous learning loop.</p>
@@ -299,9 +307,11 @@
 
   <section id="stack">
     <div class="container">
-      <div class="section-label">Live deployment</div>
-      <h2>Production stack</h2>
-      <div class="pills" style="margin-bottom: 2rem;">
+      <div class="section-head">
+        <div class="section-label">Live deployment</div>
+        <h2>Production stack</h2>
+      </div>
+      <div class="pills content-block">
         <span class="pill">Azure Container Apps</span>
         <span class="pill">Azure OpenAI GPT-4.1</span>
         <span class="pill">text-embedding-3-small</span>
@@ -311,7 +321,7 @@
         <span class="pill">Python 3.10+</span>
         <span class="pill">Docker / ACR</span>
       </div>
-      <div class="grid-2">
+      <div class="grid-2 content-block">
         <div class="card">
           <h3>API endpoint</h3>
           <p style="font-family: var(--mono); font-size: 0.78rem; word-break: break-all;">
@@ -331,11 +341,13 @@
     </div>
   </section>
 
-  <section id="links">
+  <section id="links" class="section-alt">
     <div class="container">
-      <div class="section-label">Resources</div>
-      <h2>Links &amp; documentation</h2>
-      <div class="grid-3">
+      <div class="section-head">
+        <div class="section-label">Resources</div>
+        <h2>Links &amp; documentation</h2>
+      </div>
+      <div class="grid-3 content-block">
         <div class="card">
           <h3>Code</h3>
           <p><a href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">github.com/KamilBourouiba/ACME</a></p>

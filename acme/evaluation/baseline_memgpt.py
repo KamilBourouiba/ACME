@@ -49,7 +49,7 @@ class MemGPTBaselineRunner:
         core_context = "\n".join(f"- {text}" for text in self.memory.core)
         memory_context = f"Core memory:\n{core_context}\n\nArchival memory:\n{archival_context}"
         result = await self.llm.reason(question=question, memory_context=memory_context)
-        return result["answer"]
+        return str(result["answer"])
 
     async def _run_scenario(self, scenario: MemoryBenchScenario) -> dict[str, Any]:
         self.memory = _MemGPTMemory()

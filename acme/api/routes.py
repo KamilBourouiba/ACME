@@ -20,6 +20,7 @@ from acme.schemas import (
     CompressionResponse,
     EpisodeMemoryStatus,
     BenchmarkComparisonResult,
+    LongMemEvalAsyncRequest,
     CausalValidateRequest,
     CausalValidateResponse,
     ConsolidationResponse,
@@ -314,6 +315,34 @@ async def run_benchmark_comparison_async(request: Request) -> dict:
     return {
         "job_id": job_id,
         "status": "running",
+        "poll_url": f"/api/v1/benchmark/compare/jobs/{job_id}",
+    }
+
+
+@router.post("/benchmark/longmemeval/async")
+async def run_longmemeval_async(
+    request: Request,
+    body: LongMemEvalAsyncRequest | None = None,
+) -> dict:
+    """Start LongMemEval industry benchmark in background."""
+    verify_api_key(request)
+    check_benchmark_rate_limit(request)
+    from acme.evaluation.benchmark_jobs import start_longmemeval_job
+
+    tenant_id = getattr(request.state, "tenant_id", settings.default_tenant_id)
+    payload = body or LongMemEvalAsyncRequest()
+    job_id = await start_longmemeval_job(
+        tenant_id=tenant_id,
+        question_types=payload.question_types,
+        limit=payload.limit,
+        offset=payload.offset,
+        systems=payload.systems,
+        dataset_path=payload.dataset_path,
+    )
+    return {
+        "job_id": job_id,
+        "status": "running",
+        "type": "longmemeval",
         "poll_url": f"/api/v1/benchmark/compare/jobs/{job_id}",
     }
 

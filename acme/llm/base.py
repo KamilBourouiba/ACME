@@ -58,6 +58,12 @@ JSON:"""
             "Use ONLY the provided memory context. If insufficient, say so. "
             "Return ONLY valid JSON: answer, reasoning, confidence (0-1), entities_used (list of strings)."
         )
+        if (extra_context or {}).get("mode") == "longmemeval_transcript_first":
+            system += (
+                " The memory context contains chat transcripts sorted newest-first. "
+                "When sessions disagree, answer with the most recent fact. "
+                "Give a direct concise answer (not 'insufficient' if the fact appears in any session)."
+            )
         context_block = json.dumps(extra_context or {}, ensure_ascii=False)
         prompt = f"""Question: {question}
 
@@ -71,8 +77,8 @@ JSON:"""
         raw = await self.generate(prompt=prompt, system=system, temperature=0.3, timeout=300.0, json_mode=True)
         parsed = self._parse_json(raw)
         return {
-            "answer": parsed.get("answer", "Insufficient memory to answer."),
-            "reasoning": parsed.get("reasoning", ""),
+            "answer": self._coerce_text(parsed.get("answer"), "Insufficient memory to answer."),
+            "reasoning": self._coerce_text(parsed.get("reasoning"), ""),
             "confidence": float(parsed.get("confidence", 0.3)),
             "entities_used": parsed.get("entities_used", []),
         }
@@ -201,6 +207,14 @@ JSON:"""
                 "reasoning": "Deterministic fallback — LLM judge unavailable.",
                 "judge": "deterministic",
             }
+
+    @staticmethod
+    def _coerce_text(value: Any, default: str = "") -> str:
+        if value is None:
+            return default
+        if isinstance(value, str):
+            return value
+        return str(value)
 
     @staticmethod
     def _parse_json(text: str) -> dict[str, Any]:

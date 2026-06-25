@@ -120,7 +120,14 @@ class ACMEOrchestrator:
         rule_extraction = rule_based_extraction(data.content, data.action)
         extraction = merge_extractions(llm_extraction, rule_extraction)
 
-        benchmark_tag = BENCHMARK_TAG if BENCHMARK_TAG in data.tags else None
+        from acme.evaluation.sandbox import LONGMEMEVAL_TAG
+
+        if LONGMEMEVAL_TAG in data.tags:
+            benchmark_tag = LONGMEMEVAL_TAG
+        elif BENCHMARK_TAG in data.tags:
+            benchmark_tag = BENCHMARK_TAG
+        else:
+            benchmark_tag = None
         entity_refs, relation_refs = await self.graph.apply_extraction(
             extraction.entities,
             extraction.relations,
@@ -181,10 +188,10 @@ class ACMEOrchestrator:
 
         query_session = QuerySession(
             question=data.question,
-            answer=result["answer"],
-            confidence=result["confidence"],
-            reasoning=result["reasoning"],
-            graph_refs=entities,
+            answer=str(result["answer"]),
+            confidence=float(result["confidence"]),
+            reasoning=str(result.get("reasoning", "")),
+            graph_refs=[str(ref) for ref in entities],
             tenant_id=self.tenant_id,
         )
         self.session.add(query_session)
@@ -201,9 +208,9 @@ class ACMEOrchestrator:
         await self.session.commit()
 
         return QueryResponse(
-            answer=result["answer"],
-            confidence=result["confidence"],
-            reasoning=result["reasoning"],
+            answer=str(result["answer"]),
+            confidence=float(result["confidence"]),
+            reasoning=str(result.get("reasoning", "")),
             contrarian_view=contrarian_view,
             beliefs_used=belief_scores[:5],
             entities_retrieved=entities,

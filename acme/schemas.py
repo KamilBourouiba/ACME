@@ -306,6 +306,14 @@ class BenchmarkComparisonResult(BaseModel):
     export: dict[str, Any] = Field(default_factory=dict)
 
 
+class LongMemEvalAsyncRequest(BaseModel):
+    question_types: list[str] | None = None
+    limit: int | None = None
+    offset: int = 0
+    systems: list[str] | None = None
+    dataset_path: str | None = None
+
+
 class CausalValidateRequest(BaseModel):
     belief_graph_id: str | None = None
     prediction_id: UUID | None = None

@@ -1,7 +1,7 @@
 # arXiv submission checklist — ACME v1.0
 
 **Source manuscript:** `docs/PAPER.md`  
-**PDF:** `docs/PAPER.pdf` (generate: `./scripts/export_paper_pdf.sh`)  
+**PDF:** `docs/PAPER.pdf` (generate: `./scripts/export_paper_pdf.sh` — Markdown → `PAPER.tex` → XeLaTeX)  
 **Release:** https://github.com/KamilBourouiba/ACME/releases/tag/v0.1.0-azure
 
 ## Pre-submission checklist

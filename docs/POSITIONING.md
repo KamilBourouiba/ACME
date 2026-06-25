@@ -27,3 +27,12 @@ How MemoryBench compares to contemporary memory and epistemic-agent evaluations 
 - Reflection-Bench: https://arxiv.org/abs/2410.16270
 - MemBench: https://arxiv.org/html/2506.21605
 - Hindsight: https://arxiv.org/abs/2512.12818
+
+## LongMemEval adapter
+
+ACME ships an official LongMemEval oracle adapter (`acme/evaluation/longmemeval.py`). See **`docs/LONGMEMEVAL.md`** for download, run, and interpretation.
+
+```bash
+bash scripts/download_longmemeval.sh
+python scripts/run_longmemeval.py --types knowledge-update --systems acme,rag,memgpt
+```
