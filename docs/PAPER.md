@@ -97,17 +97,18 @@ To complement MemoryBench, we integrate the official **LongMemEval** oracle spli
 
 **Protocol.** Each question resets sandbox state (`longmemeval` tag). Haystack sessions are serialized as multi-turn user/assistant transcripts and ingested as experiences. ACME uses a **transcript-first** answer path: sessions are ranked newest-first, the LLM reads full chat transcripts (with belief graph as secondary context), and knowledge-update items trigger belief demotion on superseded sources. RAG and MemGPT baselines answer from retrieved context; an independent LLM judge (same deployment family as MemoryBench) applies type-specific rubrics (`knowledge-update`, `temporal-reasoning`, `abstention`, etc.).
 
-**Production run (June 2026):** job `45623ca0`, image `acme-api:longmemeval-v5-hybrid`, **500 Q clean** (~6.2 h). Summary: `benchmark-results/longmemeval-v5-full-500q.json`.
+**Production run (June 2026):** job `45623ca0`, image `acme-api:longmemeval-v5-hybrid`, **500 Q clean** (~6.2 h). Summary: \url{benchmark-results/longmemeval-v5-full-500q.json}.
 
 **Reproduction:**
 ```bash
 bash scripts/download_longmemeval.sh
-bash scripts/run_longmemeval_prod.sh   # Azure API
-# or locally:
-python scripts/run_longmemeval.py --types knowledge-update --systems acme,rag,memgpt
+bash scripts/run_longmemeval_prod.sh
+python scripts/run_longmemeval.py \
+  --types knowledge-update --systems acme,rag,memgpt
 ```
+(Azure API for the prod script; full 500 Q: `LONGMEMEVAL_TYPES=all`.)
 
-Results export to `benchmark-results/longmemeval-latest.json`. LongMemEval measures **QA accuracy over chat history**; MemoryBench measures **belief lifecycle and feedback** --- the two benchmarks are complementary and must not be merged into a single score.
+Results export to \url{benchmark-results/longmemeval-latest.json}. LongMemEval measures **QA accuracy over chat history**; MemoryBench measures **belief lifecycle and feedback** --- the two benchmarks are complementary and must not be merged into a single score.
 
 \begin{keyfinding}
 \textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1, single clean run), ACME v5 hybrid routing reaches \textbf{87.6\%} overall vs.\ 77.6\% (RAG) and 78.6\% (MemGPT) --- +10.0 points over RAG --- with gains on \texttt{temporal-reasoning} (80.3\%), abstention (83.3\%), and \texttt{knowledge-update} (94.4\%) while preserving MemoryBench belief/feedback advantages (Section 6).

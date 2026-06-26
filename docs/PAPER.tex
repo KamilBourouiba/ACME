@@ -34,6 +34,7 @@
 
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
+\usepackage{xurl}
 \hypersetup{
   colorlinks=true,
   linkcolor=NavyBlue,
@@ -85,6 +86,20 @@
 \newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
 \newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
 \newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+
+% Pandoc's snugshade code blocks ignore column width in twocolumn mode.
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{%
+  breaklines,breakanywhere=true,commandchars=\\\{\},%
+  xleftmargin=0pt,xrightmargin=0pt,fontsize=\scriptsize}
+\renewenvironment{Shaded}{%
+  \begin{tcolorbox}[%
+    enhanced,breakable,%
+    colback=shadecolor,colframe=shadecolor,boxrule=0pt,%
+    left=4pt,right=4pt,top=4pt,bottom=4pt,arc=2pt,%
+    width=\linewidth,before skip=0.45em,after skip=0.55em]%
+}{%
+  \end{tcolorbox}%
+}
 
 \newcommand{\papertagline}{A production-tested cognitive memory substrate for belief lifecycle management in LLM agents.}
 
@@ -365,20 +380,23 @@ MemoryBench) applies type-specific rubrics (\texttt{knowledge-update},
 \textbf{Production run (June 2026):} job \texttt{45623ca0}, image
 \texttt{acme-api:longmemeval-v5-hybrid}, \textbf{500 Q clean}
 (\textasciitilde6.2 h). Summary:
-\texttt{benchmark-results/longmemeval-v5-full-500q.json}.
+\url{benchmark-results/longmemeval-v5-full-500q.json}.
 
 \textbf{Reproduction:}
 
 \begin{Shaded}
 \begin{Highlighting}[]
 \FunctionTok{bash}\NormalTok{ scripts/download\_longmemeval.sh}
-\FunctionTok{bash}\NormalTok{ scripts/run\_longmemeval\_prod.sh   }\CommentTok{\# Azure API}
-\CommentTok{\# or locally:}
-\ExtensionTok{python}\NormalTok{ scripts/run\_longmemeval.py }\AttributeTok{{-}{-}types}\NormalTok{ knowledge{-}update }\AttributeTok{{-}{-}systems}\NormalTok{ acme,rag,memgpt}
+\FunctionTok{bash}\NormalTok{ scripts/run\_longmemeval\_prod.sh}
+\ExtensionTok{python}\NormalTok{ scripts/run\_longmemeval.py }\DataTypeTok{\textbackslash{}}
+  \AttributeTok{{-}{-}types}\NormalTok{ knowledge{-}update }\AttributeTok{{-}{-}systems}\NormalTok{ acme,rag,memgpt}
 \end{Highlighting}
 \end{Shaded}
 
-Results export to \texttt{benchmark-results/longmemeval-latest.json}.
+(Azure API for the prod script; full 500 Q:
+\texttt{LONGMEMEVAL\_TYPES=all}.)
+
+Results export to \url{benchmark-results/longmemeval-latest.json}.
 LongMemEval measures \textbf{QA accuracy over chat history}; MemoryBench
 measures \textbf{belief lifecycle and feedback} --- the two benchmarks
 are complementary and must not be merged into a single score.

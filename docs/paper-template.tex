@@ -34,6 +34,7 @@
 
 \usepackage[dvipsnames]{xcolor}
 \usepackage{hyperref}
+\usepackage{xurl}
 \hypersetup{
   colorlinks=true,
   linkcolor=NavyBlue,
@@ -48,6 +49,20 @@
 $if(highlighting-macros)$
 $highlighting-macros$
 $endif$
+
+% Pandoc's snugshade code blocks ignore column width in twocolumn mode.
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{%
+  breaklines,breakanywhere=true,commandchars=\\\{\},%
+  xleftmargin=0pt,xrightmargin=0pt,fontsize=\scriptsize}
+\renewenvironment{Shaded}{%
+  \begin{tcolorbox}[%
+    enhanced,breakable,%
+    colback=shadecolor,colframe=shadecolor,boxrule=0pt,%
+    left=4pt,right=4pt,top=4pt,bottom=4pt,arc=2pt,%
+    width=\linewidth,before skip=0.45em,after skip=0.55em]%
+}{%
+  \end{tcolorbox}%
+}
 
 \newcommand{\papertagline}{A production-tested cognitive memory substrate for belief lifecycle management in LLM agents.}
 
