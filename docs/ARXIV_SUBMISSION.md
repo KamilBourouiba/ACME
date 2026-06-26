@@ -25,10 +25,9 @@
 
 ## Key claims (verify against latest benchmark export)
 
-1. ACME overall **0.925** vs RAG **0.487** on MemoryBench v3 (13 scenarios, GPT-4.1, 24 June 2026, job `3b31e5e3`).
-2. Gains driven by **feedback correction + belief quality (CRS)**, not retention alone.
-3. Per-scenario **sandbox isolation** (Postgres + Neo4j) for reproducibility.
-4. LongMemEval oracle **500 Q** (clean v5 run): ACME **0.876** vs RAG **0.776** (job `45623ca0`, June 2026).
+1. On MemoryBench v3 (GPT-4.1), ACME leads on **feedback (1.000)** and **belief quality (0.700)**; RAG-like baselines score N/A on those columns, capping overall near 0.49. Retention/groundedness are competitive across systems.
+2. LongMemEval oracle **500 Q**: ACME **0.876** vs RAG-like **0.776** (job `45623ca0`, June 2026).
+3. Present as an **LLM agent memory systems paper with benchmark evidence**, not universal SOTA.
 
 ## Submission steps (arxiv.org)
 

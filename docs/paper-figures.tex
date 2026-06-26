@@ -102,19 +102,19 @@
       \node[bar, fill=acmefigblue!75, minimum width={0.925*\barscale in}] at (0.05,3) {};
       \node[val] at ($(0.05,3)+(0.925*\barscale in,0)+(0.06,0)$) {\textbf{0.925}};
 
-      \node[lbl] at (0,2) {RAG};
+      \node[lbl] at (0,2) {RAG-like};
       \node[bar, fill=acmefiggray!45, minimum width={0.487*\barscale in}] at (0.05,2) {};
       \node[val] at ($(0.05,2)+(0.487*\barscale in,0)+(0.06,0)$) {0.487};
 
-      \node[lbl] at (0,1) {MemGPT};
+      \node[lbl] at (0,1) {MemGPT-insp.};
       \node[bar, fill=acmefiggray!35, minimum width={0.487*\barscale in}] at (0.05,1) {};
       \node[val] at ($(0.05,1)+(0.487*\barscale in,0)+(0.06,0)$) {0.487};
 
-      \node[lbl] at (0,0) {LangGraph};
+      \node[lbl] at (0,0) {LangGraph-sty.};
       \node[bar, fill=acmefiggray!30, minimum width={0.469*\barscale in}] at (0.05,0) {};
       \node[val] at ($(0.05,0)+(0.469*\barscale in,0)+(0.06,0)$) {0.469};
 
-      \node[font=\scriptsize\color{acmefiggray}, anchor=north] at (1.55,-0.5) {Overall score (GPT-4.1, MemoryBench v3.1, job \texttt{3b31e5e3})};
+      \node[font=\scriptsize\color{acmefiggray}, anchor=north] at (1.55,-0.5) {Overall MemoryBench score (GPT-4.1); baselines N/A on belief/feedback};
     \end{tikzpicture}
     \caption{Result summary: ACME leads primarily on feedback and belief-quality dimensions unavailable to baselines.}
     \label{fig:result-summary}

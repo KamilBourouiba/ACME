@@ -2,7 +2,7 @@
 title: "ACME: Adaptive Cognitive Memory Engine"
 subtitle: "Externalizing Belief, Memory, and Learning from LLM Weights"
 abstract: |
-  Large language models lack durable episodic memory, explicit belief states, structured forgetting, and mechanisms to learn from failure [1,43]. Recent systems report that agents cannot epistemically separate observation from belief [48] and that intrinsic *epistemic agency* — including belief updating — remains weak in base models [49]. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, contradiction handling, and self-correction to specialized engines. ACME operationalizes: *when does a collection of experiences deserve to become a belief?* We contribute (1) a CRS-governed belief lifecycle inspired by cognitive architecture [2,3] and truth-maintenance systems [20,21]; (2) hybrid graph + pgvector retrieval [4,5] with contrarian verification [6,7]; (3) **MemoryBench v3.1** — fourteen sandbox-isolated scenarios with RAG [8], MemGPT [9], and LangGraph-style [10] baselines scored by an LLM judge [11,12]. On Azure OpenAI GPT-4.1, ACME achieves overall **0.925** vs **0.487** for vector-RAG (job `3b31e5e3`), with feedback and belief-quality metrics unavailable to baselines. Model-sensitivity runs on GPT-4.1-mini and GPT-5.4 preserve a **+0.39–0.44** margin over RAG. Production ablations show belief sync is essential (−0.19 overall when disabled).
+  Large language models can retrieve context, but they do not natively maintain durable episodic memory, explicit belief states, contradiction-aware revision, or feedback-driven correction. We present **ACME** (Adaptive Cognitive Memory Engine), an external cognitive memory substrate that treats the LLM as a language processor while delegating persistence, confidence tracking, belief promotion/demotion, and outcome-based correction to specialized services. ACME introduces a belief lifecycle from Observation to Inference, Hypothesis, and Belief, governed by a Cognitive Reliability Score (CRS). The system combines graph memory (Neo4j), vector retrieval (pgvector), and optional contrarian verification. We evaluate ACME on **MemoryBench v3.1**, a sandbox-isolated benchmark for retention, groundedness, feedback correction, and belief quality, and on the official **LongMemEval** oracle split (500 Q). On GPT-4.1, ACME reaches overall **0.925** on MemoryBench primarily because it is the only system scored on feedback and belief dimensions; retrieval-style baselines remain competitive on retention and groundedness ($\geq 0.90$) but score N/A on belief/feedback, capping their overall near 0.49. On LongMemEval, ACME reaches **87.6\%** vs.\ **77.6\%** (RAG-like baseline). These results suggest that explicit external belief management can complement retrieval and long-context modeling for long-term LLM agents.
 ---
 
 ## Introduction
@@ -19,11 +19,11 @@ Episodic and semantic memory have long been distinguished in psychology and AI [
 \item A hybrid graph + vector retrieval substrate (PostgreSQL/pgvector + Neo4j).
 \item Contrarian verification for high-confidence answers.
 \item MemoryBench v3.1 with scored belief and feedback metrics.
-\item Production benchmark evidence across GPT-4.1, GPT-4.1-mini, and GPT-5.4.
+\item Reproducible Azure-hosted benchmark runs on GPT-4.1 and GPT-4.1-mini.
 \end{enumerate}
 \end{contributions}
 
-**Thesis.** RAG optimizes recall; ACME optimizes epistemic state---when experiences become beliefs, how contradictions demote them, and how outcomes close the prediction loop. Our claim is not universal SOTA on every long-context benchmark [35,36], but the first deployed system with sandbox-isolated evaluation of **feedback correction** and **belief quality (CRS)** against RAG/MemGPT/LangGraph under reproducible production runs [47].
+**Thesis.** RAG optimizes recall; ACME optimizes epistemic state---when experiences become beliefs, how contradictions demote them, and how outcomes close the prediction loop. Our claim is not universal SOTA on every long-context benchmark [35,36]. To our knowledge, ACME is among the first Azure-deployed systems to jointly evaluate **feedback correction**, **belief quality (CRS)**, and **contrarian groundedness** under per-scenario sandbox isolation against RAG-like, MemGPT-inspired, and LangGraph-style reference baselines [47].
 
 ## Related Work
 
@@ -37,9 +37,9 @@ Episodic and semantic memory have long been distinguished in psychology and AI [
 
 **Cognitive architectures.** ACT-R [2] and SOAR [16] model declarative memory, production rules, and learning from impasse. ACME is not a full cognitive architecture but borrows the separation of *fast reasoning* (LLM) from *slow accumulative memory* (Postgres, Neo4j, belief records) — similar in spirit to dual-process accounts [3] and complementary learning systems [34].
 
-**Evaluation of memory systems.** Benchmarks such as LongMemEval [35], LoCoMo [36], MemoryBank [37], MemoryAgentBench [50], and MemBench [51] stress long-horizon recall, test-time learning, or reflective memory. Reflection-Bench [49] evaluates belief updating as one of seven epistemic dimensions. None jointly measure sandbox-isolated **feedback correction**, **CRS belief quality**, and **contrarian groundedness** in a production-deployable API. MemoryBench v3.1 fills this gap (Table 1).
+**Evaluation of memory systems.** Benchmarks such as LongMemEval [35], LoCoMo [36], MemoryBank [37], MemoryAgentBench [50], and MemBench [51] stress long-horizon recall, test-time learning, or reflective memory. Reflection-Bench [49] evaluates belief updating as one of seven epistemic dimensions. To our knowledge, no public benchmark in our comparison jointly scores sandbox-isolated **feedback correction**, **CRS belief quality**, and **contrarian groundedness** in a deployable API. MemoryBench v3.1 is designed to fill this gap (Table 1).
 
-**Belief-first and epistemic agent memory (concurrent work).** NeuSymMS [52] couples neural extraction with symbolic TMS via rule engines. Graph-native cognitive memory architectures [53] formalize versioned belief revision for auditability. Hindsight [48] achieves strong LongMemEval/LoCoMo scores via retain-recall-reflect tiers but does not expose CRS-governed promotion thresholds or prediction-outcome loops. **ACME** differentiates by (i) integrated seven-engine cognitive loop with production deployment, (ii) MemoryBench v3.1 scoring belief/feedback dimensions absent from retrieval-centric baselines, and (iii) persisted `benchmark_runs` for third-party reproduction.
+**Belief-first and epistemic agent memory (concurrent work).** NeuSymMS [52] couples neural extraction with symbolic TMS via rule engines. Graph-native cognitive memory architectures [53] formalize versioned belief revision for auditability. Hindsight [48] achieves strong LongMemEval/LoCoMo scores via retain-recall-reflect tiers but does not expose CRS-governed promotion thresholds or prediction-outcome loops. **ACME** differentiates by (i) an integrated seven-engine cognitive loop deployed as a REST API, (ii) MemoryBench v3.1 scoring belief/feedback dimensions absent from retrieval-centric baselines, and (iii) persisted `benchmark_runs` for third-party reproduction.
 
 ## System Design
 
@@ -57,23 +57,41 @@ Episodic and semantic memory have long been distinguished in psychology and AI [
 
 **Causal edge types:** `observed_with`, `precedes`, `correlates`, `causes`, `disproves` — distinguishing correlation from causation per Pearlian and epistemic traditions [41,42].
 
+**Worked example (contradiction scenario).** Scenario `contradiction_handling` ingests: *"Latency causes churn in enterprise segment."* ACME extracts entities and promotes a causal belief with initial CRS. The user queries *"Does latency cause churn?"* with contrarian verification enabled. Feedback reports `failed` outcome; the belief engine marks the belief **Challenged**, lowers CRS, and logs the contradiction. A subsequent query no longer treats the link as high-confidence fact. This trace is persisted in Postgres/Neo4j and scored by MemoryBench's feedback and belief-quality metrics---capabilities absent from vector-RAG baselines.
+
 **Multi-tenancy:** Postgres rows and Neo4j nodes keyed by `tenant_id` (header `X-Tenant-ID`).
 
 **Ablation toggles:** `ABLATION_DISABLE_CONTRARIAN`, `ABLATION_DISABLE_BELIEF_SYNC`, `ABLATION_DISABLE_VECTOR` (see Results).
 
 ## MemoryBench v3.1
 
-Four metrics, LLM-as-judge [11,12] (semantic; keyword overlap reported separately):
+MemoryBench is an **internal, sandbox-isolated** evaluation suite (13 scenarios in the primary v3 compare; 14 with the v3.1 knowledge-update probe). Each scenario defines scripted episodes, a query, expected concepts, and optional feedback/contradiction hooks. Full scenario definitions live in `acme/evaluation/memorybench.py`; summary examples include `retention_latency_churn` (three latency episodes → *"Why do customers churn?"*), `contradiction_handling` (failed feedback + belief demotion), and `knowledge_update` (superseded Q1→Q3 pricing evidence).
+
+Four metrics, LLM-as-judge [11,12] for retention and groundedness (keyword overlap reported separately in `details.keyword_retention_avg`):
 
 \acmeTableMetrics
 
-**Overall** = average of all four. Baselines score 0 on feedback/belief (N/A), capping baseline overall near 0.48–0.49.
+**Overall** = unweighted mean of all four metrics. RAG-like, MemGPT-inspired, and LangGraph-style baselines do not maintain explicit belief records or structured feedback traces; their Feedback and Belief Quality scores are marked **N/A** (excluded from their overall mean), which caps baseline overall near **0.48--0.49** even when retention and groundedness are strong.
+
+### Evaluation validity
+
+**Judge model.** Retention and groundedness use the same Azure OpenAI deployment as the answer model (GPT-4.1 in primary runs; GPT-4.1-mini in sensitivity runs) via `evaluate_answer_quality` (`acme/llm/base.py`).
+
+**Blinding.** The judge receives only the scenario question, system answer, reference concepts, and ingested episode text. It does **not** receive system identity, belief graph dumps, or CRS values---the same prompt template is used for ACME and all baselines.
+
+**Prompt rubric.** The judge returns JSON with `retention_score` (semantic concept coverage; synonyms allowed) and `groundedness_score` (support by ingested episodes vs.\ hallucination). Temperature is **0.0**; on API failure a deterministic synonym fallback is used (`acme/evaluation/scoring.py`).
+
+**Non-judge metrics.** Feedback correction is scored from persisted belief status changes and outcome hooks (`expect_belief_adjustment`, `contradiction_belief`). Belief quality is the mean CRS over active beliefs after the scenario---not LLM-judged.
+
+**Runs and variance.** Reported jobs are **single end-to-end compare runs** per model tier (e.g.\ job `3b31e5e3`, 725 s, zero scenario failures). We do not yet report confidence intervals; judge variance [11,12] remains a limitation (Section 7).
+
+**Sanity checks.** Unit tests in `tests/test_memorybench.py` lock scenario structure and scoring plumbing; keyword-retention averages are exported alongside semantic judge scores for cross-checking.
 
 **Fourteen scenarios:** retention, contradiction, multi-source conflict, error injection, **knowledge update** (LongMemEval KU [35]), long-term retention, hallucination resistance, feedback adjustment, adversarial noise, long-horizon noise, tenant isolation, healthcare domain transfer, multi-session recall, prediction-outcome loop.
 
 **Isolation:** Each scenario deletes prior benchmark-tagged Postgres rows and Neo4j subgraph before run (`acme/evaluation/sandbox.py`) — preventing cross-scenario contamination noted as a failure mode in long-horizon evals [35,36,49].
 
-**Baselines:** Minimal reproducible implementations aligned with Lewis et al. [8] (RAG), Packer et al. [9] (MemGPT), and LangGraph-style state graphs [10] — see `docs/BASELINES.md`.
+**Baselines.** We compare against **minimal reproducible reference implementations**---not full upstream MemGPT or LangGraph products. Labels throughout: **RAG-like** (Lewis et al.\ retrieve-then-generate [8]), **MemGPT-inspired** (paging-style context buffer per Packer et al.\ [9]), and **LangGraph-style** (accumulated session state graph per LangChain docs [10]). See `docs/BASELINES.md`.
 
 \acmeTablePositioningCapabilities
 
@@ -82,7 +100,7 @@ Primary reported results use the **13-scenario v3** suite (job `3b31e5e3`, pre-`
 \acmeTablePositioningInfra
 
 \begin{keyfinding}
-\textbf{Key finding.} MemoryBench v3.1 is the only evaluated suite in our comparison that jointly scores \textbf{feedback correction}, \textbf{CRS belief quality}, and \textbf{contrarian groundedness} under per-scenario sandbox isolation with a production API.
+\textbf{Key finding.} Among the benchmarks surveyed in Table 1, MemoryBench v3.1 is the only suite in our comparison that jointly scores \textbf{feedback correction}, \textbf{CRS belief quality}, and \textbf{contrarian groundedness} under per-scenario sandbox isolation.
 \end{keyfinding}
 
 ## LongMemEval (industry benchmark)
@@ -95,7 +113,7 @@ To complement MemoryBench, we integrate the official **LongMemEval** oracle spli
 
 \acmeTableLongMemEvalFull
 
-**Protocol.** Each question resets sandbox state (`longmemeval` tag). Haystack sessions are serialized as multi-turn user/assistant transcripts and ingested as experiences. ACME uses a **transcript-first** answer path: sessions are ranked newest-first, the LLM reads full chat transcripts (with belief graph as secondary context), and knowledge-update items trigger belief demotion on superseded sources. RAG and MemGPT baselines answer from retrieved context; an independent LLM judge (same deployment family as MemoryBench) applies type-specific rubrics (`knowledge-update`, `temporal-reasoning`, `abstention`, etc.).
+**Protocol.** Each question resets sandbox state (`longmemeval` tag). Haystack sessions are serialized as multi-turn user/assistant transcripts and ingested as experiences. ACME uses a **transcript-first** answer path: sessions are ranked newest-first, the LLM reads full chat transcripts (with belief graph as secondary context), and knowledge-update items trigger belief demotion on superseded sources. RAG-like and MemGPT-inspired baselines answer from retrieved context; an independent LLM judge (same deployment family as MemoryBench) applies type-specific rubrics (`knowledge-update`, `temporal-reasoning`, `abstention`, etc.).
 
 **Production run (June 2026):** job `45623ca0`, image `acme-api:longmemeval-v5-hybrid`, **500 Q clean** (~6.2 h). Summary: \url{benchmark-results/longmemeval-v5-full-500q.json}.
 
@@ -111,14 +129,14 @@ python scripts/run_longmemeval.py \
 Results export to \url{benchmark-results/longmemeval-latest.json}. LongMemEval measures **QA accuracy over chat history**; MemoryBench measures **belief lifecycle and feedback** --- the two benchmarks are complementary and must not be merged into a single score.
 
 \begin{keyfinding}
-\textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1, single clean run), ACME v5 hybrid routing reaches \textbf{87.6\%} overall vs.\ 77.6\% (RAG) and 78.6\% (MemGPT) --- +10.0 points over RAG --- with gains on \texttt{temporal-reasoning} (80.3\%), abstention (83.3\%), and \texttt{knowledge-update} (94.4\%) while preserving MemoryBench belief/feedback advantages (Section 6).
+\textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1, single clean run), ACME v5 hybrid routing reaches \textbf{87.6\%} overall vs.\ \textbf{77.6\%} (RAG-like) and \textbf{78.6\%} (MemGPT-inspired) --- +10.0 points over RAG-like --- with gains on \texttt{temporal-reasoning} (80.3\%), abstention (83.3\%), and \texttt{knowledge-update} (94.4\%).
 \end{keyfinding}
 
 ## Experimental Setup
 
 \acmeTableSetup
 
-**Model-sensitivity runs** additionally use GPT-4.1-mini and GPT-5.4 (same endpoint family; GPT-5.4 requires `max_completion_tokens` API parameter).
+**Model-sensitivity runs** use GPT-4.1-mini on the same Azure endpoint family. An additional run on a preview `gpt-5.4` Azure deployment is reported in Appendix~C (not a publicly documented OpenAI product name at submission time).
 
 \FloatBarrier
 
@@ -133,23 +151,19 @@ Results export to \url{benchmark-results/longmemeval-latest.json}. LongMemEval m
 
 *Baselines exclude feedback/belief in overall (not applicable). Scores rounded to three decimals from persisted `benchmark_runs` export.*
 
+**Fairness of comparison.** RAG-like, MemGPT-inspired, and LangGraph-style baselines do not expose explicit belief states or feedback-correction records. Their Feedback and Belief Quality cells are **N/A** rather than failed capabilities. The overall MemoryBench score is therefore a **system-level capability index** that rewards belief lifecycle features ACME implements---not a pure retrieval-quality score. For retrieval-only comparison, read **Retention** and **Groundedness** separately (Table: all systems $\geq 0.90$ on GPT-4.1 except LangGraph-style retention 0.900).
+
 \begin{keyfinding}
-\textbf{Key finding.} ACME's advantage comes primarily from \textbf{feedback correction} and \textbf{belief quality}, rather than from raw retention alone. ACME gains \textbf{+0.44} overall vs RAG on GPT-4.1 while retention and groundedness remain competitive ($\geq 0.90$) across systems [8,9].
+\textbf{Key finding.} ACME's MemoryBench advantage comes primarily from \textbf{feedback correction} (1.000 vs.\ N/A) and \textbf{belief quality} (0.700 vs.\ N/A), not from higher retention or groundedness alone. On GPT-4.1, ACME retention/groundedness (1.000/1.000) are competitive with RAG-like (0.969/0.977) and MemGPT-inspired (0.977/0.969) baselines [8,9].
 \end{keyfinding}
 
 ### Model sensitivity (GPT-4.1-mini)
 
-Job `107d02c0`, 639 s. ACME retains **+0.39** overall vs RAG (0.858 vs 0.473). Feedback stays at 1.000 and belief at 0.700 — cognitive layers compensate when the base model is weaker [3,34].
+Job `107d02c0`, 639 s. ACME **0.858** overall vs RAG-like **0.473** (+0.39). Feedback stays at 1.000 and belief at 0.700---cognitive layers remain stable when the base model is weaker [3,34].
 
 \acmeTableMini
 
-### Model sensitivity (GPT-5.4)
-
-Job `eb68f028`, 620 s. ACME **0.873** vs RAG **0.474** (**+0.40**).
-
-\acmeTableGptFiveFour
-
-Belief quality remains **~0.70** across all three LLM tiers — suggesting the external belief substrate [2,20] is comparatively stable while retention/groundedness track model capability [11].
+Belief quality remains **~0.70** across GPT-4.1 and GPT-4.1-mini tiers---suggesting the external belief substrate [2,20] is comparatively stable while retention/groundedness track model capability [11].
 
 ### Component ablations
 
@@ -170,18 +184,19 @@ We disable one cognitive layer at a time via environment flags (`scripts/run_abl
 \begin{itemize}
 \item LLM judge and extractor introduce variance [11,12]; we report sandbox-isolated runs with persisted \texttt{benchmark\_runs}.
 \item Scenarios emphasize SaaS churn/latency plus one healthcare transfer set; broader domains and multilingual evals needed [35,36].
-\item Baselines are reference implementations, not full upstream MemGPT/LangGraph codebases [9,10].
-\item Production API requires API key for benchmark endpoints.
+\item Baselines are **RAG-like / MemGPT-inspired / LangGraph-style** reference runners in this repository, not official upstream products [9,10].
+\item MemoryBench is author-defined; external human rating of a scenario sample is future work.
+\item Deployed API requires an API key for benchmark endpoints.
 \item CRS weights are hand-tuned; calibration against human epistemic judgments [39] is future work.
 \item \textbf{LongMemEval routing.} The LongMemEval adapter uses per-type answer paths (transcript-first for KU, vector-ranked aggregation for multi-session, abstention and preference prompts); MemoryBench still uses the graph + CRS query path.
-\item \textbf{Multi-session parity.} After v4 routing, ACME matches RAG on \texttt{multi-session} (79.3\% each on the 241-Q v4 run); dense retrieval remains competitive when evidence is scattered without temporal conflict.
+\item \textbf{Multi-session parity.} After v4 routing, ACME matches the RAG-like baseline on \texttt{multi-session} (79.3\% each on the 241-Q v4 run); dense retrieval remains competitive when evidence is scattered without temporal conflict.
 \item \textbf{Abstention.} Full-split abstention accuracy reaches 83.3\% (v5) via anchor short-circuit; harder entity-substitution probes remain imperfect.
 \end{itemize}
 \end{keyfinding}
 
 ## Conclusion
 
-ACME shows that externalizing belief and learning from LLM weights yields stronger cognitive memory than vector RAG or lightweight agent-memory baselines on MemoryBench, especially for feedback-driven correction and auditable belief quality. On the official LongMemEval oracle split (500 Q, GPT-4.1), ACME v5 hybrid routing reaches **87.6\%** overall vs.\ **77.6\%** (RAG), with the largest margins on knowledge-update and temporal-reasoning types. The consistent **+0.39–0.44** margin over RAG on MemoryBench across GPT-4.1, GPT-4.1-mini, and GPT-5.4 supports the hypothesis that explicit belief lifecycle management [20,21] complements — rather than replaces — advances in base model capability [1,45]. Concurrent belief-memory systems [48,52,53] validate the problem direction; ACME contributes reproducible production evidence that epistemic layers — not retrieval alone — drive the measured gap on MemoryBench, while benchmark-specific transcript routing closes industry QA gaps without abandoning the cognitive substrate.
+ACME externalizes belief lifecycle, contradiction handling, and feedback-driven correction outside LLM weights. On MemoryBench v3.1, gains concentrate on **feedback** and **belief quality** dimensions that RAG-like and MemGPT-inspired baselines cannot report; retention and groundedness remain competitive. On LongMemEval (500 Q, GPT-4.1), hybrid transcript routing reaches **87.6\%** vs.\ **77.6\%** (RAG-like), with the largest margins on knowledge-update and temporal-reasoning types. We do not claim universal SOTA on every long-context benchmark; rather, the results support a narrower hypothesis: **explicit external belief management complements retrieval and long-context modeling** for long-horizon agents [20,21,48]. Concurrent systems [48,52,53] pursue similar directions; ACME contributes an open, sandbox-isolated evaluation protocol and persisted `benchmark_runs` for third-party audit [47].
 
 \acmeBackMatterBegin
 \acmeReferencesBegin
@@ -278,5 +293,14 @@ Benchmark payloads are stored in PostgreSQL table \texttt{benchmark\_runs}
 \texttt{belief\_quality\_score}, \texttt{payload JSONB}, \texttt{created\_at}).
 Export via \texttt{GET /api/v1/benchmark/export}. Full run tables are documented
 in \texttt{docs/BENCHMARK\_RESULTS.md}~[47].
+
+\section{Appendix C: Preview model sensitivity (GPT-5.4)}
+\label{appendix-c-gpt-54}
+
+Job \texttt{eb68f028} (620 s) on an Azure OpenAI preview deployment (\texttt{gpt-5.4}, \texttt{TESTING-CHAT-BETA} resource). This model name was available on our tenant at benchmark time but is **not** listed in OpenAI's public GPT-4.1 documentation [45]; treat as supplementary.
+
+\acmeTableGptFiveFour
+
+ACME **0.873** overall vs RAG-like **0.474** (+0.40); belief quality **0.701**. Pattern matches GPT-4.1-mini sensitivity: cognitive layers stable, overall gap driven by N/A baseline belief/feedback columns.
 
 \endgroup

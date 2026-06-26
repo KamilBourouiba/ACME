@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ACME — Adaptive Cognitive Memory Engine</title>
-  <meta name="description" content="External cognitive memory for LLMs. MemoryBench 0.925 vs RAG 0.487. LongMemEval oracle 87.6% vs 77.6% RAG. Production API on Azure OpenAI GPT-4.1.">
+  <meta name="description" content="External cognitive memory for LLMs. MemoryBench belief+feedback metrics; LongMemEval oracle 87.6%. Azure OpenAI GPT-4.1 benchmarks.">
   <meta property="og:title" content="ACME — Adaptive Cognitive Memory Engine">
   <meta property="og:description" content="Belief lifecycle, graph memory, and reproducible benchmarks on MemoryBench and LongMemEval.">
   <meta property="og:type" content="website">
@@ -37,16 +37,16 @@
     </p>
     <div class="metrics">
       <div class="metric">
-        <div class="metric-value">0.925<span>vs 0.487</span></div>
-        <div class="metric-label">MemoryBench overall (ACME vs RAG)</div>
+        <div class="metric-value">1.000<span>feedback</span></div>
+        <div class="metric-label">MemoryBench feedback (ACME only)</div>
       </div>
       <div class="metric">
         <div class="metric-value">87.6%<span>vs 77.6%</span></div>
         <div class="metric-label">LongMemEval oracle 500 Q</div>
       </div>
       <div class="metric">
-        <div class="metric-value">+0.44</div>
-        <div class="metric-label">MemoryBench margin (GPT-4.1)</div>
+        <div class="metric-value">0.700</div>
+        <div class="metric-label">Belief quality (CRS mean)</div>
       </div>
     </div>
     <div class="hero-actions">

@@ -113,9 +113,9 @@
   \acmeScoreTable{Primary benchmark (GPT-4.1, 13 scenarios, job \texttt{3b31e5e3}). Ret.=Retention, Gnd.=Groundedness, Fbk.=Feedback, Bel.=Belief quality, Ovr.=Overall.}{%
       \rowcolor{acmerow}
       \textbf{ACME} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{0.700} & \textbf{0.925} \\
-      RAG & 0.969 & 0.977 & {---} & {---} & 0.487 \\
-      MemGPT & 0.977 & 0.969 & {---} & {---} & 0.487 \\
-      LangGraph & 0.900 & 0.977 & {---} & {---} & 0.469 \\%
+      RAG-like & 0.969 & 0.977 & {---} & {---} & 0.487 \\
+      MemGPT-insp. & 0.977 & 0.969 & {---} & {---} & 0.487 \\
+      LangGraph-sty. & 0.900 & 0.977 & {---} & {---} & 0.469 \\%
   }%
 }
 
@@ -123,9 +123,9 @@
   \acmeScoreTable{Model sensitivity --- GPT-4.1-mini (job \texttt{107d02c0}).}{%
       \rowcolor{acmerow}
       \textbf{ACME} & \textbf{0.892} & \textbf{0.838} & \textbf{1.000} & \textbf{0.700} & \textbf{0.858} \\
-      RAG & 0.908 & 0.985 & {---} & {---} & 0.473 \\
-      MemGPT & 0.915 & 1.000 & {---} & {---} & 0.479 \\
-      LangGraph & 0.854 & 0.862 & {---} & {---} & 0.429 \\%
+      RAG-like & 0.908 & 0.985 & {---} & {---} & 0.473 \\
+      MemGPT-insp. & 0.915 & 1.000 & {---} & {---} & 0.479 \\
+      LangGraph-sty. & 0.854 & 0.862 & {---} & {---} & 0.429 \\%
   }%
 }
 
@@ -133,9 +133,9 @@
   \acmeScoreTable{Model sensitivity --- GPT-5.4 (job \texttt{eb68f028}).}{%
       \rowcolor{acmerow}
       \textbf{ACME} & \textbf{0.952} & \textbf{0.839} & \textbf{1.000} & \textbf{0.701} & \textbf{0.873} \\
-      RAG & 0.964 & 0.931 & {---} & {---} & 0.474 \\
-      MemGPT & 0.975 & 0.939 & {---} & {---} & 0.478 \\
-      LangGraph & 0.973 & 0.950 & {---} & {---} & 0.481 \\%
+      RAG-like & 0.964 & 0.931 & {---} & {---} & 0.474 \\
+      MemGPT-insp. & 0.975 & 0.939 & {---} & {---} & 0.478 \\
+      LangGraph-sty. & 0.973 & 0.950 & {---} & {---} & 0.481 \\%
   }%
 }
 
@@ -146,7 +146,7 @@
       \textbf{Component} & \textbf{Configuration} \\
       \midrule
       Dataset & \texttt{longmemeval\_oracle.json} (500 Q, evidence sessions) \\
-      Ingest & ACME orchestrator / RAG / MemGPT on identical haystacks \\
+      Ingest & ACME orchestrator / RAG-like / MemGPT-inspired on identical haystacks \\
       Scoring & Official type-specific yes/no judge (reference \texttt{evaluate\_qa.py}) \\
       Metrics & Overall accuracy + per \texttt{question\_type} breakdown \\
       Reproduce & \texttt{scripts/run\_longmemeval.py} (see \texttt{docs/LONGMEMEVAL.md}) \\
@@ -167,8 +167,8 @@
       \midrule
       \rowcolor{acmerow}
       \textbf{ACME (transcript-first)} & \textbf{0.897} & \textbf{0.931} & 0.500 \\
-      MemGPT & 0.872 & 0.903 & 0.500 \\
-      RAG & 0.859 & 0.875 & 0.667 \\
+      MemGPT-insp. & 0.872 & 0.903 & 0.500 \\
+      RAG-like & 0.859 & 0.875 & 0.667 \\
       \bottomrule
     \end{tabular}%
     }%
@@ -191,8 +191,8 @@
       \midrule
       \rowcolor{acmerow}
       \textbf{ACME} & \textbf{0.876} & \textbf{0.944} & \textbf{0.793} & \textbf{0.803} & \textbf{1.000} & \textbf{1.000} & \textbf{0.900} \\
-      MemGPT & 0.786 & 0.861 & 0.793 & 0.630 & 1.000 & 0.982 & 0.600 \\
-      RAG & 0.776 & 0.875 & 0.793 & 0.622 & 1.000 & 0.964 & 0.467 \\
+      MemGPT-insp. & 0.786 & 0.861 & 0.793 & 0.630 & 1.000 & 0.982 & 0.600 \\
+      RAG-like & 0.776 & 0.875 & 0.793 & 0.622 & 1.000 & 0.964 & 0.467 \\
       \bottomrule
     \end{tabular}%
     }%
