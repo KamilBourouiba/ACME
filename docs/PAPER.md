@@ -23,7 +23,7 @@ Episodic and semantic memory have long been distinguished in psychology and AI [
 \end{enumerate}
 \end{contributions}
 
-**Thesis.** RAG optimizes recall; ACME optimizes epistemic state---when experiences become beliefs, how contradictions demote them, and how outcomes close the prediction loop. Our claim is not universal SOTA on every long-context benchmark [35,36]. To our knowledge, ACME is among the first Azure-deployed systems to jointly evaluate **feedback correction**, **belief quality (CRS)**, and **contrarian groundedness** under per-scenario sandbox isolation against RAG-like, MemGPT-inspired, and LangGraph-style reference baselines [47].
+**Thesis.** RAG optimizes recall; ACME optimizes epistemic state---when experiences become beliefs, how contradictions demote them, and how outcomes close the prediction loop. Our claim is not universal SOTA on every long-context benchmark [35,36]. To our knowledge, ACME is among the first **deployed LLM-agent memory systems** to jointly evaluate **feedback correction**, **belief quality (CRS)**, and **contrarian groundedness** under per-scenario sandbox isolation against RAG-like, MemGPT-inspired, and LangGraph-style reference baselines [47].
 
 ## Related Work
 
@@ -37,7 +37,7 @@ Episodic and semantic memory have long been distinguished in psychology and AI [
 
 **Cognitive architectures.** ACT-R [2] and SOAR [16] model declarative memory, production rules, and learning from impasse. ACME is not a full cognitive architecture but borrows the separation of *fast reasoning* (LLM) from *slow accumulative memory* (Postgres, Neo4j, belief records) — similar in spirit to dual-process accounts [3] and complementary learning systems [34].
 
-**Evaluation of memory systems.** Benchmarks such as LongMemEval [35], LoCoMo [36], MemoryBank [37], MemoryAgentBench [50], and MemBench [51] stress long-horizon recall, test-time learning, or reflective memory. Reflection-Bench [49] evaluates belief updating as one of seven epistemic dimensions. To our knowledge, no public benchmark in our comparison jointly scores sandbox-isolated **feedback correction**, **CRS belief quality**, and **contrarian groundedness** in a deployable API. MemoryBench v3.1 is designed to fill this gap (Table 1).
+**Evaluation of memory systems.** Benchmarks such as LongMemEval [35], LoCoMo [36], MemoryBank [37], MemoryAgentBench [50], and MemBench [51] stress long-horizon recall, test-time learning, or reflective memory. Reflection-Bench [49] evaluates belief updating as one of seven epistemic dimensions. To our knowledge, no public benchmark in our comparison jointly scores sandbox-isolated **feedback correction**, **CRS belief quality**, and **contrarian groundedness** in a deployable API. MemoryBench v3.1 is designed to fill this gap (Tables~\ref{tab:positioning-capabilities}--\ref{tab:positioning-infra}).
 
 **Belief-first and epistemic agent memory (concurrent work).** NeuSymMS [52] couples neural extraction with symbolic TMS via rule engines. Graph-native cognitive memory architectures [53] formalize versioned belief revision for auditability. Hindsight [48] achieves strong LongMemEval/LoCoMo scores via retain-recall-reflect tiers but does not expose CRS-governed promotion thresholds or prediction-outcome loops. **ACME** differentiates by (i) an integrated seven-engine cognitive loop deployed as a REST API, (ii) MemoryBench v3.1 scoring belief/feedback dimensions absent from retrieval-centric baselines, and (iii) persisted `benchmark_runs` for third-party reproduction.
 
@@ -83,7 +83,7 @@ Four metrics, LLM-as-judge [11,12] for retention and groundedness (keyword overl
 
 **Non-judge metrics.** Feedback correction is scored from persisted belief status changes and outcome hooks (`expect_belief_adjustment`, `contradiction_belief`). Belief quality is the mean CRS over active beliefs after the scenario---not LLM-judged.
 
-**Runs and variance.** Primary jobs are single end-to-end compares (e.g.\ job `3b31e5e3`, 725 s). We report **bootstrap 95% confidence intervals across the 13 scenarios** (not repeated full-run trials) in Table~\ref{tab:memorybench-ci}. Table~\ref{tab:memorybench-main} and Table~\ref{tab:memorybench-ci} report the same per-scenario arithmetic means; the latter adds bootstrap intervals to quantify judge variance across scenarios. Judge--keyword retention Pearson $r{=}0.83$ on ACME supports semantic scoring vs.\ a deterministic rubric. A **5-scenario human audit** (author-reviewed exports) is documented in \texttt{docs/HUMAN\_AUDIT\_MEMORYBENCH.md}.
+**Runs and variance.** Primary jobs are single end-to-end compares (e.g.\ job `3b31e5e3`, 725 s). We report **bootstrap 95% confidence intervals across the 13 scenarios** (not repeated full-run trials) in Table~\ref{tab:memorybench-ci}. Table~\ref{tab:memorybench-main} and Table~\ref{tab:memorybench-ci} report the same per-scenario arithmetic means; the latter adds bootstrap intervals to quantify judge variance across scenarios. Per-scenario score vectors for bootstrap analysis are archived in \texttt{docs/benchmarks/job-3b31e5e3-export.json}. Judge--keyword retention Pearson $r{=}0.83$ on ACME supports semantic scoring vs.\ a deterministic rubric. A **5-scenario human audit** (author-reviewed exports) is documented in \texttt{docs/HUMAN\_AUDIT\_MEMORYBENCH.md}.
 
 **Sanity checks.** Unit tests in `tests/test_memorybench.py` lock scenario structure and scoring plumbing; keyword-retention averages are exported alongside semantic judge scores for cross-checking.
 
@@ -100,7 +100,7 @@ Primary reported results use the **13-scenario v3** suite (job `3b31e5e3`, pre-`
 \acmeTablePositioningInfra
 
 \begin{keyfinding}
-\textbf{Key finding.} Among the benchmarks surveyed in Table 1, MemoryBench v3.1 is the only suite in our comparison that jointly scores \textbf{feedback correction}, \textbf{CRS belief quality}, and \textbf{contrarian groundedness} under per-scenario sandbox isolation.
+\textbf{Key finding.} Among the benchmarks surveyed in Tables~\ref{tab:positioning-capabilities}--\ref{tab:positioning-infra}, MemoryBench v3.1 is the only suite in our comparison that jointly scores \textbf{feedback correction}, \textbf{CRS belief quality}, and \textbf{contrarian groundedness} under per-scenario sandbox isolation.
 \end{keyfinding}
 
 ## LongMemEval (industry benchmark)
@@ -171,7 +171,7 @@ Belief quality remains **~0.70** across GPT-4.1 and GPT-4.1-mini tiers---suggest
 
 ### Component ablations
 
-We disable one cognitive layer at a time via environment flags (`scripts/run_ablation_prod.sh`). Table 2 reports ACME-only MemoryBench v3.1 scores (no baseline compare — 4x cost reduction per ablation).
+We disable one cognitive layer at a time via environment flags (`scripts/run_ablation_prod.sh`). Table~\ref{tab:ablations} reports ACME-only MemoryBench v3.1 scores (no baseline compare --- 4$\times$ cost reduction per ablation).
 
 \acmeTableAblations
 
@@ -186,6 +186,7 @@ We disable one cognitive layer at a time via environment flags (`scripts/run_abl
 \begin{keyfinding}
 \textbf{Key limitations.}
 \begin{itemize}
+\item \textbf{Threats to validity.} Because MemoryBench was designed alongside ACME, the benchmark may favor systems with explicit belief records. We mitigate this by reporting retrieval-only metrics separately and by evaluating LongMemEval as an external benchmark.
 \item LLM judge and extractor introduce variance [11,12]; mitigated by judge--keyword agreement ($r{=}0.83$) and author audit of five scenarios (\texttt{docs/HUMAN\_AUDIT\_MEMORYBENCH.md}).
 \item Scenarios emphasize SaaS churn/latency plus one healthcare transfer set; broader domains and multilingual evals needed [35,36].
 \item Baselines are **RAG-like / MemGPT-inspired / LangGraph-style** runners in this repository; we do not ship the full Letta/MemGPT server or upstream LangGraph product stacks [9,10].

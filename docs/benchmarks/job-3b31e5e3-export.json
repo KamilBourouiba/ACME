@@ -1,0 +1,504 @@
+{
+  "job_id": "3b31e5e3-72b1-4ce3-b6c2-848cf94e4128",
+  "benchmark_version": "v3",
+  "systems": {
+    "acme": {
+      "retention_score": 1.0,
+      "hallucination_resistance_score": 1.0,
+      "feedback_correction_score": 1.0,
+      "belief_quality_score": 0.7,
+      "overall_score": 0.925,
+      "details": {
+        "scenarios_run": 13,
+        "benchmark_version": "v3",
+        "scenarios": [
+          {
+            "name": "retention_latency_churn",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7000000000000001,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately captures the reference concepts of latency, churn, and performance, using synonymous phrases like 'high latency', 'slow performance', and 'timeouts'. It is fully grounded in the ingested episodes, which directly link customer churn to latency and performance issues in API, checkout, and dashboard features.",
+            "answer_preview": "Customers churn primarily due to repeated performance issues, especially high latency in key product features such as dashboard loads, checkout, or API responses. Slow performance, timeouts, and laten",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 4,
+              "relations_deleted": 0,
+              "orphans_pruned": 8
+            }
+          },
+          {
+            "name": "contradiction_handling",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7,
+            "judge": "llm",
+            "judge_reasoning": "The answer directly states that latency causes churn, which matches the reference concepts of latency, churn, and a causal link. The ingested episode explicitly supports this causal relationship, so the answer is fully grounded.",
+            "answer_preview": "Yes, latency causes churn.",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 11,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "multi_source_conflict",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7000000000000001,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately captures the reference concepts: it links churn in enterprise to latency/performance incidents and churn in SMB to pricing changes, matching the ingested episodes. There are no unsupported claims or hallucinations.",
+            "answer_preview": "Churn in enterprise accounts is primarily driven by latency and performance incidents, while churn in SMB segments is primarily driven by pricing changes.",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 3,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "error_injection_correction",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7000000000000001,
+            "judge": "llm",
+            "judge_reasoning": "The answer correctly identifies latency and performance issues as the primary causes of customer churn, matching the reference concepts. It also addresses and dismisses the previously suggested cause (poor onboarding emails), aligning with the ingested episodes that confirm latency as the main driver and explicitly state onboarding emails were not linked to churn. All claims are supported by the ingested episodes.",
+            "answer_preview": "Customer churn is primarily caused by repeated performance issues, especially high latency in user-facing features such as dashboards, checkouts, or APIs. Customers tend to leave following slow perfor",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 13,
+              "relations_deleted": 0,
+              "orphans_pruned": 1
+            }
+          },
+          {
+            "name": "long_term_retention",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7000000000000001,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately summarizes the recurring nature of latency incidents (matching references to API latency spikes, checkout timeouts, and performance issues) and their correlation with customer churn, including enterprise clients. It also notes the robustness of the pattern across features and time, which is supported by the episodes showing repeated incidents and their impact on churn. No unsupported claims are present.",
+            "answer_preview": "The latency-churn pattern over time is characterized by recurring latency incidents, with at least one incident logged every month for ten consecutive months. These repeated latency events, including ",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 11,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "hallucination_resistance",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 0.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately states that there is no evidence linking customer churn to the dark mode feature, which matches the provided episodes. It correctly grounds churn to performance issues, not dark mode, and does not introduce unsupported claims.",
+            "answer_preview": "There is no evidence in the provided memory context that customers churned because of dark mode. All available abstractions and episodes associate customer churn with performance issues such as high l",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 19,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "feedback_belief_adjustment",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 0.5,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7,
+            "judge": "llm",
+            "judge_reasoning": "The answer directly matches the ingested episode, stating that discounts reduce churn in price-sensitive segments. Both reference concepts, pricing (discounts) and churn, are addressed. The claim is fully supported by the ingested episode.",
+            "answer_preview": "Discounts reduce churn, particularly in price-sensitive segments.",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 4,
+              "relations_deleted": 0,
+              "orphans_pruned": 1
+            }
+          },
+          {
+            "name": "adversarial_noise",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7,
+            "judge": "llm",
+            "judge_reasoning": "The answer directly identifies high latency, specifically repeated API latency incidents, as the operational factor driving enterprise churn. This matches the reference concepts of 'latency' and 'churn' and is explicitly supported by the ingested episode stating that API latency spikes preceded enterprise churn in Q2. No unsupported claims are present.",
+            "answer_preview": "High latency, especially repeated API latency incidents, is the operational factor that drives enterprise churn.",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 4,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "long_horizon_noise",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.6999999999999997,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately summarizes the reference concepts: latency, incident, and monitoring, matching the ingested episodes which show a latency incident logged each month for ten consecutive months. The description of regularity and no gaps is fully supported by the data.",
+            "answer_preview": "The latency pattern across months is highly regular: a latency incident is logged in monitoring once per month, and this pattern persists over at least ten consecutive months. There are no gaps or mon",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 10,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "tenant_isolation_probe",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately captures the reference concepts of 'latency' and 'churn,' explicitly stating that high latency (slow APIs, dashboards, checkouts) drives enterprise churn. This is directly supported by the ingested episode for Tenant B, which states that latency drives churn in enterprise. No unsupported claims or hallucinations are present.",
+            "answer_preview": "Enterprise churn is primarily driven by repeated performance issues, especially high latency in APIs, dashboards, and checkouts. When API response times (e.g., p99 latency) exceed acceptable threshold",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 22,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "healthcare_domain_transfer",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.6999999999999998,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately captures the reference concepts: 'delayed lab result notifications' and 'late appointment reminders' directly match 'delay' and 'notification', and the link to 'disengage' aligns with 'engagement'. Both points are explicitly supported by the ingested episodes, with no unsupported claims.",
+            "answer_preview": "Patients disengage from care programs due to factors such as delayed lab result notifications and late appointment reminders, which correlate with increased dropout and readmission rates.",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 8,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "multi_session_recall",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7000000000000001,
+            "judge": "llm",
+            "judge_reasoning": "The answer accurately captures the reference concepts: it describes a pattern connecting latency (slow dashboard loads, API timeouts, high response times) and churn, matching the semantic expectation. It is grounded in the ingested episodes: Session 1 links enterprise churn to API timeouts, Session 2 connects dashboard slowness to escalations (a precursor to churn), and Session 3 notes SLA breaches preceding churn. The answer synthesizes these patterns without introducing unsupported claims.",
+            "answer_preview": "Across sessions, the pattern connecting latency and churn is that repeated latency incidents\u2014such as slow dashboard loads, API timeouts, or high response times\u2014are strongly correlated with increased c",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 7,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          },
+          {
+            "name": "prediction_outcome_loop",
+            "ingestion_ok": true,
+            "query_ok": true,
+            "retention_score": 1.0,
+            "keyword_retention_score": 1.0,
+            "feedback_score": 1.0,
+            "hallucination_score": 1.0,
+            "belief_quality_score": 0.7,
+            "judge": "llm",
+            "judge_reasoning": "The answer directly addresses the question and matches the reference concepts: 'latency' (p99 exceeded 2s), 'churn' (enterprise accounts churned), and 'prediction' (the prediction was supported by observed outcomes). The ingested episodes provide clear evidence that the latency-churn prediction was supported by actual outcomes, with specific data points aligning with the prediction.",
+            "answer_preview": "Yes, the latency-churn prediction was supported by outcomes.",
+            "isolated": true,
+            "cleanup": {
+              "tenant_id": "default",
+              "entities_deleted": 12,
+              "relations_deleted": 0,
+              "orphans_pruned": 0
+            }
+          }
+        ]
+      }
+    },
+    "rag_baseline": {
+      "retention_score": 0.969,
+      "hallucination_resistance_score": 0.977,
+      "overall_score": 0.487,
+      "details": {
+        "scenarios_run": 13,
+        "scenarios": [
+          {
+            "name": "retention_latency_churn",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "contradiction_handling",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "multi_source_conflict",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "error_injection_correction",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "long_term_retention",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "hallucination_resistance",
+            "retention_score": 1.0,
+            "hallucination_score": 0.701
+          },
+          {
+            "name": "feedback_belief_adjustment",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "adversarial_noise",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "long_horizon_noise",
+            "retention_score": 0.597,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "tenant_isolation_probe",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "healthcare_domain_transfer",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "multi_session_recall",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "prediction_outcome_loop",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          }
+        ]
+      }
+    },
+    "memgpt_baseline": {
+      "retention_score": 0.977,
+      "hallucination_resistance_score": 0.969,
+      "overall_score": 0.487,
+      "details": {
+        "scenarios_run": 13,
+        "scenarios": [
+          {
+            "name": "retention_latency_churn",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "contradiction_handling",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "multi_source_conflict",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "error_injection_correction",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "long_term_retention",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "hallucination_resistance",
+            "retention_score": 1.0,
+            "hallucination_score": 0.597
+          },
+          {
+            "name": "feedback_belief_adjustment",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "adversarial_noise",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "long_horizon_noise",
+            "retention_score": 0.701,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "tenant_isolation_probe",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "healthcare_domain_transfer",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "multi_session_recall",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "prediction_outcome_loop",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          }
+        ]
+      }
+    },
+    "langgraph_baseline": {
+      "retention_score": 0.9,
+      "hallucination_resistance_score": 0.977,
+      "overall_score": 0.469,
+      "details": {
+        "scenarios_run": 13,
+        "scenarios": [
+          {
+            "name": "retention_latency_churn",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "contradiction_handling",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "multi_source_conflict",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "error_injection_correction",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "long_term_retention",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "hallucination_resistance",
+            "retention_score": 1.0,
+            "hallucination_score": 0.701
+          },
+          {
+            "name": "feedback_belief_adjustment",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "adversarial_noise",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "long_horizon_noise",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "tenant_isolation_probe",
+            "retention_score": -0.3,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "healthcare_domain_transfer",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "multi_session_recall",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          },
+          {
+            "name": "prediction_outcome_loop",
+            "retention_score": 1.0,
+            "hallucination_score": 1.0
+          }
+        ]
+      }
+    }
+  }
+}
