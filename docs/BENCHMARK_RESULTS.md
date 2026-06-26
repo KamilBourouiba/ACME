@@ -137,17 +137,40 @@ Reproduce: `bash scripts/run_longmemeval_prod.sh`
 
 ---
 
-## LongMemEval — combined oracle (500 Q)
+## LongMemEval — full oracle 500 Q (v5 hybrid, canonical)
+
+| Field | Value |
+|-------|-------|
+| Job ID | `45623ca0-1279-4d99-8e40-52ce84b7e753` |
+| Completed | 2026-06-26 (poll) |
+| Duration | ~22 400 s (~6.2 h) |
+| Image | `acme-api:longmemeval-v5-hybrid` |
+| Failures | none |
 
 | System | Overall | KU | Multi-session | Temporal | SS-user | SS-asst | SS-pref | Abstention |
 |--------|---------|-----|---------------|----------|---------|---------|---------|------------|
-| **ACME** (v4 routing) | **0.848** | **0.944** | **0.793** | **0.709** | **1.000** | **1.000** | **0.933** | **0.733** |
-| MemGPT | 0.786 | 0.875 | 0.802 | 0.630 | 1.000 | 0.982 | 0.533 | 0.600 |
-| RAG | 0.780 | 0.889 | 0.793 | 0.622 | 1.000 | 0.964 | 0.433 | 0.667 |
+| **ACME** | **0.876** | **0.944** | **0.793** | **0.803** | **1.000** | **1.000** | **0.900** | **0.833** |
+| MemGPT | 0.786 | 0.861 | 0.793 | 0.630 | 1.000 | 0.982 | 0.600 | 0.600 |
+| RAG | 0.776 | 0.875 | 0.793 | 0.622 | 1.000 | 0.964 | 0.467 | 0.600 |
 
-**Δ ACME vs RAG (500 Q):** +0.068 overall
+**Δ ACME vs RAG (500 Q):** +0.100 overall
 
-v4 routing job `c81eaa91` (241 Q: multi-session, preference, KU) + v3 for temporal/single-session. Summary: `benchmark-results/longmemeval-v4-combined.json`
+Reproduce: `LONGMEMEVAL_TYPES=all bash scripts/run_longmemeval_prod.sh`
+
+**v4 → v5 ACME:** overall +2.8 pt · temporal +9.4 pt · abstention +10 pt
+
+Summary: `benchmark-results/longmemeval-v5-full-500q.json`
+
+---
+
+## LongMemEval — combined oracle v4 (superseded hybrid)
+
+| System | Overall |
+|--------|---------|
+| ACME | 0.848 |
+| RAG | 0.780 |
+
+Summary: `benchmark-results/longmemeval-v4-combined.json`
 
 ### v4 routing run (241 Q) — job `c81eaa91`
 

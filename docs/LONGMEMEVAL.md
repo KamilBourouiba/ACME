@@ -46,15 +46,16 @@ LongMemEval measures **QA accuracy over chat history** (retrieval + reading). Me
 
 Published reference (LongMemEval paper, GPT-4o family): commercial assistants and long-context models show **30–60%** drops vs oracle on sustained memory. Use oracle subset scores for apples-to-apples adapter comparisons.
 
-### Production results — full oracle 500 Q (v4 routing, June 2026)
+### Production results — full oracle 500 Q (v5 hybrid, canonical)
 
-| System | Overall | KU | Multi-session | Preference | Abstention |
-|--------|---------|-----|---------------|------------|------------|
-| **ACME** | **0.848** | **0.944** | **0.793** | **0.933** | **0.733** |
-| MemGPT | 0.786 | 0.875 | 0.802 | 0.533 | 0.600 |
-| RAG | 0.780 | 0.889 | 0.793 | 0.433 | 0.667 |
+| System | Overall | KU | Multi-session | Temporal | Preference | Abstention |
+|--------|---------|-----|---------------|----------|------------|------------|
+| **ACME** | **0.876** | **0.944** | 0.793 | **0.803** | 0.900 | **0.833** |
+| MemGPT | 0.786 | 0.861 | 0.793 | 0.630 | 0.600 | 0.600 |
+| RAG | 0.776 | 0.875 | 0.793 | 0.622 | 0.467 | 0.600 |
 
-Jobs: v3 `705eb2ff`/`26e288da` + v4 `c81eaa91` (241 Q). Combined: `benchmark-results/longmemeval-v4-combined.json`.
+Job `45623ca0`, image `acme-api:longmemeval-v5-hybrid`, GPT-4.1, 500 questions, ~6.2 h.  
+Reproduce: `LONGMEMEVAL_TYPES=all bash scripts/run_longmemeval_prod.sh`
 
 ### Production results — knowledge-update only (v3, superseded for routing)
 

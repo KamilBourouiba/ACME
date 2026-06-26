@@ -163,9 +163,9 @@ async def demo(base: str, *, benchmark: str = "cached") -> None:
         print(f"   {'System':<10} {'Overall':>8} {'KU':>8} {'Temporal':>10}")
         print("   " + "-" * 40)
         for row in (
-            ("ACME", 0.848, 0.944, 0.709),
-            ("MemGPT", 0.786, 0.875, 0.630),
-            ("RAG", 0.780, 0.889, 0.622),
+            ("ACME", 0.876, 0.944, 0.803),
+            ("MemGPT", 0.786, 0.861, 0.630),
+            ("RAG", 0.776, 0.875, 0.622),
         ):
             print(f"   {row[0]:<10} {row[1]:>8.3f} {row[2]:>8.3f} {row[3]:>10.3f}")
         print("   (MemoryBench + LongMemEval reported separately — see docs/BENCHMARK_RESULTS.md)")

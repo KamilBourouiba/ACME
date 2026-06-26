@@ -362,10 +362,10 @@ context; an independent LLM judge (same deployment family as
 MemoryBench) applies type-specific rubrics (\texttt{knowledge-update},
 \texttt{temporal-reasoning}, \texttt{abstention}, etc.).
 
-\textbf{Production runs (June 2026):} jobs \texttt{705eb2ff} +
-\texttt{26e288da} (v3 transcript-first), then \texttt{c81eaa91} (v4 type
-routing on 241 Q). Combined 500 Q summary:
-\texttt{benchmark-results/longmemeval-v4-combined.json}.
+\textbf{Production run (June 2026):} job \texttt{45623ca0}, image
+\texttt{acme-api:longmemeval-v5-hybrid}, \textbf{500 Q clean}
+(\textasciitilde6.2 h). Summary:
+\texttt{benchmark-results/longmemeval-v5-full-500q.json}.
 
 \textbf{Reproduction:}
 
@@ -384,7 +384,7 @@ measures \textbf{belief lifecycle and feedback} --- the two benchmarks
 are complementary and must not be merged into a single score.
 
 \begin{keyfinding}
-\textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1), ACME with per-type routing reaches \textbf{84.8\%} overall vs.\ 78.0\% (RAG) and 78.6\% (MemGPT) --- +6.8 points over RAG --- with type-specific gains on \texttt{knowledge-update} (94.4\%), \texttt{single-session-preference} (93.3\%), and abstention probes (73.3\%) while preserving MemoryBench belief/feedback advantages (Section 6).
+\textbf{Key finding.} On the full LongMemEval oracle split (500 Q, GPT-4.1, single clean run), ACME v5 hybrid routing reaches \textbf{87.6\%} overall vs.\ 77.6\% (RAG) and 78.6\% (MemGPT) --- +10.0 points over RAG --- with gains on \texttt{temporal-reasoning} (80.3\%), abstention (83.3\%), and \texttt{knowledge-update} (94.4\%) while preserving MemoryBench belief/feedback advantages (Section 6).
 \end{keyfinding}
 
 \section{Experimental Setup}\label{experimental-setup}
@@ -467,7 +467,7 @@ ingress, stamp \texttt{20260624213154}).}
 \item CRS weights are hand-tuned; calibration against human epistemic judgments [41] is future work.
 \item \textbf{LongMemEval routing.} The LongMemEval adapter uses per-type answer paths (transcript-first for KU, vector-ranked aggregation for multi-session, abstention and preference prompts); MemoryBench still uses the graph + CRS query path.
 \item \textbf{Multi-session parity.} After v4 routing, ACME matches RAG on \texttt{multi-session} (79.3\% each on the 241-Q v4 run); dense retrieval remains competitive when evidence is scattered without temporal conflict.
-\item \textbf{Abstention.} Full-split abstention accuracy improves to 73.3\% (v4) vs.\ 53.3\% (v3 transcript-only), but entity-substitution errors persist on harder probes.
+\item \textbf{Abstention.} Full-split abstention accuracy reaches 83.3\% (v5) via anchor short-circuit; harder entity-substitution probes remain imperfect.
 \end{itemize}
 \end{keyfinding}
 
@@ -477,8 +477,8 @@ ACME shows that externalizing belief and learning from LLM weights
 yields stronger cognitive memory than vector RAG or lightweight
 agent-memory baselines on MemoryBench, especially for feedback-driven
 correction and auditable belief quality. On the official LongMemEval
-oracle split (500 Q, GPT-4.1), per-type routed ACME reaches
-\textbf{84.8\%} overall vs.~\textbf{78.0\%} (RAG), with the largest
+oracle split (500 Q, GPT-4.1), ACME v5 hybrid routing reaches
+\textbf{87.6\%} overall vs.~\textbf{77.6\%} (RAG), with the largest
 margins on knowledge-update and temporal-reasoning types. The consistent
 \textbf{+0.39--0.44} margin over RAG on MemoryBench across GPT-4.1,
 GPT-4.1-mini, and GPT-5.4 supports the hypothesis that explicit belief

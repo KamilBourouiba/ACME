@@ -1,6 +1,6 @@
 # ACME v0.3.0-longmemeval-v5
 
-**Date:** 2026-06-25  
+**Date:** 2026-06-26  
 **API:** https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io  
 **Image:** `acme-api:longmemeval-v5-hybrid`  
 **Repo:** https://github.com/KamilBourouiba/ACME
@@ -14,22 +14,23 @@
 
 Job `3b31e5e3`, GPT-4.1, June 2026.
 
-## LongMemEval oracle (500 Q)
+## LongMemEval oracle (500 Q, single clean run)
 
-> **Pending:** full clean v5 run (`LONGMEMEVAL_TYPES=all`). Interim v4 combined: ACME **0.848** vs RAG **0.780**.
+| System | Overall | KU | Multi-session | Temporal | Preference | Abstention |
+|--------|---------|-----|---------------|----------|------------|------------|
+| **ACME** | **0.876** | **0.944** | 0.793 | **0.803** | 0.900 | **0.833** |
+| MemGPT | 0.786 | 0.861 | 0.793 | 0.630 | 0.600 | 0.600 |
+| RAG | 0.776 | 0.875 | 0.793 | 0.622 | 0.467 | 0.600 |
 
-| System | Overall | KU | Multi | Temporal | Preference | Abstention |
-|--------|---------|-----|-------|----------|------------|------------|
-| **ACME** | *v5 TBD* | *TBD* | *TBD* | *TBD* | *TBD* | *TBD* |
+Job `45623ca0`, ~6.2 h, zero errors.
 
 Reproduce: `LONGMEMEVAL_TYPES=all bash scripts/run_longmemeval_prod.sh`
 
-## What's new in v0.3.0
+## What's new
 
-- Per-type LongMemEval routing (v4): KU, multi-session, temporal, abstention, preference
-- v5 hybrid: temporal timeline precompute, abstention anchor short-circuit, graph-vector multi-session context
-- `LONGMEMEVAL_TYPES=all` for full 500 Q prod benchmark
-- Paper + `docs/BENCHMARK_RESULTS.md` updated after v5 job completes
+- **v4:** per-type routing (KU, multi-session, temporal, abstention, preference)
+- **v5:** temporal timeline precompute, abstention anchor short-circuit, graph-vector multi-session hybrid
+- Paper + benchmark docs updated with canonical 500 Q scores
 
 ## Docs
 
