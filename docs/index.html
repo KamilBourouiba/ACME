@@ -4,302 +4,232 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ACME — Adaptive Cognitive Memory Engine</title>
-  <meta name="description" content="ACME externalizes memory, belief, and learning from LLM weights. MemoryBench v3: 0.925 vs 0.487 RAG. LongMemEval oracle 500Q: 0.804 vs 0.776 RAG (GPT-4.1, June 2026).">
+  <meta name="description" content="External cognitive memory for LLMs. MemoryBench 0.925 vs RAG 0.487. LongMemEval oracle 87.6% vs 77.6% RAG. Production API on Azure OpenAI GPT-4.1.">
   <meta property="og:title" content="ACME — Adaptive Cognitive Memory Engine">
-  <meta property="og:description" content="External cognitive substrate with belief lifecycle, graph memory, and MemoryBench v3 evaluation.">
+  <meta property="og:description" content="Belief lifecycle, graph memory, and reproducible benchmarks on MemoryBench and LongMemEval.">
   <meta property="og:type" content="website">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
   <nav class="nav">
     <div class="container nav-inner">
-      <a class="logo" href="#">ACME<span>.</span></a>
+      <a class="logo" href="#">ACME</a>
+      <button class="menu-btn" type="button" aria-label="Menu" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
       <div class="nav-links">
-        <a href="#problem">Problem</a>
+        <a href="#benchmarks">Benchmarks</a>
         <a href="#architecture">Architecture</a>
-        <a href="#benchmark">Benchmark</a>
-        <a href="#built">What we built</a>
-        <a href="#stack">Production</a>
-        <a href="#links">Links</a>
+        <a href="#stack">API</a>
+        <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
+        <a class="nav-cta" href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">GitHub</a>
       </div>
     </div>
   </nav>
 
   <header class="hero container">
-    <div class="hero-badge">v0.1.0-azure · arXiv-ready · June 2026</div>
-    <h1>Adaptive Cognitive<br><em>Memory Engine</em></h1>
+    <p class="hero-eyebrow">Research preprint · v0.3.0 · June 2026</p>
+    <h1>Adaptive Cognitive Memory Engine</h1>
     <p class="hero-lead">
-      ACME treats the LLM as a language processor while delegating persistence, confidence tracking,
-      contradiction handling, and self-correction to an external, auditable cognitive substrate.
+      ACME externalizes memory, belief, and learning from LLM weights.
+      Experiences become auditable beliefs; feedback updates confidence; retrieval combines graph structure with vectors.
     </p>
-    <div class="hero-stats">
-      <div class="stat">
-        <div class="stat-value acme">0.925</div>
-        <div class="stat-label">ACME overall (MemoryBench v3)</div>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-value">0.925<span>vs 0.487</span></div>
+        <div class="metric-label">MemoryBench overall (ACME vs RAG)</div>
       </div>
-      <div class="stat">
-        <div class="stat-value">0.487</div>
-        <div class="stat-label">RAG baseline (GPT-4.1)</div>
+      <div class="metric">
+        <div class="metric-value">87.6%<span>vs 77.6%</span></div>
+        <div class="metric-label">LongMemEval oracle 500 Q</div>
       </div>
-      <div class="stat">
-        <div class="stat-value acme">0.876</div>
-        <div class="stat-label">LongMemEval oracle (500 Q)</div>
-      </div>
-      <div class="stat">
-        <div class="stat-value">0</div>
-        <div class="stat-label">Benchmark failures</div>
+      <div class="metric">
+        <div class="metric-value">+0.44</div>
+        <div class="metric-label">MemoryBench margin (GPT-4.1)</div>
       </div>
     </div>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">View on GitHub</a>
-      <a class="btn btn-secondary" href="PAPER.pdf" target="_blank">Read the paper (PDF)</a>
-      <a class="btn btn-secondary" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/health" target="_blank" rel="noopener">Live API</a>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="PAPER.pdf" target="_blank" rel="noopener">Read the paper</a>
+      <a class="btn btn-outline" href="https://github.com/KamilBourouiba/ACME/releases/tag/v0.3.0-longmemeval-v5" target="_blank" rel="noopener">Release v0.3.0</a>
+      <a class="btn btn-outline" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/docs" target="_blank" rel="noopener">API docs</a>
     </div>
   </header>
 
-  <section id="problem">
+  <section id="benchmarks">
     <div class="container">
-      <div class="section-head">
-        <div class="section-label">Research question</div>
-        <h2>When does a collection of experiences deserve to become a belief?</h2>
-        <p class="section-intro">
-          Standard LLM stacks freeze knowledge in weights, lack durable episodic memory, and cannot learn
-          structurally from failure. RAG retrieves documents but has no explicit belief states or feedback loops.
-          ACME operationalizes a full cognitive lifecycle beyond retrieval.
+      <div class="section-header">
+        <h2>Benchmarks</h2>
+        <p>
+          Production runs on Azure OpenAI GPT-4.1 with sandbox-isolated scenarios,
+          official LongMemEval judge prompts, and persisted <code>benchmark_runs</code> for reproduction.
         </p>
       </div>
-      <div class="grid-2 content-block">
-        <div class="card">
-          <div class="card-icon icon-orange">⚠</div>
-          <h3>LLM limitations</h3>
-          <p>No durable memory, no belief promotion, no structured forgetting, unchecked self-confidence, weak learning from outcomes.</p>
+
+      <div class="bench-grid">
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>MemoryBench v3</th>
+                  <th>Overall</th>
+                  <th>Retention</th>
+                  <th>Feedback</th>
+                  <th>Belief</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight">
+                  <td>ACME</td>
+                  <td class="num">0.925</td>
+                  <td class="num">1.000</td>
+                  <td class="num">1.000</td>
+                  <td class="num">0.700</td>
+                </tr>
+                <tr>
+                  <td>RAG</td>
+                  <td class="num">0.487</td>
+                  <td class="num">0.969</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                </tr>
+                <tr>
+                  <td>MemGPT</td>
+                  <td class="num">0.487</td>
+                  <td class="num">0.977</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                </tr>
+                <tr>
+                  <td>LangGraph</td>
+                  <td class="num">0.469</td>
+                  <td class="num">0.900</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">13 scenarios · job <code>3b31e5e3</code> · 24 Jun 2026</p>
         </div>
-        <div class="card">
-          <div class="card-icon icon-cyan">◈</div>
-          <h3>ACME response</h3>
-          <p>Graph + vector hybrid memory, CRS belief engine, contrarian verification, compression, forgetting tiers, and autonomous hypothesis generation.</p>
+
+        <div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>LongMemEval oracle</th>
+                  <th>Overall</th>
+                  <th>KU</th>
+                  <th>Temporal</th>
+                  <th>Abstain.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight">
+                  <td>ACME</td>
+                  <td class="num">0.876</td>
+                  <td class="num">0.944</td>
+                  <td class="num">0.803</td>
+                  <td class="num">0.833</td>
+                </tr>
+                <tr>
+                  <td>RAG</td>
+                  <td class="num">0.776</td>
+                  <td class="num">0.875</td>
+                  <td class="num">0.622</td>
+                  <td class="num">0.600</td>
+                </tr>
+                <tr>
+                  <td>MemGPT</td>
+                  <td class="num">0.786</td>
+                  <td class="num">0.861</td>
+                  <td class="num">0.630</td>
+                  <td class="num">0.600</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">500 questions · job <code>45623ca0</code> · clean v5 run</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="architecture" class="section-alt">
+  <section id="architecture">
     <div class="container">
-      <div class="section-head">
-        <div class="section-label">System design</div>
-        <h2>Seven engines, one cognitive loop</h2>
-        <p class="section-intro">
-          Experiences flow through extraction into PostgreSQL (episodic + pgvector) and Neo4j (semantic graph).
-          Queries combine graph neighborhood retrieval with vector search, then optional contrarian challenge.
-          Feedback updates beliefs, logs failures, and triggers consolidation.
+      <div class="section-header">
+        <h2>Architecture</h2>
+        <p>
+          Seven engines coordinated by a single orchestrator.
+          PostgreSQL stores episodes and beliefs; Neo4j holds the semantic graph; Azure OpenAI handles extraction and reasoning.
         </p>
       </div>
-      <div class="arch-diagram content-block">                         ┌─────────────────────────────────────┐
-                         │           LLM Provider              │
-                         │   Azure OpenAI GPT-4.1 / Ollama     │
-                         │  extraction · reasoning · judge     │
-                         └──────────────┬──────────────────────┘
-                                        │
-    Experience ──► ┌────────────────────▼────────────────────┐
-                   │              Orchestrator                  │
-                   │         (self-improvement loop)            │
-                   └─┬──────┬──────┬──────┬──────┬──────┬──────┘
-                     │      │      │      │      │      │
-              ┌──────▼──┐ ┌─▼───┐ ┌▼────┐ ┌▼────┐ ┌▼────┐ ┌▼──────┐
-              │ Episodic │ │Graph│ │Belief│ │Fail.│ │Comp.│ │Learn. │
-              │  Store   │ │Mem. │ │Eng.  │ │Eng. │ │Eng. │ │Eng.   │
-              │ Postgres │ │Neo4j│ │ CRS  │ │     │ │     │ │       │
-              └──────────┘ └─────┘ └─────┘ └─────┘ └─────┘ └───────┘</div>
 
-      <div class="loop-steps content-block">
-        <div class="loop-step"><strong>1</strong> Ingest &amp; extract</div>
-        <div class="loop-step"><strong>2</strong> Graph + vector retrieve</div>
-        <div class="loop-step"><strong>3</strong> Reason + contrarian</div>
-        <div class="loop-step"><strong>4</strong> Answer + confidence</div>
-        <div class="loop-step"><strong>5</strong> Outcome feedback</div>
-        <div class="loop-step"><strong>6</strong> Belief update</div>
-        <div class="loop-step"><strong>7</strong> Learn &amp; predict</div>
+      <div class="arch-flow">
+        <div class="arch-row">
+          <div class="arch-node arch-center" style="flex: 2;">
+            <strong>Input</strong>
+            <span>Experiences · queries · outcome feedback</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-node arch-center" style="flex: 2;">
+            <strong>Orchestrator</strong>
+            <span>Self-improvement loop · tenant isolation</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-node">
+            <strong>Episodic</strong>
+            <span>Postgres + pgvector</span>
+          </div>
+          <div class="arch-node">
+            <strong>Graph</strong>
+            <span>Neo4j entities</span>
+          </div>
+          <div class="arch-node">
+            <strong>Belief</strong>
+            <span>CRS scoring</span>
+          </div>
+          <div class="arch-node">
+            <strong>Failure</strong>
+            <span>Outcome log</span>
+          </div>
+          <div class="arch-node">
+            <strong>Learn</strong>
+            <span>Hypotheses</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-node arch-center" style="flex: 2;">
+            <strong>LLM</strong>
+            <span>Azure OpenAI GPT-4.1 · extraction · reason · judge</span>
+          </div>
+        </div>
       </div>
 
-      <div class="grid-3 content-block">
-        <div class="card">
-          <div class="card-icon icon-purple">→</div>
+      <div class="arch-pipeline">
+        <div class="arch-step"><em>1</em>Ingest &amp; extract</div>
+        <div class="arch-step"><em>2</em>Graph + vector retrieve</div>
+        <div class="arch-step"><em>3</em>Reason + contrarian</div>
+        <div class="arch-step"><em>4</em>Feedback &amp; belief update</div>
+        <div class="arch-step"><em>5</em>Consolidate &amp; predict</div>
+      </div>
+
+      <div class="features" style="margin-top: 2.5rem;">
+        <div class="feature">
           <h3>Belief lifecycle</h3>
-          <p>Observation → Inference → Hypothesis → Belief → Challenged → Deprecated → Archived. Symmetric demotion on contradictory evidence.</p>
+          <p>Observation through belief promotion, with symmetric demotion when contradictory evidence arrives.</p>
         </div>
-        <div class="card">
-          <div class="card-icon icon-green">Σ</div>
+        <div class="feature">
           <h3>Cognitive Reliability Score</h3>
-          <p>CRS = 40% prediction success + 20% temporal stability + 20% contradiction resistance + 20% source diversity.</p>
+          <p>Beliefs ranked by prediction success, temporal stability, contradiction resistance, and source diversity.</p>
         </div>
-        <div class="card">
-          <div class="card-icon icon-cyan">⊘</div>
-          <h3>Multi-tenant isolation</h3>
-          <p>Postgres rows and Neo4j nodes keyed by <code>tenant_id</code>. Per-scenario benchmark sandboxes for reproducible evaluation.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="benchmark">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-label">MemoryBench v3.1</div>
-        <h2>Production benchmark results</h2>
-        <p class="section-intro">
-          Fourteen sandbox-isolated scenarios scored by an LLM judge (Azure OpenAI GPT-4.1).
-          Each scenario cleans Postgres + Neo4j before run. Baselines (RAG, MemGPT, LangGraph) lack
-          feedback and belief layers — those metrics are N/A for them.
-        </p>
-      </div>
-
-      <div class="bench-table-wrap content-block">
-        <table>
-          <thead>
-            <tr>
-              <th>System</th>
-              <th>Overall</th>
-              <th>Retention</th>
-              <th>Groundedness</th>
-              <th>Feedback</th>
-              <th>Belief (CRS)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr class="highlight-row">
-              <td>ACME</td>
-              <td>
-                <div class="score-bar">
-                  <div class="bar-track"><div class="bar-fill" style="width: 92.5%"></div></div>
-                  <span class="score-num">0.925</span>
-                </div>
-              </td>
-              <td>1.000</td>
-              <td>1.000</td>
-              <td>1.000</td>
-              <td>0.700</td>
-            </tr>
-            <tr>
-              <td>RAG baseline</td>
-              <td>
-                <div class="score-bar">
-                  <div class="bar-track"><div class="bar-fill baseline" style="width: 48.7%"></div></div>
-                  <span class="score-num">0.487</span>
-                </div>
-              </td>
-              <td>0.969</td>
-              <td>0.977</td>
-              <td class="na">N/A</td>
-              <td class="na">N/A</td>
-            </tr>
-            <tr>
-              <td>MemGPT baseline</td>
-              <td>
-                <div class="score-bar">
-                  <div class="bar-track"><div class="bar-fill baseline" style="width: 48.7%"></div></div>
-                  <span class="score-num">0.487</span>
-                </div>
-              </td>
-              <td>0.900</td>
-              <td>0.969</td>
-              <td class="na">N/A</td>
-              <td class="na">N/A</td>
-            </tr>
-            <tr>
-              <td>LangGraph baseline</td>
-              <td>
-                <div class="score-bar">
-                  <div class="bar-track"><div class="bar-fill baseline" style="width: 46.9%"></div></div>
-                  <span class="score-num">0.469</span>
-                </div>
-              </td>
-              <td>0.969</td>
-              <td>0.985</td>
-              <td class="na">N/A</td>
-              <td class="na">N/A</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <p class="meta-note">
-        Run date: 24 June 2026 · Duration: ~12 min · Judge: semantic LLM ·
-        Reproduce: <code>./scripts/run_prod_benchmark.sh</code>
-      </p>
-
-      <div class="grid-2 content-block">
-        <div class="card">
-          <h3>Scenario coverage</h3>
-          <p>Retention, contradiction handling, multi-source conflict, error injection, long-horizon noise, hallucination resistance, feedback/belief adjustment, adversarial noise, tenant isolation, healthcare transfer, multi-session recall, prediction-outcome loop.</p>
-        </div>
-        <div class="card">
-          <h3>Why ACME wins overall</h3>
-          <p>Baselines match ACME on retention-only metrics (~0.96). ACME's advantage comes from <strong>feedback correction (1.0)</strong> and <strong>belief quality (0.7)</strong> — dimensions no baseline implements.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="built" class="section-alt">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-label">Project delivery</div>
-        <h2>Everything built in this release</h2>
-        <p class="section-intro">
-          From research prototype to production Azure deployment, arXiv manuscript, CI gates, and investor demo — a complete reproducible stack.
-        </p>
-      </div>
-
-      <div class="timeline content-block">
-        <div class="timeline-item">
-          <h3>Core cognitive engine</h3>
-          <p>FastAPI orchestrator with seven specialized engines, event store, hybrid retrieval, contrarian pass, and autonomous learning loop.</p>
-          <ul>
-            <li>Belief promotion/demotion with CRS and causal edge types</li>
-            <li>Compression, forgetting tiers (HOT → DELETE), prediction validation</li>
-            <li>Ablation toggles for contrarian, belief sync, vector retrieval</li>
-          </ul>
-        </div>
-        <div class="timeline-item">
-          <h3>MemoryBench v3 + baselines</h3>
-          <p>13 sandbox-isolated scenarios with RAG, MemGPT, and LangGraph baselines. LLM-as-judge scoring with keyword overlap reported separately.</p>
-          <ul>
-            <li>Async compare jobs (background, pollable) for long prod runs</li>
-            <li>Benchmark persistence in Postgres <code>benchmark_runs</code></li>
-            <li>Weekly CI gate workflow (<code>benchmark-gate.yml</code>)</li>
-          </ul>
-        </div>
-        <div class="timeline-item">
-          <h3>Production Azure (~$100/mo)</h3>
-          <p>Deployed and benchmarked on Azure Container Apps with managed infrastructure.</p>
-          <ul>
-            <li>Azure OpenAI GPT-4.1 + text-embedding-3-small (256D)</li>
-            <li>Postgres Flexible Server (francecentral) + pgvector</li>
-            <li>Neo4j with tenant-scoped composite unique keys</li>
-            <li>Premium ingress (30 min timeout), API key on benchmark routes</li>
-          </ul>
-        </div>
-        <div class="timeline-item">
-          <h3>Reliability fixes</h3>
-          <p>Production hardening from real benchmark runs.</p>
-          <ul>
-            <li>pgvector SQLAlchemy cast fix (<code>CAST(:vec AS vector)</code>)</li>
-            <li>Neo4j legacy constraint migration (tenant_id composite key)</li>
-            <li>MemoryBench feedback resilience + investor demo cached fallback</li>
-          </ul>
-        </div>
-        <div class="timeline-item">
-          <h3>Research &amp; release artifacts</h3>
-          <p>arXiv-ready package with full documentation.</p>
-          <ul>
-            <li><code>docs/PAPER.md</code> + PDF export script</li>
-            <li>GitHub release <code>v0.1.0-azure</code>, 56 CI tests + ablation suite</li>
-            <li>Investor demo script (~30s cached mode) + video recording script</li>
-            <li>Baseline methodology, Azure cost breakdown, arXiv checklist</li>
-          </ul>
+        <div class="feature">
+          <h3>Reproducible evaluation</h3>
+          <p>Per-scenario sandbox reset, async benchmark jobs, and CI gates on MemoryBench and LongMemEval fixtures.</p>
         </div>
       </div>
     </div>
@@ -307,62 +237,31 @@
 
   <section id="stack">
     <div class="container">
-      <div class="section-head">
-        <div class="section-label">Live deployment</div>
-        <h2>Production stack</h2>
+      <div class="section-header">
+        <h2>Production API</h2>
+        <p>Deployed on Azure Container Apps. Benchmarks require API key; health endpoint is public.</p>
       </div>
-      <div class="pills content-block">
-        <span class="pill">Azure Container Apps</span>
-        <span class="pill">Azure OpenAI GPT-4.1</span>
-        <span class="pill">text-embedding-3-small</span>
-        <span class="pill">Postgres Flexible + pgvector</span>
-        <span class="pill">Neo4j Aura</span>
-        <span class="pill">FastAPI</span>
-        <span class="pill">Python 3.10+</span>
-        <span class="pill">Docker / ACR</span>
-      </div>
-      <div class="grid-2 content-block">
-        <div class="card">
-          <h3>API endpoint</h3>
-          <p style="font-family: var(--mono); font-size: 0.78rem; word-break: break-all;">
-            https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io
-          </p>
-          <p style="margin-top: 0.75rem;">Revision <code>acme-api--neo4jfix2</code> · Health at <code>/api/v1/health</code></p>
-        </div>
-        <div class="card">
-          <h3>Reproduce benchmarks</h3>
-          <p>
-            <code>source azure/api-key.env</code><br>
-            <code>./azure/configure-premium-ingress.sh</code><br>
-            <code>./scripts/run_prod_benchmark.sh</code>
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <section id="links" class="section-alt">
-    <div class="container">
-      <div class="section-head">
-        <div class="section-label">Resources</div>
-        <h2>Links &amp; documentation</h2>
+      <div class="stack-list">
+        <span>Azure Container Apps</span>
+        <span>GPT-4.1</span>
+        <span>text-embedding-3-small</span>
+        <span>Postgres Flexible + pgvector</span>
+        <span>Neo4j</span>
+        <span>FastAPI</span>
       </div>
-      <div class="grid-3 content-block">
-        <div class="card">
-          <h3>Code</h3>
-          <p><a href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">github.com/KamilBourouiba/ACME</a></p>
-          <p>Tag: <code>v0.1.0-azure</code></p>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Endpoint</h3>
+          <p>https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io</p>
+          <p>Health: <code>/api/v1/health</code></p>
         </div>
-        <div class="card">
-          <h3>Paper</h3>
-          <p><a href="PAPER.pdf">PAPER.pdf</a> · <a href="PAPER.md">PAPER.md</a></p>
-          <p>arXiv submission checklist in repo</p>
-        </div>
-        <div class="card">
-          <h3>Docs</h3>
-          <p><a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/BASELINES.md">Baselines</a></p>
-          <p><a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/AZURE_COSTS.md">Azure costs</a></p>
-          <p><a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/ARXIV_SUBMISSION.md">arXiv checklist</a></p>
+        <div class="info-card">
+          <h3>Reproduce</h3>
+          <p><code>git clone</code> → <code>azure/set-api-key.sh</code></p>
+          <p><code>./scripts/run_prod_benchmark.sh</code></p>
+          <p><code>LONGMEMEVAL_TYPES=all ./scripts/run_longmemeval_prod.sh</code></p>
         </div>
       </div>
     </div>
@@ -370,11 +269,12 @@
 
   <footer>
     <div class="container footer-inner">
-      <div>ACME · Adaptive Cognitive Memory Engine · MIT License</div>
+      <div>ACME · Mohamed Kamil Bourouiba · MIT License</div>
       <div class="footer-links">
-        <a href="https://github.com/KamilBourouiba/ACME">GitHub</a>
-        <a href="PAPER.pdf">Paper</a>
-        <a href="https://github.com/KamilBourouiba/ACME/releases/tag/v0.1.0-azure">Release</a>
+        <a href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">GitHub</a>
+        <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
+        <a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/BENCHMARK_RESULTS.md" target="_blank" rel="noopener">Results</a>
+        <a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/ARXIV_SUBMISSION.md" target="_blank" rel="noopener">arXiv checklist</a>
       </div>
     </div>
   </footer>
