@@ -506,4 +506,6 @@ If you use ACME in your research, please cite:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Copyright © 2026 Mohamed Kamil Bourouiba.
+
+Code is released under the [MIT License](LICENSE). The paper (`docs/PAPER.pdf`) is © Mohamed Kamil Bourouiba; preprint distributed via arXiv under the arXiv.org non-exclusive license.
