@@ -44,7 +44,7 @@
 }
 
 \newcommand{\acmeTableSetup}{%
-  \acmeTableBlockCol{Experimental configuration (Azure production).}{%
+  \acmeTableBlockCol{Experimental configuration (Azure deployment).}{%
     \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.30\columnwidth}p{0.62\columnwidth}@{}}
       \toprule
       \textbf{Component} & \textbf{Configuration} \\
@@ -85,7 +85,7 @@
       Per-scenario sandbox & No & Partial & Yes & Yes & \textbf{Yes} \\
       Contrarian verification & No & No & Partial & No & \textbf{Yes} \\
       Belief quality (CRS) & No & No & No & Partial & \textbf{Yes} \\
-      Production API + persisted runs & No & No & No & No & \textbf{Yes} \\
+      Deployed API + persisted benchmark runs & No & No & No & No & \textbf{Yes} \\
       \bottomrule
     \end{tabular}%
   }%
@@ -109,8 +109,31 @@
   }%
 }
 
+\newcommand{\acmeTableMemoryBenchCI}{%
+  \acmeTableBlockWide{MemoryBench v3 per-scenario bootstrap 95\% CIs (job \texttt{3b31e5e3}, $n{=}13$ scenarios). Means match Table~\ref{tab:memorybench-main}; intervals resample scenario-level judge scores.}{%
+    \label{tab:memorybench-ci}%
+    \resizebox{\dimexpr\textwidth-4pt\relax}{!}{%
+    \begin{tabular}{@{}l *{4}{S[table-format=1.3]}@{}}
+      \toprule
+      \textbf{System} &
+      {\textbf{Ret. [CI]}} &
+      {\textbf{Gnd. [CI]}} &
+      {\textbf{Fbk.}} &
+      {\textbf{Bel. [CI]}} \\
+      \midrule
+      \rowcolor{acmerow}
+      \textbf{ACME} & \textbf{1.000} {\scriptsize (1.00--1.00)} & \textbf{1.000} {\scriptsize (1.00--1.00)} & \textbf{1.000} & \textbf{0.700} {\scriptsize (0.70--0.70)} \\
+      RAG-like & 0.969 & 0.977 & {---} & {---} \\
+      MemGPT-insp. & 0.977 & 0.969 & {---} & {---} \\
+      LangGraph-sty. & 0.900 & 0.977 & {---} & {---} \\
+      \bottomrule
+    \end{tabular}%
+    }%
+  }%
+}
+
 \newcommand{\acmeTableMain}{%
-  \acmeScoreTable{Primary benchmark (GPT-4.1, 13 scenarios, job \texttt{3b31e5e3}). Ret.=Retention, Gnd.=Groundedness, Fbk.=Feedback, Bel.=Belief quality, Ovr.=Overall.}{%
+  \acmeScoreTable{Primary benchmark (GPT-4.1, 13 scenarios, job \texttt{3b31e5e3}). Ret.=Retention, Gnd.=Groundedness, Fbk.=Feedback, Bel.=Belief quality, Ovr.=Overall.\label{tab:memorybench-main}}{%
       \rowcolor{acmerow}
       \textbf{ACME} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{0.700} & \textbf{0.925} \\
       RAG-like & 0.969 & 0.977 & {---} & {---} & 0.487 \\

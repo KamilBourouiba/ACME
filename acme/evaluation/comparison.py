@@ -3,7 +3,7 @@
 from acme.evaluation.baseline_rag import RAGBaselineRunner
 from acme.evaluation.baseline_memgpt import MemGPTBaselineRunner
 from acme.evaluation.baseline_langgraph import LangGraphBaselineRunner
-from acme.evaluation.memorybench import run_memorybench_with_orchestrator
+from acme.evaluation.memorybench import V3_SCENARIOS, run_memorybench_with_orchestrator
 from acme.llm.base import BaseLLMClient
 from acme.schemas import BenchmarkComparisonResult, MemoryBenchResult
 
@@ -27,14 +27,14 @@ async def _run_benchmark_comparison(
     *,
     persist: bool = True,
 ) -> BenchmarkComparisonResult:
-    acme_result = await run_memorybench_with_orchestrator(orchestrator)
+    acme_result = await run_memorybench_with_orchestrator(orchestrator, scenarios=V3_SCENARIOS)
     rag_runner = RAGBaselineRunner(llm)
     memgpt_runner = MemGPTBaselineRunner(llm)
     langgraph_runner = LangGraphBaselineRunner(llm)
 
-    rag_result = await rag_runner.run()
-    memgpt_result = await memgpt_runner.run()
-    langgraph_result = await langgraph_runner.run()
+    rag_result = await rag_runner.run(scenarios=V3_SCENARIOS)
+    memgpt_result = await memgpt_runner.run(scenarios=V3_SCENARIOS)
+    langgraph_result = await langgraph_runner.run(scenarios=V3_SCENARIOS)
 
     result = BenchmarkComparisonResult(
         acme=acme_result,

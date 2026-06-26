@@ -190,6 +190,9 @@ DEFAULT_SCENARIOS: list[MemoryBenchScenario] = [
     ),
 ]
 
+# Primary paper compare (13 scenarios) excludes v3.1-only knowledge_update probe.
+V3_SCENARIOS = [s for s in DEFAULT_SCENARIOS if s.name != "knowledge_update"]
+
 
 def _avg(values: list[float]) -> float:
     return round(sum(values) / len(values), 4) if values else 0.0

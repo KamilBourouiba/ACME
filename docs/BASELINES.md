@@ -1,24 +1,30 @@
 # MemoryBench baselines
 
-ACME compares against three **reference implementations** aligned with published systems. These are deliberately minimal, reproducible runners that share the same LLM judge and scenarios as ACME — not full upstream codebases.
+ACME compares against three **reference implementations** aligned with published systems. These are reproducible runners that share the same LLM judge and scenarios as ACME — not full upstream Letta/MemGPT server deployments.
 
-## RAG (`acme/evaluation/baseline_rag.py`)
+## RAG-like (`acme/evaluation/baseline_rag.py`)
 
-- **Reference:** Lewis et al., *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*, 2020.
+- **Reference:** Lewis et al., *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*, NeurIPS 2020.
 - **Implementation:** Embed all scenario episodes, cosine top-k retrieval, single LLM reasoning pass.
 - **Missing vs ACME:** graph structure, beliefs, feedback loop, CRS, contrarian check.
 
-## MemGPT (`acme/evaluation/baseline_memgpt.py`)
+## MemGPT-inspired (`acme/evaluation/baseline_memgpt.py`)
 
 - **Reference:** Packer et al., *MemGPT: Towards LLMs as Operating Systems*, 2023.
-- **Implementation:** Fixed core window (last 3 episodes) + archival vector store with cosine retrieval.
+- **Implementation (paper-faithful):** Fixed core window (last 3 episodes) + archival vector store. When core overflows, the **evicted episode is LLM-summarized** into archival memory before new content is added (MemGPT paging pattern).
 - **Missing vs ACME:** persistence across sessions, belief lifecycle, structured forgetting, prediction validation.
 
-## LangGraph (`acme/evaluation/baseline_langgraph.py`)
+## LangGraph-style (`acme/evaluation/baseline_langgraph.py`)
 
-- **Reference:** LangGraph-style agent state graphs (accumulated facts per session).
+- **Reference:** LangGraph agent state graphs (LangChain documentation).
 - **Implementation:** LLM extraction → append facts/edges to in-memory state; query uses last 40 facts.
 - **Missing vs ACME:** durable episodic store, hybrid retrieval, belief engine, consolidation worker.
+
+## LangGraph package runner (`acme/evaluation/baseline_langgraph_pkg.py`)
+
+- **Optional:** `pip install langgraph langchain-core`
+- **Implementation:** Official `StateGraph` compiled graph with the same fact accumulation semantics.
+- **Use:** `scripts/run_local_fidelity_baselines.py` for supplementary local runs.
 
 ## Scoring fairness
 
@@ -26,16 +32,32 @@ ACME compares against three **reference implementations** aligned with published
 |-----------|------|-----------|
 | Retention | ✓ | ✓ |
 | Groundedness | ✓ | ✓ |
-| Feedback correction | ✓ | N/A (0.0) |
-| Belief quality (CRS) | ✓ | N/A (0.0) |
+| Feedback correction | ✓ | N/A (0 in overall index) |
+| Belief quality (CRS) | ✓ | N/A (0 in overall index) |
 
-Overall score averages all four dimensions. Baseline overall therefore caps at ~0.5 when retention and groundedness are strong.
+Overall score is the unweighted mean of all four dimensions. Baselines receive **0** on feedback and belief in the capability index (shown as N/A in tables), so overall caps near ~0.49 even when retention and groundedness are strong.
+
+## Analysis artifacts
+
+| Artifact | Description |
+|----------|-------------|
+| `benchmark-results/memorybench-v3-export.json` | Prod export (`GET /api/v1/benchmark/export`) |
+| `benchmark-results/memorybench-analysis.json` | Bootstrap 95% CIs + judge–keyword correlation |
+| `docs/HUMAN_AUDIT_MEMORYBENCH.md` | 5-scenario author audit sample |
+| `scripts/analyze_memorybench_export.py` | Regenerate analysis from export |
 
 ## Reproduce
 
 ```bash
-curl -X POST "$API/api/v1/benchmark/compare/async"
-curl "$API/api/v1/benchmark/compare/jobs/{job_id}"
+# Prod compare (13-scenario v3 suite)
+curl -X POST "$API/api/v1/benchmark/compare/async" -H "X-API-Key: $API_KEY"
+curl "$API/api/v1/benchmark/compare/jobs/{job_id}" -H "X-API-Key: $API_KEY"
+
+# Analysis + human audit pack
+python scripts/analyze_memorybench_export.py
+
+# Local paper-faithful baselines (requires AZURE_OPENAI_* in .env)
+python scripts/run_local_fidelity_baselines.py
 ```
 
-Official upstream MemGPT/LangGraph integrations are listed as future work in `docs/PAPER.md`.
+Letta (formerly MemGPT) server integration is out of scope for sandbox-isolated MemoryBench episodes but listed as future work.

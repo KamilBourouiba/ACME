@@ -1,6 +1,7 @@
-"""MemGPT-style baseline — core memory window + archival vector retrieval.
+"""MemGPT-inspired baseline — core window + archival vector retrieval + eviction summaries.
 
-Reference: Packer et al., MemGPT (2023). See docs/BASELINES.md.
+Reference: Packer et al., MemGPT (2023). Core overflow triggers LLM summarization into
+archival store (paper-faithful paging). See docs/BASELINES.md.
 """
 
 from dataclasses import dataclass, field
@@ -20,7 +21,7 @@ class _MemGPTMemory:
 
 
 class MemGPTBaselineRunner:
-    """Simplified MemGPT: fixed core window + archival vector store."""
+    """MemGPT-inspired: fixed core window, archival vector store, summarize-on-evict."""
 
     CORE_SIZE = 3
 
@@ -29,12 +30,26 @@ class MemGPTBaselineRunner:
         self.embedder = embedder or EmbeddingClient()
         self.memory = _MemGPTMemory()
 
-    async def ingest(self, content: str) -> None:
+    async def _archive(self, text: str, *, summarized: bool = False) -> None:
+        content = text
+        if summarized:
+            try:
+                content = await self.llm.generate(
+                    prompt=f"Summarize this memory entry for long-term archival storage:\n{text}",
+                    temperature=0.0,
+                    timeout=60.0,
+                )
+            except Exception:
+                content = text
         vec = await self.embedder.embed(content)
         self.memory.archival.append((content, vec))
+
+    async def ingest(self, content: str) -> None:
+        if len(self.memory.core) >= self.CORE_SIZE:
+            evicted = self.memory.core.pop(0)
+            await self._archive(evicted, summarized=True)
+        await self._archive(content, summarized=False)
         self.memory.core.append(content)
-        if len(self.memory.core) > self.CORE_SIZE:
-            self.memory.core.pop(0)
 
     async def query(self, question: str, top_k: int = 5) -> str:
         if not self.memory.archival:
@@ -97,6 +112,6 @@ class MemGPTBaselineRunner:
                 "scoring_method": "semantic_llm_judge",
                 "scenarios_run": len(scenarios),
                 "scenarios": results,
-                "note": "MemGPT baseline has no belief/feedback layer",
+                "note": "MemGPT-inspired baseline (core + archival + summarize-on-evict); no belief/feedback layer",
             },
         )
