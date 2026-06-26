@@ -41,10 +41,11 @@ Overall score is the unweighted mean of all four dimensions. Baselines receive *
 
 | Artifact | Description |
 |----------|-------------|
-| `benchmark-results/memorybench-v3-export.json` | Prod export (`GET /api/v1/benchmark/export`) |
-| `benchmark-results/memorybench-analysis.json` | Bootstrap 95% CIs + judge–keyword correlation |
+| `docs/benchmarks/job-3b31e5e3-export.json` | Archived per-scenario scores (primary run, bootstrap CIs) |
+| `docs/benchmarks/compare-94005737.json` | Full compare payload (reproduction reference) |
 | `docs/HUMAN_AUDIT_MEMORYBENCH.md` | 5-scenario author audit sample |
-| `scripts/analyze_memorybench_export.py` | Regenerate analysis from export |
+| `scripts/analyze_memorybench_export.py` | Bootstrap CIs + audit from live export |
+| `scripts/generate_paper_ci_table.py` | LaTeX rows for paper CI table |
 
 ## Reproduce
 

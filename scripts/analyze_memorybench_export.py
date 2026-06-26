@@ -75,7 +75,7 @@ def main() -> None:
     parser.add_argument(
         "--export",
         type=Path,
-        default=ROOT / "benchmark-results" / "memorybench-v3-export.json",
+        default=ROOT / "docs" / "benchmarks" / "job-3b31e5e3-export.json",
     )
     parser.add_argument(
         "--out",
