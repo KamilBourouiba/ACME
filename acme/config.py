@@ -73,5 +73,11 @@ class Settings(BaseSettings):
     api_port: int = 8000
     log_level: str = "INFO"
 
+    # Public multi-agent demo (website)
+    demo_enabled: bool = False
+    demo_interval_sec: int = 90
+    demo_azure_deployment: str = ""  # e.g. gpt-5.4; empty = use AZURE_OPENAI_DEPLOYMENT
+    demo_llm_paraphrase: bool = True
+
 
 settings = Settings()

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACME Live Demo — Multi-Agent Beliefs</title>
+  <meta name="description" content="Watch three ACME agents debate SaaS churn with isolated belief graphs. Select an agent to inspect CRS and belief lifecycle.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/demo.css">
+</head>
+<body class="demo-page">
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a class="logo" href="index.html">ACME</a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
+        <a href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="demo-header">
+    <div class="container">
+      <h1>Live multi-agent memory</h1>
+      <p>Three personas ingest, query, and revise beliefs on isolated ACME tenants — same scenario family as MemoryBench.</p>
+      <div class="demo-status" id="demo-status">
+        <span><span class="live-dot off" id="live-dot"></span><span id="status-text">Connecting…</span></span>
+        <span>Model: <code id="model-label">—</code></span>
+        <span>Turn: <code id="tick-label">0</code></span>
+      </div>
+    </div>
+  </header>
+
+  <div id="demo-error" class="demo-error container" hidden></div>
+
+  <main class="demo-layout container" style="width:100%;max-width:none;padding:0;">
+    <aside class="demo-agents">
+      <h2>Agents</h2>
+      <div id="agent-list"></div>
+    </aside>
+
+    <section class="demo-feed">
+      <div class="demo-feed-header">Shared conversation (server-orchestrated)</div>
+      <div class="demo-messages" id="messages">
+        <div class="demo-empty">Waiting for the first turn…</div>
+      </div>
+    </section>
+
+    <aside class="demo-beliefs">
+      <div class="demo-beliefs-header">
+        <h2 id="belief-title">Beliefs</h2>
+        <p id="belief-subtitle">Select an agent to inspect their belief graph.</p>
+      </div>
+      <div class="belief-list" id="belief-list">
+        <div class="demo-empty">No agent selected.</div>
+      </div>
+      <div class="demo-footer-note">
+        Each agent uses a separate <code>X-Tenant-ID</code>. Peer statements are ingested as hearsay on other tenants.
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    window.ACME_DEMO_API = window.ACME_DEMO_API || "https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io";
+  </script>
+  <script src="assets/demo.js"></script>
+</body>
+</html>

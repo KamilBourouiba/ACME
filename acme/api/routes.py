@@ -116,12 +116,14 @@ async def submit_feedback(
 
 @router.get("/beliefs", response_model=list[BeliefScore])
 async def list_beliefs(
+    request: Request,
     min_confidence: float = 0.0,
     session: AsyncSession = Depends(get_session),
 ) -> list[BeliefScore]:
     from acme.engines.belief import BeliefEngine
 
-    engine = BeliefEngine(session)
+    tenant_id = getattr(request.state, "tenant_id", settings.default_tenant_id)
+    engine = BeliefEngine(session, tenant_id=tenant_id)
     return await engine.list_beliefs(min_confidence=min_confidence)
 
 
