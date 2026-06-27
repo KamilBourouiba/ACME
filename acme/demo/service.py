@@ -91,6 +91,8 @@ class DemoService:
             return
         if self._task and not self._task.done():
             return
+        if settings.demo_clean_on_start:
+            await self._clean_state(force=True)
         self.running = True
         self._task = asyncio.create_task(self._loop(), name="acme-demo-loop")
         logger.info("Demo loop started (interval=%ss, model=%s)", settings.demo_interval_sec, self.model_label())
@@ -254,18 +256,34 @@ class DemoService:
             trigger_msg.content = (
                 f"Published {', '.join(result['files'])} to `{result['repo']}` on `{result['branch']}`."
             )
+            pages_url = result["pages_url"]
+            verified = result.get("pages_verified")
+            status = result.get("pages_status_code")
+            if verified:
+                nina_msg = f"GitHub Pages reachable — site live at {pages_url} (HTTP {status})."
+                jordan_msg = (
+                    f"Fetched {pages_url} — found Nexus Advisory hero + CTA. Pages build OK."
+                )
+            else:
+                nina_msg = (
+                    f"Pushed to GitHub; Pages URL {pages_url} not ready yet "
+                    f"(HTTP {status or 'timeout'}). Build may still be propagating."
+                )
+                jordan_msg = f"Pages poll incomplete — retrying on next cycle. Target: {pages_url}"
+
             follow = await self._append_agent_message(
                 channel="deploy",
                 agent_id="nina",
                 kind="message",
-                content=f"GitHub Pages is live → {result['pages_url']}",
+                content=nina_msg,
             )
             await self._append_agent_message(
                 channel="deploy",
                 agent_id="jordan",
                 kind="message",
-                content=f"Smoke check on Pages URL — hero + CTA OK at {result['pages_url']}",
+                content=jordan_msg,
             )
+            await self._ingest_pages_access(pages_url, verified=bool(verified))
             state = await self.get_state()
             await self._notify(
                 {
@@ -362,6 +380,37 @@ class DemoService:
         except Exception:
             return scripted
 
+    async def _ingest_pages_access(self, pages_url: str, *, verified: bool) -> None:
+        """Let DevOps/QA agents remember they accessed the live GitHub Pages site."""
+        summary = (
+            f"GitHub Pages site {'verified live' if verified else 'deployed but not yet verified'} "
+            f"at {pages_url}"
+        )
+        for agent_id in ("nina", "jordan", "sam"):
+            agent = AGENT_BY_ID[agent_id]
+            try:
+                llm = get_llm_client()
+                async with SessionLocal() as session:
+                    orch = ACMEOrchestrator(session, neo4j_client, llm, tenant_id=agent.tenant_id)
+                    await orch.ingest_experience(
+                        ExperienceCreate(
+                            content=summary,
+                            source_type=SourceType.SYSTEM,
+                            source_id="github-pages",
+                            tags=["demo", "deploy", "pages"],
+                            tenant_id=agent.tenant_id,
+                        )
+                    )
+                    await session.commit()
+            except Exception:
+                logger.exception("Pages access ingest failed for %s", agent_id)
+
+    async def _list_beliefs_for_tenant(self, session, tenant_id: str):
+        from acme.engines.belief import BeliefEngine
+
+        engine = BeliefEngine(session, tenant_id=tenant_id)
+        return await engine.list_beliefs(min_confidence=0.0, exclude_deprecated=False)
+
     async def get_state(
         self,
         *,
@@ -371,10 +420,7 @@ class DemoService:
         agents_out: list[DemoAgentOut] = []
         async with SessionLocal() as session:
             for agent in DEMO_AGENTS:
-                from acme.engines.belief import BeliefEngine
-
-                engine = BeliefEngine(session, tenant_id=agent.tenant_id)
-                beliefs = await engine.list_beliefs(min_confidence=0.0)
+                beliefs = await self._list_beliefs_for_tenant(session, agent.tenant_id)
                 agents_out.append(
                     DemoAgentOut(
                         id=agent.id,
@@ -385,7 +431,7 @@ class DemoService:
                         initials=agent.initials,
                         channels=list(agent.channels),
                         belief_count=len(beliefs),
-                        top_beliefs=beliefs[:6],
+                        beliefs=[],
                     )
                 )
 
@@ -413,10 +459,7 @@ class DemoService:
         if not agent:
             return None
         async with SessionLocal() as session:
-            from acme.engines.belief import BeliefEngine
-
-            engine = BeliefEngine(session, tenant_id=agent.tenant_id)
-            beliefs = await engine.list_beliefs(min_confidence=0.0)
+            beliefs = await self._list_beliefs_for_tenant(session, agent.tenant_id)
         return DemoAgentOut(
             id=agent.id,
             name=agent.name,
@@ -426,7 +469,7 @@ class DemoService:
             initials=agent.initials,
             channels=list(agent.channels),
             belief_count=len(beliefs),
-            top_beliefs=beliefs[:15],
+            beliefs=beliefs,
         )
 
     async def deploy(
@@ -459,6 +502,22 @@ class DemoService:
         await self._notify({"type": "deploy", "deploy": self._last_deploy, "state": state.model_dump()})
         return result
 
+    async def _clean_state(self, *, force: bool = False) -> list[dict[str, int | str]]:
+        async with SessionLocal() as session:
+            stats = await cleanup_all_demo_tenants(session, neo4j_client)
+
+        self._messages.clear()
+        self._last_sessions.clear()
+        self._artifacts = dict(SITE_ARTIFACTS)
+        self._last_deploy = None
+        self._last_publish_at = None
+        self._beat_index = 0
+        self._turn_index = 0
+        self.tick = 0
+        if force:
+            self._last_reset_at = None
+        return stats
+
     async def reset(self) -> tuple[bool, str, list[dict[str, int | str]]]:
         async with self._lock:
             now = datetime.now(timezone.utc)
@@ -467,17 +526,7 @@ class DemoService:
                 if wait > 0:
                     return False, f"Please wait {int(wait)}s before resetting again.", []
 
-            async with SessionLocal() as session:
-                stats = await cleanup_all_demo_tenants(session, neo4j_client)
-
-            self._messages.clear()
-            self._last_sessions.clear()
-            self._artifacts = dict(SITE_ARTIFACTS)
-            self._last_deploy = None
-            self._last_publish_at = None
-            self._beat_index = 0
-            self._turn_index = 0
-            self.tick = 0
+            stats = await self._clean_state(force=False)
             self._last_reset_at = now
 
         state = await self.get_state()

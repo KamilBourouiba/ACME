@@ -39,7 +39,7 @@ class DemoAgentOut(BaseModel):
     initials: str
     channels: list[str]
     belief_count: int = 0
-    top_beliefs: list[BeliefScore] = Field(default_factory=list)
+    beliefs: list[BeliefScore] = Field(default_factory=list)
 
 
 class DemoStateOut(BaseModel):

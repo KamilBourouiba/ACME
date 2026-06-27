@@ -3,6 +3,8 @@
   let state = null;
   let selectedChannel = "general";
   let selectedAgent = null;
+  let agentBeliefs = null;
+  let lastBeliefFetch = 0;
   let eventSource = null;
 
   const els = {
@@ -62,9 +64,10 @@
       if (els.liveSiteLink) els.liveSiteLink.hidden = true;
       return;
     }
+    const verified = deploy.pages_verified ? "verified live" : "deployed";
     els.deployBanner.hidden = false;
     els.deployBanner.innerHTML =
-      `Squad published autonomously → <a href="${escapeHtml(deploy.pages_url)}" target="_blank" rel="noopener">${escapeHtml(deploy.pages_url)}</a>`;
+      `Squad published (${verified}) → <a href="${escapeHtml(deploy.pages_url)}" target="_blank" rel="noopener">${escapeHtml(deploy.pages_url)}</a>`;
     if (els.liveSiteLink) {
       els.liveSiteLink.hidden = false;
       els.liveSiteLink.href = deploy.pages_url;
@@ -109,26 +112,29 @@
     els.memberList.querySelectorAll(".member-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         selectedAgent = btn.dataset.agent;
+        agentBeliefs = null;
+        lastBeliefFetch = 0;
+        loadAgentBeliefs(selectedAgent);
         render(state);
       });
     });
   }
 
-  function renderBeliefs(agents) {
-    const agent = (agents || []).find((a) => a.id === selectedAgent);
+  function renderBeliefs(agent, beliefs) {
     if (!agent) {
       els.beliefTitle.textContent = "Select a teammate";
       els.beliefSubtitle.textContent = "Each role keeps an isolated belief graph.";
       els.beliefList.innerHTML = '<div class="empty-state" style="padding:1rem">Click a team member.</div>';
       return;
     }
-    els.beliefTitle.textContent = agent.name;
+    const list = beliefs || [];
+    els.beliefTitle.textContent = `${agent.name} · ${list.length} beliefs`;
     els.beliefSubtitle.textContent = `${agent.role} · tenant ${agent.tenant_id}`;
-    if (!agent.top_beliefs?.length) {
+    if (!list.length) {
       els.beliefList.innerHTML = '<div class="empty-state" style="padding:1rem">No beliefs yet — keep watching.</div>';
       return;
     }
-    els.beliefList.innerHTML = agent.top_beliefs
+    els.beliefList.innerHTML = list
       .map(
         (b) => `
       <div class="belief-item">
@@ -136,10 +142,26 @@
         <div class="belief-meta">
           <span class="crs">CRS ${Number(b.crs).toFixed(2)}</span>
           <span>${escapeHtml(b.status)}</span>
+          <span>conf ${Number(b.confidence).toFixed(2)}</span>
+          <span>+${b.supporting_evidence || 0}/-${b.contradicting_evidence || 0}</span>
         </div>
       </div>`
       )
       .join("");
+  }
+
+  async function loadAgentBeliefs(agentId) {
+    if (!agentId) return;
+    try {
+      const res = await fetch(`${API}/api/v1/demo/agents/${agentId}`);
+      if (!res.ok) return;
+      agentBeliefs = await res.json();
+      lastBeliefFetch = Date.now();
+      const agent = (state?.agents || []).find((a) => a.id === agentId);
+      renderBeliefs(agent, agentBeliefs.beliefs);
+    } catch (e) {
+      console.warn("belief fetch failed", e);
+    }
   }
 
   function renderArtifacts(artifacts) {
@@ -212,9 +234,18 @@
     renderChannels(next.channels);
     renderMembers(next.agents);
     renderMessages(next.messages, next.agents);
-    renderBeliefs(next.agents);
+    const agent = selectedAgent ? (next.agents || []).find((a) => a.id === selectedAgent) : null;
+    renderBeliefs(agent, agentBeliefs?.id === selectedAgent ? agentBeliefs.beliefs : null);
     renderArtifacts(next.artifacts);
     showDeployBanner(next.last_deploy);
+  }
+
+  function maybeRefreshBeliefs() {
+    if (!selectedAgent) return;
+    const now = Date.now();
+    if (now - lastBeliefFetch < 15000) return;
+    lastBeliefFetch = now;
+    loadAgentBeliefs(selectedAgent);
   }
 
   function connectSSE() {
@@ -223,7 +254,10 @@
     eventSource.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
-        if (data.state) render(data.state);
+        if (data.state) {
+          render(data.state);
+          maybeRefreshBeliefs();
+        }
       } catch (e) {
         console.warn("demo parse error", e);
       }
@@ -261,8 +295,10 @@
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       clearError();
+      agentBeliefs = null;
       const stateRes = await fetch(`${API}/api/v1/demo/state`);
       if (stateRes.ok) render(await stateRes.json());
+      if (selectedAgent) loadAgentBeliefs(selectedAgent);
     } catch (err) {
       showError(`Reset failed: ${err.message}`);
     } finally {

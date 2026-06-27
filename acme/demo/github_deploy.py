@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from typing import Any
@@ -98,6 +99,57 @@ async def ensure_pages(
         logger.warning("GitHub Pages enable skipped (%s): %s", pages.status_code, pages.text)
 
 
+async def wait_for_pages_live(
+    pages_url: str,
+    *,
+    attempts: int = 18,
+    pause_sec: float = 5.0,
+    expected_snippet: str = "Nexus Advisory",
+) -> dict[str, Any]:
+    """Poll the public GitHub Pages URL until the site responds."""
+    last_status: int | None = None
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+        for attempt in range(1, attempts + 1):
+            try:
+                resp = await client.get(pages_url)
+                last_status = resp.status_code
+                if resp.status_code == 200 and expected_snippet in resp.text:
+                    return {
+                        "ok": True,
+                        "pages_url": pages_url,
+                        "status_code": resp.status_code,
+                        "attempts": attempt,
+                    }
+            except httpx.HTTPError as exc:
+                logger.debug("Pages poll %s attempt %s: %s", pages_url, attempt, exc)
+            if attempt < attempts:
+                await asyncio.sleep(pause_sec)
+
+    return {
+        "ok": False,
+        "pages_url": pages_url,
+        "status_code": last_status,
+        "attempts": attempts,
+    }
+
+
+async def get_pages_info(
+    client: httpx.AsyncClient,
+    *,
+    token: str,
+    repo: str,
+) -> dict[str, Any] | None:
+    resp = await client.get(f"{GITHUB_API}/repos/{repo}/pages", headers=_headers(token))
+    if resp.status_code != 200:
+        return None
+    data = resp.json()
+    return {
+        "html_url": data.get("html_url"),
+        "status": data.get("status"),
+        "build_type": data.get("build_type"),
+    }
+
+
 async def deploy_files(
     files: dict[str, str],
     *,
@@ -137,10 +189,18 @@ async def deploy_files(
                 resp.raise_for_status()
             updated.append(path)
 
+        pages_url = pages_url_for(repo)
+        pages_info = await get_pages_info(client, token=token, repo=repo)
+        live_check = await wait_for_pages_live(pages_url)
+
     return {
         "repo": repo,
         "branch": branch,
         "files": updated,
-        "pages_url": pages_url_for(repo),
+        "pages_url": pages_url,
+        "pages_info": pages_info,
+        "pages_verified": live_check["ok"],
+        "pages_status_code": live_check.get("status_code"),
+        "pages_poll_attempts": live_check.get("attempts"),
         "commit_message": commit_message,
     }

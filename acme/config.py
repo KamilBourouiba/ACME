@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     demo_github_branch: str = "main"
     demo_auto_publish: bool = True
     demo_publish_cooldown_sec: int = 300
+    demo_clean_on_start: bool = True
 
 
 settings = Settings()

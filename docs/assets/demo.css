@@ -372,6 +372,7 @@ body.slack-demo {
 .belief-list {
   flex: 1;
   overflow-y: auto;
+  max-height: min(50vh, 420px);
 }
 
 .belief-item {
