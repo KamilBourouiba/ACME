@@ -1,9 +1,10 @@
 # MemoryBench v3 — Production benchmark results
 
 **Author:** Mohamed Kamil Bourouiba  
-**Date:** 24 June 2026  
-**API:** `acme-api--membenchfix` / `acme-api--bench-gpt41mini`  
-**Reproduce:** `./scripts/run_prod_benchmark.sh` or `./scripts/run_model_benchmark.sh <deployment>`
+**Date:** 24 June 2026 (updated 27 June 2026 — prod deploy)  
+**API revision:** `acme-api--membench-v3-fidelity` (image `acme-api:membench-v3-fidelity`)  
+**Paper primary run:** job `3b31e5e3` (archived export: `docs/benchmarks/job-3b31e5e3-export.json`)  
+**Reproduce:** `./scripts/run_prod_benchmark.sh` or `./scripts/deploy_membench_v3.sh` then compare async
 
 ---
 
@@ -25,6 +26,28 @@
 | LangGraph | 0.900 | 0.977 | — | — | 0.469 |
 
 **Δ ACME vs RAG:** +0.438 overall
+
+---
+
+## Prod deploy verification — 27 June 2026
+
+After `./scripts/deploy_membench_v3.sh`, prod runs **13-scenario V3_SCENARIOS** (no `knowledge_update`) and **MemGPT summarize-on-evict**.
+
+| Field | Value |
+|-------|-------|
+| Job ID | `9fda8d44-75d3-4cf4-bdb8-e052ebe2e1a3` |
+| Revision | `acme-api--membench-v3-fidelity` |
+| Duration | 687 s |
+| Scenarios | **13** (all systems) |
+
+| System | Retention | Groundedness | Overall |
+|--------|-----------|--------------|---------|
+| **ACME** | 0.977 | 0.977 | **0.913** |
+| RAG | 0.892 | 0.977 | 0.467 |
+| MemGPT-insp. | 0.969 | 0.969 | 0.485 |
+| LangGraph-sty. | 0.977 | 0.985 | 0.490 |
+
+Paper Table 8 remains on job `3b31e5e3` for publication consistency; this run confirms code parity (13 scenarios, summarize-on-evict note in export).
 
 ---
 
