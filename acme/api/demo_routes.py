@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from acme.config import settings
-from acme.demo.schemas import DemoAgentOut, DemoStateOut
+from acme.demo.schemas import DemoAgentOut, DemoStateOut, DemoResetOut
 from acme.demo.service import demo_service
 
 router = APIRouter(prefix="/demo", tags=["demo"])
@@ -33,6 +33,15 @@ async def demo_agent_detail(agent_id: str) -> DemoAgentOut:
     if detail is None:
         raise HTTPException(status_code=404, detail="Unknown agent")
     return detail
+
+
+@router.post("/reset", response_model=DemoResetOut)
+async def demo_reset() -> DemoResetOut:
+    _demo_disabled()
+    ok, message, stats = await demo_service.reset()
+    if not ok:
+        raise HTTPException(status_code=429, detail=message)
+    return DemoResetOut(ok=True, tenants_reset=len(stats), stats=stats)
 
 
 @router.get("/events")

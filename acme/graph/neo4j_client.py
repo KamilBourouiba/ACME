@@ -233,6 +233,19 @@ class Neo4jClient:
         async with self.driver.session() as session:
             await session.run(query, rel_id=rel_id)
 
+    async def delete_tenant_graph(self, *, tenant_id: str) -> dict[str, int]:
+        """Remove all entities (and attached relations) for a tenant."""
+        query = """
+        MATCH (e:Entity {tenant_id: $tenant_id})
+        DETACH DELETE e
+        RETURN count(e) AS deleted
+        """
+        async with self.driver.session() as session:
+            result = await session.run(query, tenant_id=tenant_id)
+            record = await result.single()
+            deleted = record["deleted"] if record else 0
+            return {"entities_deleted": deleted, "relations_deleted": deleted}
+
     async def delete_benchmark_graph(
         self,
         benchmark_tag: str,

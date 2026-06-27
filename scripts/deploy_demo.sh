@@ -8,7 +8,7 @@ API_APP="${API_APP:-acme-api}"
 TAG="${TAG:-membench-v3-fidelity}"
 SUFFIX="${SUFFIX:-demo-live}"
 DEMO_MODEL="${DEMO_AZURE_DEPLOYMENT:-gpt-5.4}"
-INTERVAL="${DEMO_INTERVAL_SEC:-90}"
+INTERVAL="${DEMO_INTERVAL_SEC:-45}"
 
 echo "==> Build acme-api:${TAG}"
 az acr build --registry "$ACR_NAME" --image "acme-api:${TAG}" "$ROOT" -o none

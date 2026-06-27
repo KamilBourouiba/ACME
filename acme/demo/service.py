@@ -14,6 +14,7 @@ from acme.config import settings
 from acme.db.session import SessionLocal
 from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, DemoAgent
 from acme.demo.schemas import DemoAgentOut, DemoMessageOut, DemoStateOut
+from acme.demo.reset import cleanup_all_demo_tenants
 from acme.graph.neo4j_client import neo4j_client
 from acme.llm.factory import get_llm_client
 from acme.orchestrator import ACMEOrchestrator
@@ -103,6 +104,7 @@ class DemoService:
         self._subscribers: set[asyncio.Queue] = set()
         self._task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
+        self._last_reset_at: datetime | None = None
 
     def model_label(self) -> str:
         if settings.demo_azure_deployment:
@@ -154,7 +156,7 @@ class DemoService:
                     await self._run_turn()
             except Exception:
                 logger.exception("Demo turn failed")
-            await asyncio.sleep(max(15, settings.demo_interval_sec))
+            await asyncio.sleep(max(10, settings.demo_interval_sec))
 
     async def _run_turn(self) -> None:
         agent_id, kind, scripted = SCRIPT_BEATS[self._beat_index % len(SCRIPT_BEATS)]
@@ -327,6 +329,29 @@ class DemoService:
             belief_count=len(beliefs),
             top_beliefs=beliefs[:20],
         )
+
+    async def reset(self) -> tuple[bool, str, list[dict[str, int | str]]]:
+        """Clear demo tenants and in-memory feed; rate-limited by demo_reset_cooldown_sec."""
+        async with self._lock:
+            now = datetime.now(timezone.utc)
+            if self._last_reset_at is not None:
+                wait = settings.demo_reset_cooldown_sec - (now - self._last_reset_at).total_seconds()
+                if wait > 0:
+                    return False, f"Please wait {int(wait)}s before resetting again.", []
+
+            async with SessionLocal() as session:
+                stats = await cleanup_all_demo_tenants(session, neo4j_client)
+
+            self._messages.clear()
+            self._last_sessions.clear()
+            self._beat_index = 0
+            self._turn_index = 0
+            self.tick = 0
+            self._last_reset_at = now
+
+        state = await self.get_state()
+        await self._notify({"type": "reset", "state": state.model_dump()})
+        return True, "Demo reset complete.", stats
 
 
 demo_service = DemoService()

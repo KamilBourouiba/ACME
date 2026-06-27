@@ -15,6 +15,7 @@
     modelLabel: document.getElementById("model-label"),
     tickLabel: document.getElementById("tick-label"),
     error: document.getElementById("demo-error"),
+    resetBtn: document.getElementById("reset-btn"),
   };
 
   function showError(msg) {
@@ -139,7 +140,7 @@
       try {
         const data = JSON.parse(ev.data);
         if (data.state) render(data.state);
-        else if (data.type === "turn" && data.state) render(data.state);
+        else if ((data.type === "turn" || data.type === "reset") && data.state) render(data.state);
       } catch (e) {
         console.warn("demo event parse error", e);
       }
@@ -149,6 +150,30 @@
       els.statusText.textContent = "Reconnecting…";
       els.liveDot.classList.add("off");
     };
+  }
+
+  async function resetDemo() {
+    if (!els.resetBtn || els.resetBtn.disabled) return;
+    els.resetBtn.disabled = true;
+    const prev = els.resetBtn.textContent;
+    els.resetBtn.textContent = "Resetting…";
+    try {
+      const res = await fetch(`${API}/api/v1/demo/reset`, { method: "POST" });
+      if (res.status === 429) {
+        const body = await res.json().catch(() => ({}));
+        showError(body.detail || "Reset cooldown — try again in a minute.");
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      clearError();
+      const stateRes = await fetch(`${API}/api/v1/demo/state`);
+      if (stateRes.ok) render(await stateRes.json());
+    } catch (err) {
+      showError(`Reset failed: ${err.message}`);
+    } finally {
+      els.resetBtn.textContent = prev;
+      els.resetBtn.disabled = false;
+    }
   }
 
   async function bootstrap() {
@@ -170,4 +195,8 @@
   }
 
   bootstrap();
+
+  if (els.resetBtn) {
+    els.resetBtn.addEventListener("click", resetDemo);
+  }
 })();

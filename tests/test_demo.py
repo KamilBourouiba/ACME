@@ -40,11 +40,19 @@ async def test_demo_routes_when_enabled(monkeypatch):
             messages=[],
         )
 
+    async def fake_reset():
+        return True, "Demo reset complete.", [{"tenant_id": "demo-agent-analyst"}]
+
     monkeypatch.setattr(settings, "demo_enabled", True)
     monkeypatch.setattr(demo_service, "get_state", fake_state)
+    monkeypatch.setattr(demo_service, "reset", fake_reset)
     client = TestClient(app)
     r = client.get("/api/v1/demo/state")
     assert r.status_code == 200
     data = r.json()
     assert data["running"] is True
     assert len(data["agents"]) == 3
+
+    reset = client.post("/api/v1/demo/reset")
+    assert reset.status_code == 200
+    assert reset.json()["ok"] is True

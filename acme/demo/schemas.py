@@ -36,3 +36,9 @@ class DemoStateOut(BaseModel):
     selected_agent: str | None = None
     agents: list[DemoAgentOut]
     messages: list[DemoMessageOut]
+
+
+class DemoResetOut(BaseModel):
+    ok: bool
+    tenants_reset: int
+    stats: list[dict[str, int | str]]

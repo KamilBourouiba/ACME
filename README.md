@@ -480,6 +480,33 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 ---
 
+## Live multi-agent demo
+
+**Website:** [kamilbourouiba.github.io/ACME/demo.html](https://kamilbourouiba.github.io/ACME/demo.html)
+
+Three isolated ACME personas (Maya, Jordan, Sam) run a continuous MemoryBench-style script on the production API. Each agent has its own `X-Tenant-ID`; peer statements are ingested as hearsay on the other tenants. Visitors can:
+
+- Watch the shared conversation stream (SSE)
+- Select an agent to inspect **CRS**, belief status, and evidence counts
+- Click **Reset demo** to wipe demo tenants and restart the script (60 s cooldown)
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `DEMO_ENABLED` | `false` | Start the background loop at API startup |
+| `DEMO_INTERVAL_SEC` | `45` | Pause between scripted turns |
+| `DEMO_AZURE_DEPLOYMENT` | — | LLM for paraphrase (e.g. `gpt-5.4`) |
+| `DEMO_RESET_COOLDOWN_SEC` | `60` | Min seconds between public resets |
+
+Deploy on Azure (single replica — demo state is in-memory):
+
+```bash
+./scripts/deploy_demo.sh
+```
+
+API routes: `GET /api/v1/demo/state`, `GET /api/v1/demo/events` (SSE), `POST /api/v1/demo/reset`.
+
+---
+
 ## Future work
 
 - arXiv submission of `docs/PAPER.pdf` (checklist: `docs/ARXIV_SUBMISSION.md`)
