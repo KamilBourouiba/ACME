@@ -6,7 +6,7 @@ RG="${RG:-rg-acme}"
 ACR_NAME="${ACR_NAME:-acmeacrdfbe2a}"
 API_APP="${API_APP:-acme-api}"
 TAG="${TAG:-membench-v3-fidelity}"
-SUFFIX="${SUFFIX:-demo-live}"
+SUFFIX="${SUFFIX:-demo-live-$(date +%Y%m%d%H%M)}"
 DEMO_MODEL="${DEMO_AZURE_DEPLOYMENT:-gpt-5.4}"
 INTERVAL="${DEMO_INTERVAL_SEC:-45}"
 
