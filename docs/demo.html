@@ -38,6 +38,17 @@
       <div id="demo-error" class="demo-error" hidden></div>
       <div id="deploy-banner" class="deploy-banner" hidden></div>
 
+      <div class="preview-panel" id="preview-panel" hidden>
+        <div class="preview-head">
+          <strong>Visual preview</strong>
+          <div class="preview-tabs">
+            <button type="button" class="preview-tab active" data-preview="staging">Staging</button>
+            <button type="button" class="preview-tab" data-preview="live" id="live-preview-tab" disabled>Live Pages</button>
+          </div>
+        </div>
+        <iframe id="site-preview" title="Nexus Advisory site preview" sandbox="allow-scripts allow-same-origin"></iframe>
+      </div>
+
       <div class="messages" id="messages">
         <div class="empty-state">Waiting for the squad to come online…</div>
       </div>

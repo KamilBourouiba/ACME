@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     demo_auto_publish: bool = True
     demo_publish_cooldown_sec: int = 300
     demo_clean_on_start: bool = True
+    demo_clean_repo_on_reset: bool = True
 
 
 settings = Settings()

@@ -27,6 +27,8 @@ class DemoMessageOut(BaseModel):
     code_lang: str | None = None
     code_body: str | None = None
     beliefs_used: list[dict[str, Any]] = Field(default_factory=list)
+    reply_to: str | None = None
+    reply_to_name: str | None = None
     timestamp: str
 
 
@@ -54,6 +56,9 @@ class DemoStateOut(BaseModel):
     messages: list[DemoMessageOut]
     artifacts: dict[str, str] = Field(default_factory=dict)
     last_deploy: dict[str, Any] | None = None
+    preview_ready: bool = False
+    preview_url: str | None = None
+    live_preview_url: str | None = None
 
 
 class DemoResetOut(BaseModel):

@@ -309,6 +309,54 @@ body.slack-demo {
 
 .deploy-banner a { color: #047857; font-weight: 700; }
 
+.preview-panel {
+  border-bottom: 1px solid var(--slack-border);
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid var(--slack-border);
+}
+
+.preview-tabs { display: flex; gap: 0.35rem; }
+
+.preview-tab {
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--slack-border);
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.preview-tab.active { background: #e8f5fa; border-color: #1164a3; color: #1164a3; font-weight: 700; }
+
+.preview-tab:disabled { opacity: 0.45; cursor: not-allowed; }
+
+#site-preview {
+  width: 100%;
+  height: 220px;
+  border: 0;
+  background: #fff;
+}
+
+.msg .reply-tag {
+  font-size: 0.75rem;
+  color: var(--slack-muted);
+  margin-bottom: 0.25rem;
+}
+
+.msg-row.is-query .msg-body { border-left: 3px solid #1164a3; padding-left: 0.65rem; }
+
+.msg-row.is-reply { margin-left: 1.25rem; }
+
 /* Members */
 .members-panel {
   display: flex;

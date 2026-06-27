@@ -14,6 +14,7 @@ from acme.db.session import SessionLocal
 from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, SITE_ARTIFACTS, DemoAgent
 from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
 from acme.demo.github_deploy import deploy_files
+from acme.demo.preview import build_staging_preview
 from acme.demo.reset import cleanup_all_demo_tenants
 from acme.demo.schemas import (
     DemoAgentOut,
@@ -44,6 +45,8 @@ class _DemoMessage:
     code_lang: str | None = None
     code_body: str | None = None
     beliefs_used: list[dict[str, Any]] = field(default_factory=list)
+    reply_to: str | None = None
+    reply_to_name: str | None = None
     timestamp: str = ""
 
     def to_out(self) -> DemoMessageOut:
@@ -60,6 +63,8 @@ class _DemoMessage:
             code_lang=self.code_lang,
             code_body=self.code_body,
             beliefs_used=self.beliefs_used,
+            reply_to=self.reply_to,
+            reply_to_name=self.reply_to_name,
             timestamp=self.timestamp,
         )
 
@@ -79,6 +84,7 @@ class DemoService:
         self._lock = asyncio.Lock()
         self._last_reset_at: datetime | None = None
         self._last_publish_at: datetime | None = None
+        self._preview_ready: bool = False
         self._bg_tasks: set[asyncio.Task] = set()
 
     def model_label(self) -> str:
@@ -143,9 +149,10 @@ class DemoService:
         self._turn_index += 1
         self.tick = self._turn_index
         agent = AGENT_BY_ID[beat.agent_id]
+        reply_name = AGENT_BY_ID[beat.reply_to].name if beat.reply_to and beat.reply_to in AGENT_BY_ID else None
 
         content = beat.content
-        if settings.demo_llm_paraphrase and beat.kind != "code":
+        if settings.demo_llm_paraphrase and beat.kind not in ("code", "preview"):
             content = await self._maybe_paraphrase(agent, beat.kind, beat.content)
 
         msg = _DemoMessage(
@@ -156,6 +163,8 @@ class DemoService:
             role=agent.role,
             kind=beat.kind,
             content=content,
+            reply_to=beat.reply_to,
+            reply_to_name=reply_name,
             code_file=beat.code_file,
             code_lang=beat.code_lang,
             code_body=beat.code_body,
@@ -164,6 +173,14 @@ class DemoService:
 
         if beat.kind == "code" and beat.code_file and beat.code_body:
             self._artifacts[beat.code_file] = beat.code_body
+
+        if beat.kind == "preview":
+            self._preview_ready = bool(self._artifacts.get("index.html"))
+            if self._last_deploy and self._last_deploy.get("pages_verified"):
+                msg.content = f"{content} Live: {self._last_deploy.get('pages_url', '')}"
+
+        if beat.kind == "query":
+            await self._run_acme_query(beat, msg, agent)
 
         self._messages.append(msg)
         if len(self._messages) > 120:
@@ -187,6 +204,53 @@ class DemoService:
             pub = asyncio.create_task(self._autonomous_publish(trigger_msg=msg))
             self._bg_tasks.add(pub)
             pub.add_done_callback(self._bg_tasks.discard)
+
+    async def _run_acme_query(self, beat: DemoBeat, msg: _DemoMessage, agent: DemoAgent) -> None:
+        """Run ACME query synchronously so Q&A appears in the same turn."""
+        try:
+            llm = get_llm_client()
+            async with SessionLocal() as session:
+                orch = ACMEOrchestrator(session, neo4j_client, llm, tenant_id=agent.tenant_id)
+                qr = await orch.query(QueryRequest(question=msg.content, challenge=False))
+                msg.answer = qr.answer
+                msg.beliefs_used = [b.model_dump() for b in qr.beliefs_used]
+                self._last_sessions[agent.id] = str(qr.session_id)
+                await orch.ingest_experience(
+                    ExperienceCreate(
+                        content=f"Q: {msg.content} A: {qr.answer}",
+                        source_type=SourceType.HUMAN_EXPERT,
+                        source_id=f"demo-{agent.id}",
+                        tags=["demo", "nexus", beat.channel, "query"],
+                        tenant_id=agent.tenant_id,
+                    )
+                )
+                if settings.demo_channel_hearsay:
+                    hearsay = f"[#{beat.channel}] {agent.name} asked: {msg.content} ACME answered: {qr.answer[:200]}"
+                    for peer in DEMO_AGENTS:
+                        if peer.id == agent.id or beat.channel not in peer.channels:
+                            continue
+                        peer_orch = ACMEOrchestrator(
+                            session, neo4j_client, llm, tenant_id=peer.tenant_id
+                        )
+                        await peer_orch.ingest_experience(
+                            ExperienceCreate(
+                                content=hearsay,
+                                source_type=SourceType.SYSTEM,
+                                source_id=f"hearsay-query-{agent.id}",
+                                tags=["demo", "peer", "query", beat.channel],
+                                tenant_id=peer.tenant_id,
+                            )
+                        )
+                await session.commit()
+        except Exception:
+            logger.exception("Sync ACME query failed for %s", agent.id)
+            msg.answer = "(ACME query pending — graph still warming up.)"
+
+    def build_preview_html(self) -> str:
+        return build_staging_preview(self._artifacts)
+
+    def preview_api_url(self) -> str:
+        return "/api/v1/demo/preview"
 
     def _publish_configured(self) -> bool:
         return bool(settings.demo_github_token and settings.demo_github_repo)
@@ -319,7 +383,7 @@ class DemoService:
                 orch = ACMEOrchestrator(session, neo4j_client, llm, tenant_id=agent.tenant_id)
                 tags = ["demo", "nexus", beat.channel]
 
-                if beat.kind in ("message", "code", "deploy"):
+                if beat.kind in ("message", "code", "deploy", "reply", "preview"):
                     body = beat.content
                     if beat.code_file:
                         body = f"{beat.content} File: {beat.code_file}"
@@ -336,14 +400,12 @@ class DemoService:
                         await self._channel_hearsay(session, llm, beat, speaker=agent, content=body)
 
                 elif beat.kind == "query":
-                    qr = await orch.query(QueryRequest(question=beat.content, challenge=False))
-                    msg.answer = qr.answer
-                    msg.beliefs_used = [b.model_dump() for b in qr.beliefs_used]
-                    self._last_sessions[agent.id] = str(qr.session_id)
+                    # Query already handled synchronously in _run_acme_query
+                    pass
 
                 await session.commit()
 
-            if msg.answer or msg.beliefs_used:
+            if msg.beliefs_used and beat.kind != "query":
                 state = await self.get_state()
                 await self._notify({"type": "update", "message_id": msg.id, "state": state.model_dump()})
         except Exception:
@@ -452,6 +514,13 @@ class DemoService:
             messages=[m.to_out() for m in self._messages[-80:]],
             artifacts=dict(self._artifacts),
             last_deploy=self._last_deploy,
+            preview_ready=self._preview_ready,
+            preview_url=self.preview_api_url() if self._preview_ready else None,
+            live_preview_url=(
+                self._last_deploy.get("pages_url")
+                if self._last_deploy and self._last_deploy.get("pages_verified")
+                else None
+            ),
         )
 
     async def get_agent_detail(self, agent_id: str) -> DemoAgentOut | None:
@@ -478,6 +547,7 @@ class DemoService:
         repo: str | None = None,
         branch: str | None = None,
         token: str | None = None,
+        commit_message: str | None = None,
     ) -> dict[str, Any]:
         auth = token or settings.demo_github_token
         if not auth:
@@ -493,7 +563,8 @@ class DemoService:
             token=auth,
             repo=target_repo,
             branch=target_branch,
-            commit_message="Autonomous publish — Nexus Advisory site (ACME demo squad)",
+            commit_message=commit_message
+            or "Autonomous publish — Nexus Advisory site (ACME demo squad)",
             bootstrap_repo=True,
             enable_pages=True,
         )
@@ -511,6 +582,7 @@ class DemoService:
         self._artifacts = dict(SITE_ARTIFACTS)
         self._last_deploy = None
         self._last_publish_at = None
+        self._preview_ready = False
         self._beat_index = 0
         self._turn_index = 0
         self.tick = 0
@@ -528,6 +600,14 @@ class DemoService:
 
             stats = await self._clean_state(force=False)
             self._last_reset_at = now
+
+            if settings.demo_clean_repo_on_reset and self._publish_configured():
+                try:
+                    await self.deploy(
+                        commit_message="Reset Nexus Advisory demo site to baseline (ACME squad clean)",
+                    )
+                except Exception:
+                    logger.exception("Repo baseline reset failed during demo reset")
 
         state = await self.get_state()
         await self._notify({"type": "reset", "state": state.model_dump()})

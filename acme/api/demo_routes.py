@@ -4,7 +4,7 @@ import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from acme.config import settings
 from acme.demo.schemas import DemoAgentOut, DemoDeployIn, DemoDeployOut, DemoResetOut, DemoStateOut
@@ -60,6 +60,19 @@ async def demo_deploy(body: DemoDeployIn | None = None) -> DemoDeployOut:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"GitHub deploy failed: {exc}") from exc
     return DemoDeployOut(ok=True, **result)
+
+
+@router.get("/preview", response_class=HTMLResponse)
+async def demo_preview() -> HTMLResponse:
+    _demo_disabled()
+    html = demo_service.build_preview_html()
+    return HTMLResponse(
+        html,
+        headers={
+            "Cache-Control": "no-cache",
+            "Content-Security-Policy": "frame-ancestors *",
+        },
+    )
 
 
 @router.get("/events")

@@ -24,7 +24,12 @@
     deployBanner: document.getElementById("deploy-banner"),
     liveSiteLink: document.getElementById("live-site-link"),
     resetBtn: document.getElementById("reset-btn"),
+    previewPanel: document.getElementById("preview-panel"),
+    sitePreview: document.getElementById("site-preview"),
+    livePreviewTab: document.getElementById("live-preview-tab"),
   };
+
+  let previewMode = "staging";
 
   function escapeHtml(s) {
     return String(s)
@@ -171,6 +176,35 @@
       : "<li>No files yet</li>";
   }
 
+  function renderPreview(next) {
+    if (!els.previewPanel || !els.sitePreview) return;
+    const show = next.preview_ready || next.live_preview_url;
+    els.previewPanel.hidden = !show;
+    if (!show) return;
+
+    if (els.livePreviewTab) {
+      els.livePreviewTab.disabled = !next.live_preview_url;
+    }
+
+    if (previewMode === "live" && next.live_preview_url) {
+      els.sitePreview.src = next.live_preview_url;
+      els.sitePreview.removeAttribute("srcdoc");
+    } else {
+      els.sitePreview.src = `${API}/api/v1/demo/preview?t=${next.tick || 0}`;
+      els.sitePreview.removeAttribute("srcdoc");
+    }
+  }
+
+  document.querySelectorAll(".preview-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      previewMode = btn.dataset.preview;
+      document.querySelectorAll(".preview-tab").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      if (state) renderPreview(state);
+    });
+  });
+
   function renderMessages(messages, agents) {
     const filtered = (messages || []).filter((m) => m.channel === selectedChannel);
     if (!filtered.length) {
@@ -183,7 +217,14 @@
         const agent = (agents || []).find((a) => a.id === m.agent_id) || {};
         const color = agent.color || "#611f69";
         const initials = agent.initials || m.agent_name.slice(0, 2);
-        const badge = m.kind !== "message" ? `<span class="kind-badge">${escapeHtml(m.kind)}</span>` : "";
+        const badge = !["message", "reply"].includes(m.kind)
+          ? `<span class="kind-badge">${escapeHtml(m.kind)}</span>`
+          : "";
+        const replyTag = m.reply_to_name
+          ? `<div class="reply-tag">↩ replying to <strong>@${escapeHtml(m.reply_to_name)}</strong></div>`
+          : "";
+        const rowClass =
+          m.kind === "query" ? "msg-row is-query" : m.kind === "reply" ? "msg-row is-reply" : "msg-row";
         let code = "";
         if (m.code_body) {
           code = `
@@ -196,7 +237,7 @@
           ? `<div class="acme-answer"><strong>ACME:</strong> ${escapeHtml(m.answer)}</div>`
           : "";
         return `
-        <article class="msg-row">
+        <article class="${rowClass}">
           <div class="avatar" style="background:${color}">${escapeHtml(initials)}</div>
           <div class="msg-body">
             <div class="msg-meta">
@@ -204,6 +245,7 @@
               <span class="role">${escapeHtml(m.role)}</span>
               <time>${formatTime(m.timestamp)}</time>${badge}
             </div>
+            ${replyTag}
             <div class="msg-text">${formatText(m.content)}</div>
             ${code}${answer}
           </div>
@@ -238,6 +280,7 @@
     renderBeliefs(agent, agentBeliefs?.id === selectedAgent ? agentBeliefs.beliefs : null);
     renderArtifacts(next.artifacts);
     showDeployBanner(next.last_deploy);
+    renderPreview(next);
   }
 
   function maybeRefreshBeliefs() {
