@@ -83,6 +83,8 @@ class Settings(BaseSettings):
     demo_github_token: str = ""
     demo_github_repo: str = "KamilBourouiba/consulting-site-demo"
     demo_github_branch: str = "main"
+    demo_auto_publish: bool = True
+    demo_publish_cooldown_sec: int = 300
 
 
 settings = Settings()

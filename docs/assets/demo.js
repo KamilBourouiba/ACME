@@ -20,14 +20,8 @@
     tickLabel: document.getElementById("tick-label"),
     error: document.getElementById("demo-error"),
     deployBanner: document.getElementById("deploy-banner"),
-    deployBtn: document.getElementById("deploy-btn"),
+    liveSiteLink: document.getElementById("live-site-link"),
     resetBtn: document.getElementById("reset-btn"),
-    deployDialog: document.getElementById("deploy-dialog"),
-    deployForm: document.getElementById("deploy-form"),
-    deployRepo: document.getElementById("deploy-repo"),
-    deployBranch: document.getElementById("deploy-branch"),
-    deployToken: document.getElementById("deploy-token"),
-    deployCancel: document.getElementById("deploy-cancel"),
   };
 
   function escapeHtml(s) {
@@ -65,11 +59,16 @@
   function showDeployBanner(deploy) {
     if (!deploy || !deploy.pages_url) {
       els.deployBanner.hidden = true;
+      if (els.liveSiteLink) els.liveSiteLink.hidden = true;
       return;
     }
     els.deployBanner.hidden = false;
     els.deployBanner.innerHTML =
-      `Deployed to <a href="${escapeHtml(deploy.pages_url)}" target="_blank" rel="noopener">${escapeHtml(deploy.repo || deploy.pages_url)}</a>`;
+      `Squad published autonomously → <a href="${escapeHtml(deploy.pages_url)}" target="_blank" rel="noopener">${escapeHtml(deploy.pages_url)}</a>`;
+    if (els.liveSiteLink) {
+      els.liveSiteLink.hidden = false;
+      els.liveSiteLink.href = deploy.pages_url;
+    }
   }
 
   function renderChannels(channels) {
@@ -271,47 +270,6 @@
     }
   }
 
-  async function submitDeploy(e) {
-    e.preventDefault();
-    const repo = els.deployRepo.value.trim();
-    const branch = els.deployBranch.value.trim() || "main";
-    const token = els.deployToken.value.trim();
-    const body = {};
-    if (repo) body.repo = repo;
-    if (branch) body.branch = branch;
-    if (token) body.token = token;
-
-    els.deployDialog.close();
-    els.deployBtn.disabled = true;
-    els.deployBtn.textContent = "Deploying…";
-    try {
-      const res = await fetch(`${API}/api/v1/demo/deploy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
-      clearError();
-      showDeployBanner(data);
-      const stateRes = await fetch(`${API}/api/v1/demo/state`);
-      if (stateRes.ok) render(await stateRes.json());
-    } catch (err) {
-      showError(`Deploy failed: ${err.message}`);
-    } finally {
-      els.deployBtn.disabled = false;
-      els.deployBtn.textContent = "Deploy to GitHub";
-    }
-  }
-
-  els.deployBtn?.addEventListener("click", () => {
-    if (els.deployRepo && !els.deployRepo.value) {
-      els.deployRepo.value = "KamilBourouiba/consulting-site-demo";
-    }
-    els.deployDialog?.showModal();
-  });
-  els.deployCancel?.addEventListener("click", () => els.deployDialog?.close());
-  els.deployForm?.addEventListener("submit", submitDeploy);
   els.resetBtn?.addEventListener("click", resetDemo);
 
   bootstrap();

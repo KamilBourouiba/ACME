@@ -30,7 +30,7 @@
           <p id="channel-topic">Nexus Advisory website squad</p>
         </div>
         <div class="header-actions">
-          <button type="button" class="btn btn-deploy" id="deploy-btn" title="Push site files to GitHub">Deploy to GitHub</button>
+          <a class="live-site-link" id="live-site-link" href="#" target="_blank" rel="noopener" hidden>View live site</a>
           <button type="button" class="btn btn-ghost" id="reset-btn">Reset</button>
         </div>
       </header>
@@ -57,20 +57,6 @@
       </div>
     </aside>
   </div>
-
-  <dialog id="deploy-dialog" class="deploy-dialog">
-    <form method="dialog" id="deploy-form">
-      <h2>Deploy to GitHub</h2>
-      <p>Pushes <code>index.html</code>, <code>styles.css</code>, and <code>app.js</code> from the demo.</p>
-      <label>Repository <input name="repo" id="deploy-repo" placeholder="KamilBourouiba/consulting-site-demo"></label>
-      <label>Branch <input name="branch" id="deploy-branch" value="main"></label>
-      <label>GitHub token <input name="token" id="deploy-token" type="password" placeholder="Optional if server configured"></label>
-      <div class="dialog-actions">
-        <button type="button" class="btn btn-ghost" id="deploy-cancel">Cancel</button>
-        <button type="submit" class="btn btn-deploy">Deploy</button>
-      </div>
-    </form>
-  </dialog>
 
   <script>
     window.ACME_DEMO_API = window.ACME_DEMO_API || "https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io";

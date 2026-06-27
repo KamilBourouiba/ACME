@@ -486,30 +486,33 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 Slack-style UI: **10 teammates** build a marketing site for fictional consulting firm **Nexus Advisory** across channels (`#general`, `#product`, `#design`, `#engineering`, `#deploy`). Each role has an isolated ACME tenant; channel hearsay updates peer beliefs in the background while messages post every **10 s**.
 
+**Nina (DevOps) autonomously publishes** to GitHub Pages when the script reaches `#deploy` — no visitor action required.
+
 Visitors can:
 
 - Switch **rooms** and read code snippets (`index.html`, `styles.css`, `app.js`)
 - Click a teammate to inspect **CRS** and belief lifecycle
-- **Deploy to GitHub** — pushes accumulated site files (server `DEMO_GITHUB_TOKEN` or visitor PAT)
+- Watch the squad **publish live** to `KamilBourouiba/consulting-site-demo`
 - **Reset** the squad (60 s cooldown)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `DEMO_ENABLED` | `false` | Start the background loop at API startup |
 | `DEMO_INTERVAL_SEC` | `10` | Pause between scripted Slack turns |
-| `DEMO_AZURE_DEPLOYMENT` | — | Optional LLM paraphrase (off by default for speed) |
-| `DEMO_GITHUB_TOKEN` | — | PAT for server-side deploy |
-| `DEMO_GITHUB_REPO` | `KamilBourouiba/consulting-site-demo` | Target repo |
-| `DEMO_GITHUB_BRANCH` | `main` | Target branch |
+| `DEMO_AUTO_PUBLISH` | `true` | Nina publishes on deploy beats |
+| `DEMO_GITHUB_TOKEN` | — | **Required** PAT (`repo` scope) for autonomous publish |
+| `DEMO_GITHUB_REPO` | `KamilBourouiba/consulting-site-demo` | Target repo (created if missing) |
+| `DEMO_GITHUB_BRANCH` | `main` | Branch + GitHub Pages root |
+| `DEMO_PUBLISH_COOLDOWN_SEC` | `300` | Min seconds between auto-publishes |
 | `DEMO_RESET_COOLDOWN_SEC` | `60` | Min seconds between public resets |
 
-Deploy on Azure (single replica — demo state is in-memory):
+Deploy on Azure (uses `gh auth token` if `DEMO_GITHUB_TOKEN` unset locally):
 
 ```bash
 DEMO_GITHUB_TOKEN=ghp_… ./scripts/deploy_demo.sh
 ```
 
-API routes: `GET /api/v1/demo/state`, `GET /api/v1/demo/events` (SSE), `POST /api/v1/demo/reset`, `POST /api/v1/demo/deploy`.
+API routes: `GET /api/v1/demo/state`, `GET /api/v1/demo/events` (SSE), `POST /api/v1/demo/reset`.
 
 ---
 

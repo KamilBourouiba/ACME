@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enable public Slack-style squad demo on prod.
+# Enable public Slack-style squad demo on prod (autonomous GitHub publish).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RG="${RG:-rg-acme}"
@@ -11,6 +11,15 @@ DEMO_MODEL="${DEMO_AZURE_DEPLOYMENT:-gpt-5.4}"
 INTERVAL="${DEMO_INTERVAL_SEC:-10}"
 GITHUB_REPO="${DEMO_GITHUB_REPO:-KamilBourouiba/consulting-site-demo}"
 
+if [[ -z "${DEMO_GITHUB_TOKEN:-}" ]] && command -v gh &>/dev/null; then
+  DEMO_GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+fi
+
+if [[ -z "${DEMO_GITHUB_TOKEN:-}" ]]; then
+  echo "WARNING: DEMO_GITHUB_TOKEN not set — squad cannot autonomously publish to GitHub." >&2
+  echo "  export DEMO_GITHUB_TOKEN=ghp_…  OR  gh auth login" >&2
+fi
+
 echo "==> Build acme-api:${TAG}"
 az acr build --registry "$ACR_NAME" --image "acme-api:${TAG}" "$ROOT" -o none
 
@@ -19,6 +28,7 @@ ENV_VARS=(
   "DEMO_AZURE_DEPLOYMENT=${DEMO_MODEL}"
   "DEMO_INTERVAL_SEC=${INTERVAL}"
   "DEMO_LLM_PARAPHRASE=false"
+  "DEMO_AUTO_PUBLISH=true"
   "DEMO_GITHUB_REPO=${GITHUB_REPO}"
   "DEMO_GITHUB_BRANCH=main"
 )
@@ -27,7 +37,7 @@ if [[ -n "${DEMO_GITHUB_TOKEN:-}" ]]; then
   ENV_VARS+=("DEMO_GITHUB_TOKEN=secretref:demo-github-token")
 fi
 
-echo "==> Deploy demo (interval=${INTERVAL}s, repo=${GITHUB_REPO})"
+echo "==> Deploy demo (interval=${INTERVAL}s, auto-publish=${GITHUB_REPO})"
 
 if [[ -n "${DEMO_GITHUB_TOKEN:-}" ]]; then
   az containerapp secret set -n "$API_APP" -g "$RG" \
@@ -43,4 +53,4 @@ az containerapp update -n "$API_APP" -g "$RG" \
   -o none
 
 echo "==> Demo UI: https://kamilbourouiba.github.io/ACME/demo.html"
-echo "==> SSE: ${ACME_API_URL:-https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io}/api/v1/demo/events"
+echo "==> Site target: https://${GITHUB_REPO%%/*}.github.io/${GITHUB_REPO##*/}/"

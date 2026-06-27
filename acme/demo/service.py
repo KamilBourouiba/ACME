@@ -78,6 +78,7 @@ class DemoService:
         self._task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
         self._last_reset_at: datetime | None = None
+        self._last_publish_at: datetime | None = None
         self._bg_tasks: set[asyncio.Task] = set()
 
     def model_label(self) -> str:
@@ -180,11 +181,118 @@ class DemoService:
         self._bg_tasks.add(task)
         task.add_done_callback(self._bg_tasks.discard)
 
-    def _track_bg(self, coro):
-        task = asyncio.create_task(coro)
-        self._bg_tasks.add(task)
-        task.add_done_callback(self._bg_tasks.discard)
-        return task
+        if beat.kind == "deploy" and settings.demo_auto_publish:
+            pub = asyncio.create_task(self._autonomous_publish(trigger_msg=msg))
+            self._bg_tasks.add(pub)
+            pub.add_done_callback(self._bg_tasks.discard)
+
+    def _publish_configured(self) -> bool:
+        return bool(settings.demo_github_token and settings.demo_github_repo)
+
+    def _publish_on_cooldown(self) -> bool:
+        if self._last_publish_at is None:
+            return False
+        elapsed = (datetime.now(timezone.utc) - self._last_publish_at).total_seconds()
+        return elapsed < settings.demo_publish_cooldown_sec
+
+    async def _append_agent_message(
+        self,
+        *,
+        channel: str,
+        agent_id: str,
+        kind: str,
+        content: str,
+    ) -> _DemoMessage:
+        agent = AGENT_BY_ID[agent_id]
+        msg = _DemoMessage(
+            id=str(uuid.uuid4()),
+            channel=channel,
+            agent_id=agent.id,
+            agent_name=agent.name,
+            role=agent.role,
+            kind=kind,
+            content=content,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+        self._messages.append(msg)
+        if len(self._messages) > 120:
+            self._messages = self._messages[-120:]
+        return msg
+
+    async def _autonomous_publish(self, *, trigger_msg: _DemoMessage) -> None:
+        """Nina's squad publishes without visitor interaction."""
+        if not self._publish_configured():
+            trigger_msg.content = (
+                f"{trigger_msg.content}\n\n_(GitHub token missing on server — set DEMO_GITHUB_TOKEN.)_"
+            )
+            state = await self.get_state()
+            await self._notify({"type": "update", "state": state.model_dump()})
+            return
+
+        if self._publish_on_cooldown() and self._last_deploy:
+            url = self._last_deploy.get("pages_url", "")
+            follow = await self._append_agent_message(
+                channel="deploy",
+                agent_id="nina",
+                kind="message",
+                content=f"Publish cooldown active — site still live at {url}",
+            )
+            state = await self.get_state()
+            await self._notify(
+                {
+                    "type": "turn",
+                    "tick": self.tick,
+                    "message": follow.to_out().model_dump(),
+                    "state": state.model_dump(),
+                }
+            )
+            return
+
+        try:
+            result = await self.deploy()
+            self._last_publish_at = datetime.now(timezone.utc)
+            trigger_msg.content = (
+                f"Published {', '.join(result['files'])} to `{result['repo']}` on `{result['branch']}`."
+            )
+            follow = await self._append_agent_message(
+                channel="deploy",
+                agent_id="nina",
+                kind="message",
+                content=f"GitHub Pages is live → {result['pages_url']}",
+            )
+            await self._append_agent_message(
+                channel="deploy",
+                agent_id="jordan",
+                kind="message",
+                content=f"Smoke check on Pages URL — hero + CTA OK at {result['pages_url']}",
+            )
+            state = await self.get_state()
+            await self._notify(
+                {
+                    "type": "turn",
+                    "tick": self.tick,
+                    "message": follow.to_out().model_dump(),
+                    "state": state.model_dump(),
+                }
+            )
+        except Exception as exc:
+            logger.exception("Autonomous publish failed")
+            trigger_msg.content = f"{trigger_msg.content}\n\nPublish failed: {exc}"
+            fail = await self._append_agent_message(
+                channel="deploy",
+                agent_id="sam",
+                kind="message",
+                content=f"Publish blocked — check repo permissions and DEMO_GITHUB_TOKEN. ({exc})",
+            )
+            state = await self.get_state()
+            await self._notify(
+                {
+                    "type": "turn",
+                    "tick": self.tick,
+                    "message": fail.to_out().model_dump(),
+                    "state": state.model_dump(),
+                }
+            )
 
     async def _process_acme(self, beat: DemoBeat, msg: _DemoMessage, agent: DemoAgent) -> None:
         try:
@@ -342,7 +450,9 @@ class DemoService:
             token=auth,
             repo=target_repo,
             branch=target_branch,
-            commit_message="Deploy Nexus Advisory site from ACME live demo",
+            commit_message="Autonomous publish — Nexus Advisory site (ACME demo squad)",
+            bootstrap_repo=True,
+            enable_pages=True,
         )
         self._last_deploy = {**result, "deployed_at": datetime.now(timezone.utc).isoformat()}
         state = await self.get_state()
@@ -364,6 +474,7 @@ class DemoService:
             self._last_sessions.clear()
             self._artifacts = dict(SITE_ARTIFACTS)
             self._last_deploy = None
+            self._last_publish_at = None
             self._beat_index = 0
             self._turn_index = 0
             self.tick = 0

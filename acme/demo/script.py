@@ -96,7 +96,7 @@ SCRIPT_BEATS: tuple[DemoBeat, ...] = (
         "deploy",
         "nina",
         "deploy",
-        "Ready to push `index.html`, `styles.css`, `app.js` to GitHub Pages — hit Deploy when you want it live.",
+        "Autonomous publish: pushing `index.html`, `styles.css`, `app.js` to GitHub Pages now…",
     ),
     DemoBeat(
         "general",
