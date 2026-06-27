@@ -3,67 +3,74 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ACME Live Demo — Multi-Agent Beliefs</title>
-  <meta name="description" content="Watch three ACME agents debate SaaS churn with isolated belief graphs. Select an agent to inspect CRS and belief lifecycle.">
+  <title>ACME Live Demo — Nexus Advisory Squad</title>
+  <meta name="description" content="Ten agents build a consulting firm website in Slack-style rooms. Inspect ACME beliefs and deploy to GitHub.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/demo.css">
 </head>
-<body class="demo-page">
-  <nav class="nav">
-    <div class="container nav-inner">
-      <a class="logo" href="index.html">ACME</a>
-      <div class="nav-links">
-        <a href="index.html">Home</a>
-        <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
-        <a href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">GitHub</a>
+<body class="slack-demo">
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="workspace-header">
+        <strong>Nexus Advisory</strong>
+        <span class="live-pill" id="live-pill">Connecting</span>
       </div>
-    </div>
-  </nav>
-
-  <header class="demo-header">
-    <div class="container">
-      <h1>Live multi-agent memory</h1>
-      <p>Three personas ingest, query, and revise beliefs on isolated ACME tenants — same scenario family as MemoryBench.</p>
-      <div class="demo-status" id="demo-status">
-        <span><span class="live-dot off" id="live-dot"></span><span id="status-text">Connecting…</span></span>
-        <span>Model: <code id="model-label">—</code></span>
-        <span>Turn: <code id="tick-label">0</code></span>
-        <button type="button" class="demo-reset-btn" id="reset-btn" title="Clear all demo tenants and restart the script">Reset demo</button>
+      <nav class="channels" id="channel-list" aria-label="Channels"></nav>
+      <div class="sidebar-footer">
+        <span id="model-label">—</span> · turn <span id="tick-label">0</span>
       </div>
-    </div>
-  </header>
-
-  <div id="demo-error" class="demo-error container" hidden></div>
-
-  <main class="demo-layout container" style="width:100%;max-width:none;padding:0;">
-    <aside class="demo-agents">
-      <h2>Agents</h2>
-      <div id="agent-list"></div>
     </aside>
 
-    <section class="demo-feed">
-      <div class="demo-feed-header">Shared conversation (server-orchestrated)</div>
-      <div class="demo-messages" id="messages">
-        <div class="demo-empty">Waiting for the first turn…</div>
+    <section class="main">
+      <header class="channel-header">
+        <div>
+          <h1 id="channel-title">#general</h1>
+          <p id="channel-topic">Nexus Advisory website squad</p>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="btn btn-deploy" id="deploy-btn" title="Push site files to GitHub">Deploy to GitHub</button>
+          <button type="button" class="btn btn-ghost" id="reset-btn">Reset</button>
+        </div>
+      </header>
+
+      <div id="demo-error" class="demo-error" hidden></div>
+      <div id="deploy-banner" class="deploy-banner" hidden></div>
+
+      <div class="messages" id="messages">
+        <div class="empty-state">Waiting for the squad to come online…</div>
       </div>
     </section>
 
-    <aside class="demo-beliefs">
-      <div class="demo-beliefs-header">
-        <h2 id="belief-title">Beliefs</h2>
-        <p id="belief-subtitle">Select an agent to inspect their belief graph.</p>
+    <aside class="members-panel">
+      <h2>Team · ACME memory</h2>
+      <div id="member-list"></div>
+      <div class="beliefs-panel" id="beliefs-panel">
+        <h3 id="belief-title">Select a teammate</h3>
+        <p id="belief-subtitle">Each role keeps an isolated belief graph.</p>
+        <div id="belief-list" class="belief-list"></div>
       </div>
-      <div class="belief-list" id="belief-list">
-        <div class="demo-empty">No agent selected.</div>
-      </div>
-      <div class="demo-footer-note">
-        Each agent uses a separate <code>X-Tenant-ID</code>. Peer statements are ingested as hearsay on other tenants.
+      <div class="artifacts-panel">
+        <h3>Site files</h3>
+        <ul id="artifact-list"></ul>
       </div>
     </aside>
-  </main>
+  </div>
+
+  <dialog id="deploy-dialog" class="deploy-dialog">
+    <form method="dialog" id="deploy-form">
+      <h2>Deploy to GitHub</h2>
+      <p>Pushes <code>index.html</code>, <code>styles.css</code>, and <code>app.js</code> from the demo.</p>
+      <label>Repository <input name="repo" id="deploy-repo" placeholder="KamilBourouiba/consulting-site-demo"></label>
+      <label>Branch <input name="branch" id="deploy-branch" value="main"></label>
+      <label>GitHub token <input name="token" id="deploy-token" type="password" placeholder="Optional if server configured"></label>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" id="deploy-cancel">Cancel</button>
+        <button type="submit" class="btn btn-deploy">Deploy</button>
+      </div>
+    </form>
+  </dialog>
 
   <script>
     window.ACME_DEMO_API = window.ACME_DEMO_API || "https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io";

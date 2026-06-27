@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from acme.config import settings
-from acme.demo.schemas import DemoAgentOut, DemoStateOut, DemoResetOut
+from acme.demo.schemas import DemoAgentOut, DemoDeployIn, DemoDeployOut, DemoResetOut, DemoStateOut
 from acme.demo.service import demo_service
 
 router = APIRouter(prefix="/demo", tags=["demo"])
@@ -21,9 +21,10 @@ def _demo_disabled() -> None:
 @router.get("/state", response_model=DemoStateOut)
 async def demo_state(
     agent: str | None = Query(default=None, description="Highlight beliefs for this agent id"),
+    channel: str | None = Query(default=None, description="Filter/highlight channel"),
 ) -> DemoStateOut:
     _demo_disabled()
-    return await demo_service.get_state(selected_agent=agent)
+    return await demo_service.get_state(selected_agent=agent, selected_channel=channel)
 
 
 @router.get("/agents/{agent_id}", response_model=DemoAgentOut)
@@ -42,6 +43,23 @@ async def demo_reset() -> DemoResetOut:
     if not ok:
         raise HTTPException(status_code=429, detail=message)
     return DemoResetOut(ok=True, tenants_reset=len(stats), stats=stats)
+
+
+@router.post("/deploy", response_model=DemoDeployOut)
+async def demo_deploy(body: DemoDeployIn | None = None) -> DemoDeployOut:
+    _demo_disabled()
+    payload = body or DemoDeployIn()
+    try:
+        result = await demo_service.deploy(
+            repo=payload.repo,
+            branch=payload.branch,
+            token=payload.token,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"GitHub deploy failed: {exc}") from exc
+    return DemoDeployOut(ok=True, **result)
 
 
 @router.get("/events")

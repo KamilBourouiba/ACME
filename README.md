@@ -484,26 +484,32 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 **Website:** [kamilbourouiba.github.io/ACME/demo.html](https://kamilbourouiba.github.io/ACME/demo.html)
 
-Three isolated ACME personas (Maya, Jordan, Sam) run a continuous MemoryBench-style script on the production API. Each agent has its own `X-Tenant-ID`; peer statements are ingested as hearsay on the other tenants. Visitors can:
+Slack-style UI: **10 teammates** build a marketing site for fictional consulting firm **Nexus Advisory** across channels (`#general`, `#product`, `#design`, `#engineering`, `#deploy`). Each role has an isolated ACME tenant; channel hearsay updates peer beliefs in the background while messages post every **10 s**.
 
-- Watch the shared conversation stream (SSE)
-- Select an agent to inspect **CRS**, belief status, and evidence counts
-- Click **Reset demo** to wipe demo tenants and restart the script (60 s cooldown)
+Visitors can:
+
+- Switch **rooms** and read code snippets (`index.html`, `styles.css`, `app.js`)
+- Click a teammate to inspect **CRS** and belief lifecycle
+- **Deploy to GitHub** — pushes accumulated site files (server `DEMO_GITHUB_TOKEN` or visitor PAT)
+- **Reset** the squad (60 s cooldown)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `DEMO_ENABLED` | `false` | Start the background loop at API startup |
-| `DEMO_INTERVAL_SEC` | `45` | Pause between scripted turns |
-| `DEMO_AZURE_DEPLOYMENT` | — | LLM for paraphrase (e.g. `gpt-5.4`) |
+| `DEMO_INTERVAL_SEC` | `10` | Pause between scripted Slack turns |
+| `DEMO_AZURE_DEPLOYMENT` | — | Optional LLM paraphrase (off by default for speed) |
+| `DEMO_GITHUB_TOKEN` | — | PAT for server-side deploy |
+| `DEMO_GITHUB_REPO` | `KamilBourouiba/consulting-site-demo` | Target repo |
+| `DEMO_GITHUB_BRANCH` | `main` | Target branch |
 | `DEMO_RESET_COOLDOWN_SEC` | `60` | Min seconds between public resets |
 
 Deploy on Azure (single replica — demo state is in-memory):
 
 ```bash
-./scripts/deploy_demo.sh
+DEMO_GITHUB_TOKEN=ghp_… ./scripts/deploy_demo.sh
 ```
 
-API routes: `GET /api/v1/demo/state`, `GET /api/v1/demo/events` (SSE), `POST /api/v1/demo/reset`.
+API routes: `GET /api/v1/demo/state`, `GET /api/v1/demo/events` (SSE), `POST /api/v1/demo/reset`, `POST /api/v1/demo/deploy`.
 
 ---
 

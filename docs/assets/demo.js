@@ -1,45 +1,105 @@
 (function () {
   const API = (window.ACME_DEMO_API || "").replace(/\/$/, "");
-  let selectedAgent = "analyst";
   let state = null;
+  let selectedChannel = "general";
+  let selectedAgent = null;
   let eventSource = null;
 
   const els = {
-    agentList: document.getElementById("agent-list"),
+    channelList: document.getElementById("channel-list"),
+    channelTitle: document.getElementById("channel-title"),
+    channelTopic: document.getElementById("channel-topic"),
     messages: document.getElementById("messages"),
-    beliefList: document.getElementById("belief-list"),
+    memberList: document.getElementById("member-list"),
     beliefTitle: document.getElementById("belief-title"),
     beliefSubtitle: document.getElementById("belief-subtitle"),
-    statusText: document.getElementById("status-text"),
-    liveDot: document.getElementById("live-dot"),
+    beliefList: document.getElementById("belief-list"),
+    artifactList: document.getElementById("artifact-list"),
+    livePill: document.getElementById("live-pill"),
     modelLabel: document.getElementById("model-label"),
     tickLabel: document.getElementById("tick-label"),
     error: document.getElementById("demo-error"),
+    deployBanner: document.getElementById("deploy-banner"),
+    deployBtn: document.getElementById("deploy-btn"),
     resetBtn: document.getElementById("reset-btn"),
+    deployDialog: document.getElementById("deploy-dialog"),
+    deployForm: document.getElementById("deploy-form"),
+    deployRepo: document.getElementById("deploy-repo"),
+    deployBranch: document.getElementById("deploy-branch"),
+    deployToken: document.getElementById("deploy-token"),
+    deployCancel: document.getElementById("deploy-cancel"),
   };
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function formatTime(iso) {
+    if (!iso) return "";
+    try {
+      return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
+
+  function formatText(text) {
+    return escapeHtml(text).replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  }
 
   function showError(msg) {
     els.error.hidden = false;
     els.error.textContent = msg;
-    els.statusText.textContent = "Offline";
-    els.liveDot.classList.add("off");
+    els.livePill.textContent = "Offline";
+    els.livePill.classList.remove("on");
   }
 
   function clearError() {
     els.error.hidden = true;
   }
 
-  function initials(name) {
-    return name.slice(0, 1).toUpperCase();
+  function showDeployBanner(deploy) {
+    if (!deploy || !deploy.pages_url) {
+      els.deployBanner.hidden = true;
+      return;
+    }
+    els.deployBanner.hidden = false;
+    els.deployBanner.innerHTML =
+      `Deployed to <a href="${escapeHtml(deploy.pages_url)}" target="_blank" rel="noopener">${escapeHtml(deploy.repo || deploy.pages_url)}</a>`;
   }
 
-  function renderAgents(agents) {
-    els.agentList.innerHTML = agents
+  function renderChannels(channels) {
+    els.channelList.innerHTML = (channels || [])
+      .map(
+        (c) => `
+      <button type="button" class="channel-btn ${c.id === selectedChannel ? "active" : ""}" data-channel="${c.id}">
+        <span class="hash">#</span>${escapeHtml(c.name)}
+      </button>`
+      )
+      .join("");
+
+    els.channelList.querySelectorAll(".channel-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectedChannel = btn.dataset.channel;
+        const ch = (state.channels || []).find((x) => x.id === selectedChannel);
+        els.channelTitle.textContent = `#${ch?.name || selectedChannel}`;
+        els.channelTopic.textContent = ch?.topic || "";
+        render(state);
+      });
+    });
+  }
+
+  function renderMembers(agents) {
+    els.memberList.innerHTML = (agents || [])
       .map(
         (a) => `
-      <button type="button" class="agent-card ${a.id === selectedAgent ? "active" : ""}" data-agent="${a.id}">
-        <div class="agent-avatar" style="background:${a.color}">${initials(a.name)}</div>
-        <div class="meta">
+      <button type="button" class="member-btn ${a.id === selectedAgent ? "active" : ""}" data-agent="${a.id}">
+        <div class="avatar" style="background:${a.color}">${escapeHtml(a.initials || a.name.slice(0, 2))}</div>
+        <div class="info">
           <strong>${escapeHtml(a.name)}</strong>
           <span>${escapeHtml(a.role)} · ${a.belief_count} beliefs</span>
         </div>
@@ -47,7 +107,7 @@
       )
       .join("");
 
-    els.agentList.querySelectorAll(".agent-card").forEach((btn) => {
+    els.memberList.querySelectorAll(".member-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         selectedAgent = btn.dataset.agent;
         render(state);
@@ -55,44 +115,18 @@
     });
   }
 
-  function renderMessages(messages) {
-    if (!messages.length) {
-      els.messages.innerHTML = '<div class="demo-empty">Waiting for the first turn…</div>';
-      return;
-    }
-    els.messages.innerHTML = messages
-      .map((m) => {
-        const agent = state.agents.find((a) => a.id === m.agent_id) || {};
-        const color = agent.color || "#0f4c5c";
-        const answer = m.answer
-          ? `<div class="answer"><strong>ACME answer:</strong> ${escapeHtml(m.answer)}</div>`
-          : "";
-        return `
-        <article class="msg" style="border-left: 3px solid ${color}">
-          <div class="msg-head">
-            <strong>${escapeHtml(m.agent_name)}</strong>
-            <span class="kind">${escapeHtml(m.kind)}</span>
-          </div>
-          <p>${escapeHtml(m.content)}</p>
-          ${answer}
-        </article>`;
-      })
-      .join("");
-    els.messages.scrollTop = els.messages.scrollHeight;
-  }
-
   function renderBeliefs(agents) {
-    const agent = agents.find((a) => a.id === selectedAgent);
+    const agent = (agents || []).find((a) => a.id === selectedAgent);
     if (!agent) {
-      els.beliefTitle.textContent = "Beliefs";
-      els.beliefSubtitle.textContent = "Select an agent.";
-      els.beliefList.innerHTML = '<div class="demo-empty">No agent selected.</div>';
+      els.beliefTitle.textContent = "Select a teammate";
+      els.beliefSubtitle.textContent = "Each role keeps an isolated belief graph.";
+      els.beliefList.innerHTML = '<div class="empty-state" style="padding:1rem">Click a team member.</div>';
       return;
     }
-    els.beliefTitle.textContent = `${agent.name}'s beliefs`;
-    els.beliefSubtitle.textContent = `Tenant ${agent.tenant_id} · CRS-governed lifecycle`;
-    if (!agent.top_beliefs.length) {
-      els.beliefList.innerHTML = '<div class="demo-empty">No promoted beliefs yet — keep watching.</div>';
+    els.beliefTitle.textContent = agent.name;
+    els.beliefSubtitle.textContent = `${agent.role} · tenant ${agent.tenant_id}`;
+    if (!agent.top_beliefs?.length) {
+      els.beliefList.innerHTML = '<div class="empty-state" style="padding:1rem">No beliefs yet — keep watching.</div>';
       return;
     }
     els.beliefList.innerHTML = agent.top_beliefs
@@ -103,65 +137,127 @@
         <div class="belief-meta">
           <span class="crs">CRS ${Number(b.crs).toFixed(2)}</span>
           <span>${escapeHtml(b.status)}</span>
-          <span>conf ${Number(b.confidence).toFixed(2)}</span>
         </div>
       </div>`
       )
       .join("");
   }
 
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+  function renderArtifacts(artifacts) {
+    const files = Object.keys(artifacts || {});
+    els.artifactList.innerHTML = files.length
+      ? files.map((f) => `<li>${escapeHtml(f)}</li>`).join("")
+      : "<li>No files yet</li>";
+  }
+
+  function renderMessages(messages, agents) {
+    const filtered = (messages || []).filter((m) => m.channel === selectedChannel);
+    if (!filtered.length) {
+      els.messages.innerHTML = '<div class="empty-state">No messages in this channel yet.</div>';
+      return;
+    }
+
+    els.messages.innerHTML = filtered
+      .map((m) => {
+        const agent = (agents || []).find((a) => a.id === m.agent_id) || {};
+        const color = agent.color || "#611f69";
+        const initials = agent.initials || m.agent_name.slice(0, 2);
+        const badge = m.kind !== "message" ? `<span class="kind-badge">${escapeHtml(m.kind)}</span>` : "";
+        let code = "";
+        if (m.code_body) {
+          code = `
+          <div class="code-block">
+            <div class="code-head"><span>${escapeHtml(m.code_file || "file")}</span><span>${escapeHtml(m.code_lang || "")}</span></div>
+            <pre>${escapeHtml(m.code_body.slice(0, 1200))}${m.code_body.length > 1200 ? "\n…" : ""}</pre>
+          </div>`;
+        }
+        const answer = m.answer
+          ? `<div class="acme-answer"><strong>ACME:</strong> ${escapeHtml(m.answer)}</div>`
+          : "";
+        return `
+        <article class="msg-row">
+          <div class="avatar" style="background:${color}">${escapeHtml(initials)}</div>
+          <div class="msg-body">
+            <div class="msg-meta">
+              <strong>${escapeHtml(m.agent_name)}</strong>
+              <span class="role">${escapeHtml(m.role)}</span>
+              <time>${formatTime(m.timestamp)}</time>${badge}
+            </div>
+            <div class="msg-text">${formatText(m.content)}</div>
+            ${code}${answer}
+          </div>
+        </article>`;
+      })
+      .join("");
+    els.messages.scrollTop = els.messages.scrollHeight;
   }
 
   function render(next) {
     if (!next) return;
     state = next;
+
     els.modelLabel.textContent = next.model || "—";
     els.tickLabel.textContent = String(next.tick || 0);
     if (next.running) {
-      els.statusText.textContent = "Live";
-      els.liveDot.classList.remove("off");
+      els.livePill.textContent = "Live";
+      els.livePill.classList.add("on");
     }
-    renderAgents(next.agents || []);
-    renderMessages(next.messages || []);
-    renderBeliefs(next.agents || []);
+
+    const ch = (next.channels || []).find((c) => c.id === selectedChannel) || next.channels?.[0];
+    if (ch && !selectedChannel) selectedChannel = ch.id;
+    if (ch) {
+      els.channelTitle.textContent = `#${ch.name}`;
+      els.channelTopic.textContent = ch.topic;
+    }
+
+    renderChannels(next.channels);
+    renderMembers(next.agents);
+    renderMessages(next.messages, next.agents);
+    renderBeliefs(next.agents);
+    renderArtifacts(next.artifacts);
+    showDeployBanner(next.last_deploy);
   }
 
   function connectSSE() {
     if (eventSource) eventSource.close();
     eventSource = new EventSource(`${API}/api/v1/demo/events`);
-
     eventSource.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
         if (data.state) render(data.state);
-        else if ((data.type === "turn" || data.type === "reset") && data.state) render(data.state);
       } catch (e) {
-        console.warn("demo event parse error", e);
+        console.warn("demo parse error", e);
       }
     };
-
     eventSource.onerror = () => {
-      els.statusText.textContent = "Reconnecting…";
-      els.liveDot.classList.add("off");
+      els.livePill.textContent = "Reconnecting";
+      els.livePill.classList.remove("on");
     };
   }
 
+  async function bootstrap() {
+    try {
+      const res = await fetch(`${API}/api/v1/demo/state`);
+      if (res.status === 503) {
+        showError("Live demo is not enabled on this API deployment.");
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      clearError();
+      render(await res.json());
+      connectSSE();
+    } catch (err) {
+      showError(`Could not reach demo API: ${err.message}`);
+    }
+  }
+
   async function resetDemo() {
-    if (!els.resetBtn || els.resetBtn.disabled) return;
     els.resetBtn.disabled = true;
-    const prev = els.resetBtn.textContent;
-    els.resetBtn.textContent = "Resetting…";
     try {
       const res = await fetch(`${API}/api/v1/demo/reset`, { method: "POST" });
       if (res.status === 429) {
         const body = await res.json().catch(() => ({}));
-        showError(body.detail || "Reset cooldown — try again in a minute.");
+        showError(body.detail || "Reset cooldown active.");
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -171,32 +267,52 @@
     } catch (err) {
       showError(`Reset failed: ${err.message}`);
     } finally {
-      els.resetBtn.textContent = prev;
       els.resetBtn.disabled = false;
     }
   }
 
-  async function bootstrap() {
+  async function submitDeploy(e) {
+    e.preventDefault();
+    const repo = els.deployRepo.value.trim();
+    const branch = els.deployBranch.value.trim() || "main";
+    const token = els.deployToken.value.trim();
+    const body = {};
+    if (repo) body.repo = repo;
+    if (branch) body.branch = branch;
+    if (token) body.token = token;
+
+    els.deployDialog.close();
+    els.deployBtn.disabled = true;
+    els.deployBtn.textContent = "Deploying…";
     try {
-      const res = await fetch(`${API}/api/v1/demo/state?agent=${selectedAgent}`);
-      if (res.status === 503) {
-        showError(
-          "Live demo is not enabled on this API deployment yet. Set DEMO_ENABLED=true (and optionally DEMO_AZURE_DEPLOYMENT=gpt-5.4) on the server."
-        );
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(`${API}/api/v1/demo/deploy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
       clearError();
-      render(await res.json());
-      connectSSE();
+      showDeployBanner(data);
+      const stateRes = await fetch(`${API}/api/v1/demo/state`);
+      if (stateRes.ok) render(await stateRes.json());
     } catch (err) {
-      showError(`Could not reach demo API at ${API}: ${err.message}`);
+      showError(`Deploy failed: ${err.message}`);
+    } finally {
+      els.deployBtn.disabled = false;
+      els.deployBtn.textContent = "Deploy to GitHub";
     }
   }
 
-  bootstrap();
+  els.deployBtn?.addEventListener("click", () => {
+    if (els.deployRepo && !els.deployRepo.value) {
+      els.deployRepo.value = "KamilBourouiba/consulting-site-demo";
+    }
+    els.deployDialog?.showModal();
+  });
+  els.deployCancel?.addEventListener("click", () => els.deployDialog?.close());
+  els.deployForm?.addEventListener("submit", submitDeploy);
+  els.resetBtn?.addEventListener("click", resetDemo);
 
-  if (els.resetBtn) {
-    els.resetBtn.addEventListener("click", resetDemo);
-  }
+  bootstrap();
 })();

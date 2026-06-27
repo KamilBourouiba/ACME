@@ -75,10 +75,14 @@ class Settings(BaseSettings):
 
     # Public multi-agent demo (website)
     demo_enabled: bool = False
-    demo_interval_sec: int = 45
+    demo_interval_sec: int = 10
     demo_reset_cooldown_sec: int = 60
     demo_azure_deployment: str = ""  # e.g. gpt-5.4; empty = use AZURE_OPENAI_DEPLOYMENT
-    demo_llm_paraphrase: bool = True
+    demo_llm_paraphrase: bool = False
+    demo_channel_hearsay: bool = True
+    demo_github_token: str = ""
+    demo_github_repo: str = "KamilBourouiba/consulting-site-demo"
+    demo_github_branch: str = "main"
 
 
 settings = Settings()
