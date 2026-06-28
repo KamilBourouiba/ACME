@@ -25,6 +25,12 @@ Requirements:
 - Site must feel premium, polished, production-grade
 - Must work on mobile: responsive shell, touch-friendly controls, collapsible panels below 768px
 
+Deploy layout (CRITICAL — squad learned this the hard way):
+- Repo paths: static/index.html, static/css/*.css, static/js/*.js
+- HTML links: href="css/tokens.css" src="js/app.js" — root-relative, NO /static/ prefix
+- GitHub Pages publishes static/ contents at site root; VM nginx root IS static/
+- Wrong /static/css/… links → 404 → broken unstyled site
+
 You are building from ZERO — no reference implementation exists. Invent clean, cohesive code.
 """
 

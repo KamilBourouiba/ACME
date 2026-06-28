@@ -27,6 +27,7 @@ Available skills (agents use these every improvement turn):
 - acme_query: ask ACME memory graph a technical question
 - edit_file: patch or create a repo file (frontend/backend/css/js/python)
 - deploy: push artifacts to VM (+ GitHub Pages when configured)
+- deploy_static: static/ files publish at site root — HTML uses css/ and js/ paths, NOT /static/
 - triage: Vera consolidates failing probes into one incident report (dedupes spam)
 - vm_exec: run allowlisted curl/docker/systemctl on the VM via receiver POST /exec
 - vm_remediate: Vera runs a fix recipe (compose restart, health curls, receiver restart)

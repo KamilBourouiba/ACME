@@ -71,7 +71,7 @@ asyncio.run(main())
 PY
 fi
 
-echo "==> 3/5 Reset demo (tenants + in-memory state)"
+echo "==> 3/5 Reset demo (tenants + in-memory state + squad lessons seed)"
 curl -sf -X POST "${API}/api/v1/demo/reset" | python3 -m json.tool
 
 echo "==> 4/5 Wait for API restart loop"

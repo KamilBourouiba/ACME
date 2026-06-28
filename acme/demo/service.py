@@ -19,6 +19,8 @@ from acme.demo.github_deploy import delete_repo, deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, _fallback_plan, plan_improvement
+from acme.demo.lessons import seed_squad_lessons
+from acme.demo.lessons import SQUAD_LESSONS_PROMPT
 from acme.demo.registry import SquadRegistry
 from acme.demo.site_guard import is_pinned_on_deploy, is_protected_site_file, reference_site_files, safe_site_artifact
 from acme.demo.static_assets import normalize_static_asset_paths
@@ -1637,6 +1639,19 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
 
             stats = await self._clean_state(force=False, wipe_external=True, force_wipe=True)
             self._last_reset_at = now
+
+        try:
+            llm = get_llm_client()
+            async with SessionLocal() as session:
+                await seed_squad_lessons(
+                    session=session,
+                    neo4j=neo4j_client,
+                    llm=llm,
+                    registry=self._registry,
+                )
+                await session.commit()
+        except Exception:
+            logger.exception("Squad lesson seed failed")
 
         state = await self.get_state()
         await self._notify({"type": "reset", "state": state.model_dump()})

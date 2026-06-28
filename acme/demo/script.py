@@ -21,6 +21,9 @@ def _code(agent: str, path: str, lang: str, msg: str) -> DemoBeat:
 
 SCRIPT_BEATS: tuple[DemoBeat, ...] = (
     DemoBeat("general", "alex", "message", "Kickoff: *Erebor* — open Palantir. The website *is* the product. Three.js graph + real OSS APIs."),
+    DemoBeat("deploy", "nina", "message", "📌 *Squad lesson — static paths*: files live in `static/` but index.html links `css/foo.css` and `js/bar.js` — **never** `/static/`. Pages + VM both serve static/ at site root."),
+    DemoBeat("engineering", "marco", "message", "📌 Frontend rule: root-relative assets only. Jordan checks css+js return 200 before we call deploy done."),
+    DemoBeat("ops", "vera", "message", "📌 Stack rule: `server.py` + `api/routes/*` are pinned — improve `static/` only; broken API syntax crashes the VM."),
     DemoBeat("general", "morgan", "message", "Investigators need: omnibar search, globe graph, entity inspector, investigation trail."),
     DemoBeat("product", "riley", "message", "Data policy: *only* open APIs — GitHub REST, OpenAlex (CC0), Nominatim (ODbL). No proprietary feeds."),
     DemoBeat("product", "alex", "reply", "@Riley v1 ships unified search + seed graph + Three.js canvas. Site replaces any separate app.", reply_to="riley"),

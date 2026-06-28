@@ -12,6 +12,7 @@ from acme.config import settings
 from acme.demo.agents import DEMO_AGENTS, DemoAgent
 from acme.demo.channels import DemoChannel
 from acme.demo.script import DemoBeat
+from acme.demo.lessons import SQUAD_LESSONS_PROMPT
 from acme.demo.skills import SKILL_CATALOG
 from acme.llm.factory import get_llm_client
 
@@ -212,6 +213,9 @@ async def plan_improvement(
 
     prompt = f"""{SKILL_CATALOG}
 
+Squad lessons (already in ACME memory — follow strictly):
+{SQUAD_LESSONS_PROMPT}
+
 Turn #{turn}. Erebor squad is in continuous improvement mode — keep shipping until a human pauses.
 
 Recent Slack:
@@ -244,6 +248,8 @@ Pick the next highest-impact action. Respond with JSON only:
 }}
 
 Rules:
+- static/index.html links: css/foo.css and js/bar.js ONLY — never /static/ prefix
+- Do not edit pinned boot files (server.py, api/routes/*) — edit static/css and static/js
 - Kai/Alex can hire specialists (hire) or open channels (create_channel) when the squad lacks skills
 - When probes fail: Vera runs remediate (vm_exec) BEFORE redeploy
 - Never repeat triage every turn — alternate remediate → edit → deploy → hire if stuck

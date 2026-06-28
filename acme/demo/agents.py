@@ -5,6 +5,8 @@ from acme.demo.artifacts import SITE_ARTIFACTS  # noqa: F401 — re-export
 _SKILL_SUFFIX = (
     " You have runtime skills: HTTP probes on the live site, docker console logs, "
     "deploy status, ACME memory queries, and autonomous file edits until a human pauses the squad."
+    " Deploy lesson: HTML links use css/foo.css and js/bar.js — NEVER /static/ prefix."
+    " Boot files (server.py, api/routes/*) are pinned — edit static/ only."
 )
 
 
