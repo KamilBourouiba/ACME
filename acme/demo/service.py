@@ -21,6 +21,7 @@ from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, _fallback_plan, plan_improvement
 from acme.demo.registry import SquadRegistry
 from acme.demo.site_guard import is_pinned_on_deploy, is_protected_site_file, reference_site_files, safe_site_artifact
+from acme.demo.static_assets import normalize_static_asset_paths
 from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
 from acme.demo.remediation import RemediationState, execute_remediation, format_remediation_message
@@ -151,7 +152,11 @@ class DemoService:
 
     def _pin_code_artifact(self, path: str, body: str) -> str:
         """Boot-critical files always use the canonical site/ copy; reject syntax errors."""
-        return safe_site_artifact(path, body, previous=self._artifacts.get(path.replace("\\", "/")))
+        safe = safe_site_artifact(path, body, previous=self._artifacts.get(path.replace("\\", "/")))
+        norm = path.replace("\\", "/")
+        if norm in ("static/index.html", "index.html"):
+            return normalize_static_asset_paths(safe)
+        return safe
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:

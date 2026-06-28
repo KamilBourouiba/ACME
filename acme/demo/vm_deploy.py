@@ -13,6 +13,8 @@ logger = logging.getLogger("acme.demo.vm")
 
 from acme.demo.site_guard import DEPLOY_PINNED_FILES, safe_site_artifact
 
+from acme.demo.static_assets import vm_static_bundle
+
 SITE_DIR = Path(__file__).resolve().parent / "site"
 INFRA_NAMES = DEPLOY_PINNED_FILES
 
@@ -39,7 +41,7 @@ async def deploy_to_vm(
     health_url = f"{base}/health"
     site_https = settings_site_url(vm_url)
 
-    files = _stack_files(artifacts)
+    files = _stack_files(vm_static_bundle(artifacts))
     async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
         health = await client.get(health_url)
         health.raise_for_status()

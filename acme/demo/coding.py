@@ -31,7 +31,7 @@ You are building from ZERO — no reference implementation exists. Invent clean,
 LANG_HINTS = {
     "css": "Use CSS custom properties from tokens.css when present. Mobile-first; @media (max-width: 768px) for stacked layout. No Tailwind.",
     "javascript": "ES modules. Import Three.js via 'three' and 'three/addons/'. No React.",
-    "html": "Link css/*.css and js/*.js modules. Include Three.js importmap.",
+    "html": "Link css/*.css and js/*.js with root-relative paths (css/foo.css, js/foo.js). NEVER use /static/ prefix.",
     "python": "FastAPI + httpx + asyncpg. Type hints. Match existing api/ package layout.",
     "markdown": "Technical architecture doc for the squad.",
 }

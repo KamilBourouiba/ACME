@@ -60,9 +60,13 @@ def build_staging_preview(artifacts: dict[str, str]) -> str:
         short = link.removeprefix("static/")
         html = html.replace(f'<link rel="stylesheet" href="{short}">', "")
         html = html.replace(f'<link rel="stylesheet" href="{link}">', "")
+        html = html.replace(f'<link rel="stylesheet" href="/static/{short}">', "")
+        html = html.replace(f'<link rel="stylesheet" href="/{link}">', "")
 
     html = html.replace('<script type="module" src="js/scene.js"></script>', "")
     html = html.replace('<script type="module" src="js/app.js"></script>', "")
+    html = html.replace('<script type="module" src="/static/js/scene.js"></script>', "")
+    html = html.replace('<script type="module" src="/static/js/app.js"></script>', "")
 
     if css and "</head>" in html:
         html = html.replace("</head>", f"<style>\n{css}\n</style>\n</head>", 1)
