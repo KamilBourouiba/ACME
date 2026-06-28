@@ -25,6 +25,8 @@ from acme.demo.schemas import (
     DemoChannelOut,
     DemoMessageOut,
     DemoStateOut,
+    DemoVisitorSayOut,
+    DemoVisitorUnlockOut,
 )
 from acme.demo.script import SCRIPT_BEATS, DemoBeat
 from acme.graph.neo4j_client import neo4j_client
@@ -105,6 +107,8 @@ class DemoService:
         self._last_publish_at: datetime | None = None
         self._preview_ready: bool = False
         self._bg_tasks: set[asyncio.Task] = set()
+        self._last_visitor_say_at: datetime | None = None
+        self._visitor_turn: int = 0
 
     def model_label(self) -> str:
         if settings.demo_azure_deployment:
@@ -310,6 +314,8 @@ class DemoService:
         agent_id: str,
         kind: str,
         content: str,
+        reply_to_name: str | None = None,
+        answer: str | None = None,
     ) -> _DemoMessage:
         agent = AGENT_BY_ID[agent_id]
         msg = _DemoMessage(
@@ -320,11 +326,172 @@ class DemoService:
             role=agent.role,
             kind=kind,
             content=content,
+            answer=answer,
+            reply_to_name=reply_to_name,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
         self._messages.append(msg)
         self._messages = _trim_messages(self._messages)
         return msg
+
+    def _check_visitor_secret(self, secret: str) -> None:
+        if not settings.demo_visitor_secret or secret != settings.demo_visitor_secret:
+            raise ValueError("Invalid secret")
+
+    async def unlock_visitor(self, *, secret: str) -> DemoVisitorUnlockOut:
+        self._check_visitor_secret(secret)
+        return DemoVisitorUnlockOut(ok=True)
+
+    async def _agent_reply_to_visitor(
+        self, agent: DemoAgent, *, channel: str, visitor_text: str
+    ) -> str:
+        recent = [m for m in self._messages[-14:] if m.channel == channel]
+        thread = "\n".join(f"{m.agent_name}: {m.content[:220]}" for m in recent)
+        llm = get_llm_client()
+        model = settings.demo_azure_deployment or None
+        prompt = f"""#{channel} thread:
+{thread}
+
+Visitor says: {visitor_text}
+
+Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the Erebor build. No markdown fences."""
+        try:
+            return await llm.generate(
+                prompt,
+                system=agent.system_prompt,
+                model=model,
+                temperature=0.55,
+                timeout=25.0,
+            )
+        except Exception:
+            logger.exception("Visitor reply failed for %s", agent.id)
+            return f"Hey — {agent.name} here. We're heads-down on Erebor; ask again in a sec."
+
+    async def handle_visitor_say(
+        self, *, secret: str, channel: str, message: str
+    ) -> DemoVisitorSayOut:
+        self._check_visitor_secret(secret)
+        channel = channel.strip().lower()
+        if channel not in CHANNEL_BY_ID:
+            raise ValueError(f"Unknown channel: {channel}")
+        text = message.strip()
+        if not text:
+            raise ValueError("Empty message")
+
+        async with self._lock:
+            now = datetime.now(timezone.utc)
+            if self._last_visitor_say_at is not None:
+                wait = settings.demo_visitor_say_cooldown_sec - (
+                    now - self._last_visitor_say_at
+                ).total_seconds()
+                if wait > 0:
+                    raise ValueError(f"Slow down — try again in {int(wait)}s")
+            self._last_visitor_say_at = now
+
+            visitor_msg = _DemoMessage(
+                id=str(uuid.uuid4()),
+                channel=channel,
+                agent_id="visitor",
+                agent_name="You",
+                role="Visitor",
+                kind="visitor",
+                content=text,
+                timestamp=now.isoformat(),
+            )
+            self._messages.append(visitor_msg)
+
+            pool = [a for a in DEMO_AGENTS if channel in a.channels] or list(DEMO_AGENTS[:3])
+            self._visitor_turn += 1
+            primary = pool[self._visitor_turn % len(pool)]
+            responders = [primary]
+            secondary = pool[(self._visitor_turn + 2) % len(pool)]
+            if secondary.id != primary.id and self._visitor_turn % 2 == 0:
+                responders.append(secondary)
+
+        reply_bodies: list[tuple[DemoAgent, str]] = []
+        for agent in responders:
+            body = await self._agent_reply_to_visitor(agent, channel=channel, visitor_text=text)
+            reply_bodies.append((agent, body))
+
+        async with self._lock:
+            replies: list[_DemoMessage] = []
+            for agent, body in reply_bodies:
+                reply = await self._append_agent_message(
+                    channel=channel,
+                    agent_id=agent.id,
+                    kind="reply",
+                    content=body,
+                    reply_to_name="You",
+                )
+                replies.append(reply)
+
+            self._messages = _trim_messages(self._messages)
+            self.tick += 1
+
+            state = await self.get_state()
+            for reply in replies:
+                await self._notify(
+                    {
+                        "type": "turn",
+                        "tick": self.tick,
+                        "message": reply.to_out().model_dump(),
+                        "state": state.model_dump(),
+                    }
+                )
+            await self._notify(
+                {
+                    "type": "visitor",
+                    "message": visitor_msg.to_out().model_dump(),
+                    "state": state.model_dump(),
+                }
+            )
+
+            task = asyncio.create_task(
+                self._ingest_visitor_exchange(channel, text, replies)
+            )
+            self._bg_tasks.add(task)
+            task.add_done_callback(self._bg_tasks.discard)
+
+            return DemoVisitorSayOut(
+                ok=True,
+                your_message=visitor_msg.to_out(),
+                replies=[r.to_out() for r in replies],
+            )
+
+    async def _ingest_visitor_exchange(
+        self, channel: str, visitor_text: str, replies: list[_DemoMessage]
+    ) -> None:
+        try:
+            llm = get_llm_client()
+            async with SessionLocal() as session:
+                for reply in replies:
+                    agent = AGENT_BY_ID[reply.agent_id]
+                    orch = ACMEOrchestrator(
+                        session, neo4j_client, llm, tenant_id=agent.tenant_id
+                    )
+                    await orch.ingest_experience(
+                        ExperienceCreate(
+                            content=f"[#{channel}] Visitor: {visitor_text} → {agent.name}: {reply.content}",
+                            source_type=SourceType.HUMAN_EXPERT,
+                            source_id="demo-visitor",
+                            tags=["demo", "erebor", channel, "visitor"],
+                            tenant_id=agent.tenant_id,
+                        )
+                    )
+                    if "?" in visitor_text:
+                        try:
+                            qr = await orch.query(
+                                QueryRequest(question=visitor_text, challenge=False)
+                            )
+                            reply.answer = qr.answer[:500]
+                            reply.beliefs_used = [b.model_dump() for b in qr.beliefs_used]
+                        except Exception:
+                            pass
+                await session.commit()
+            state = await self.get_state()
+            await self._notify({"type": "update", "state": state.model_dump()})
+        except Exception:
+            logger.exception("Visitor ACME ingest failed")
 
     async def _autonomous_publish(self, *, trigger_msg: _DemoMessage) -> None:
         """Nina's squad publishes without visitor interaction."""

@@ -80,3 +80,23 @@ class DemoDeployOut(BaseModel):
     files: list[str]
     pages_url: str
     commit_message: str
+
+
+class DemoVisitorUnlockIn(BaseModel):
+    secret: str
+
+
+class DemoVisitorUnlockOut(BaseModel):
+    ok: bool
+
+
+class DemoVisitorSayIn(BaseModel):
+    secret: str
+    channel: str = "general"
+    message: str = Field(..., min_length=1, max_length=800)
+
+
+class DemoVisitorSayOut(BaseModel):
+    ok: bool
+    your_message: DemoMessageOut
+    replies: list[DemoMessageOut]

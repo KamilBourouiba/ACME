@@ -187,7 +187,72 @@ body.slack-demo {
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 1.25rem 2rem;
+  padding: 1rem 1.25rem 1rem;
+}
+
+.visitor-compose {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid var(--slack-border);
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.visitor-compose.is-unlocked {
+  border-top-color: #2eb67d;
+  box-shadow: 0 -2px 0 rgba(46, 182, 125, 0.15);
+}
+
+.visitor-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--slack-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  background: #fafafa;
+}
+
+.visitor-input:focus {
+  outline: none;
+  border-color: #611f69;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(97, 31, 105, 0.12);
+}
+
+.visitor-send {
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.875rem;
+  background: #611f69;
+  color: #fff;
+  cursor: pointer;
+}
+
+.visitor-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.visitor-send:not(:disabled):hover {
+  background: #4a154b;
+}
+
+.msg-row.is-visitor .avatar {
+  background: #2eb67d !important;
+}
+
+.msg-row.is-visitor .msg-text {
+  background: rgba(46, 182, 125, 0.08);
+  border-left: 3px solid #2eb67d;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0 6px 6px 0;
 }
 
 .msg-row {
@@ -655,7 +720,22 @@ body.slack-demo {
   body.panel-chat .preview-panel { display: none !important; }
 
   body.panel-preview .messages,
-  body.panel-preview .mobile-channels-wrap { display: none !important; }
+  body.panel-preview .mobile-channels-wrap,
+  body.panel-preview .visitor-compose { display: none !important; }
+
+  body.panel-team .visitor-compose { display: none !important; }
+
+  body.panel-chat .visitor-compose {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    z-index: 55;
+  }
+
+  body.panel-chat .messages {
+    padding-bottom: 4.75rem;
+  }
 
   body.panel-preview .preview-panel {
     display: flex !important;

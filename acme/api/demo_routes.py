@@ -7,7 +7,17 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from acme.config import settings
-from acme.demo.schemas import DemoAgentOut, DemoDeployIn, DemoDeployOut, DemoResetOut, DemoStateOut
+from acme.demo.schemas import (
+    DemoAgentOut,
+    DemoDeployIn,
+    DemoDeployOut,
+    DemoResetOut,
+    DemoStateOut,
+    DemoVisitorSayIn,
+    DemoVisitorSayOut,
+    DemoVisitorUnlockIn,
+    DemoVisitorUnlockOut,
+)
 from acme.demo.service import demo_service
 
 router = APIRouter(prefix="/demo", tags=["demo"])
@@ -73,6 +83,29 @@ async def demo_preview() -> HTMLResponse:
             "Content-Security-Policy": "frame-ancestors *",
         },
     )
+
+
+@router.post("/unlock", response_model=DemoVisitorUnlockOut)
+async def demo_unlock(body: DemoVisitorUnlockIn) -> DemoVisitorUnlockOut:
+    _demo_disabled()
+    try:
+        return await demo_service.unlock_visitor(secret=body.secret)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.post("/say", response_model=DemoVisitorSayOut)
+async def demo_say(body: DemoVisitorSayIn) -> DemoVisitorSayOut:
+    _demo_disabled()
+    try:
+        return await demo_service.handle_visitor_say(
+            secret=body.secret,
+            channel=body.channel,
+            message=body.message,
+        )
+    except ValueError as exc:
+        status = 403 if "secret" in str(exc).lower() else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @router.get("/events")

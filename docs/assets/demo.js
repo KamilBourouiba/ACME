@@ -7,6 +7,12 @@
   let lastBeliefFetch = 0;
   let eventSource = null;
 
+  const VISITOR_SECRET_CODE = "42069";
+  const STORAGE_KEY = "acme_demo_visitor_secret";
+  let visitorSecret = sessionStorage.getItem(STORAGE_KEY) || "";
+  let visitorUnlocked = Boolean(visitorSecret);
+  let visitorSending = false;
+
   const els = {
     channelList: document.getElementById("channel-list"),
     channelTitle: document.getElementById("channel-title"),
@@ -33,7 +39,105 @@
     membersPanel: document.getElementById("members-panel"),
     mobileChannels: document.getElementById("mobile-channels"),
     mainPanel: document.getElementById("main-panel"),
+    visitorCompose: document.getElementById("visitor-compose"),
+    visitorInput: document.getElementById("visitor-input"),
+    visitorSend: document.getElementById("visitor-send"),
   };
+
+  function updateVisitorComposeUi() {
+    if (!els.visitorInput || !els.visitorCompose) return;
+    if (visitorUnlocked) {
+      els.visitorCompose.classList.add("is-unlocked");
+      const ch = selectedChannel || "general";
+      els.visitorInput.placeholder = `Message #${ch}…`;
+    } else {
+      els.visitorCompose.classList.remove("is-unlocked");
+      els.visitorInput.placeholder = "Type 42069 to join the squad…";
+    }
+    syncVisitorSendButton();
+  }
+
+  function syncVisitorSendButton() {
+    if (!els.visitorSend || !els.visitorInput) return;
+    const text = els.visitorInput.value.trim();
+    if (visitorSending) {
+      els.visitorSend.disabled = true;
+      return;
+    }
+    if (visitorUnlocked) {
+      els.visitorSend.disabled = text.length === 0;
+      return;
+    }
+    els.visitorSend.disabled = text !== VISITOR_SECRET_CODE;
+  }
+
+  async function unlockVisitor(secret) {
+    const res = await fetch(`${API}/api/v1/demo/unlock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ secret }),
+    });
+    if (res.status === 403) throw new Error("Wrong code — try again.");
+    if (!res.ok) throw new Error(`Unlock failed (${res.status})`);
+    visitorSecret = secret;
+    visitorUnlocked = true;
+    sessionStorage.setItem(STORAGE_KEY, secret);
+    if (els.visitorInput) els.visitorInput.value = "";
+    updateVisitorComposeUi();
+  }
+
+  async function sendVisitorMessage(text) {
+    visitorSending = true;
+    syncVisitorSendButton();
+    if (els.visitorSend) els.visitorSend.textContent = "…";
+    try {
+      const res = await fetch(`${API}/api/v1/demo/say`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret: visitorSecret,
+          channel: selectedChannel || "general",
+          message: text,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        visitorUnlocked = false;
+        visitorSecret = "";
+        sessionStorage.removeItem(STORAGE_KEY);
+        updateVisitorComposeUi();
+        throw new Error(data.detail || "Session expired — enter 42069 again.");
+      }
+      if (!res.ok) throw new Error(data.detail || `Send failed (${res.status})`);
+      if (data.state) render(data.state);
+      if (els.visitorInput) els.visitorInput.value = "";
+    } finally {
+      visitorSending = false;
+      if (els.visitorSend) els.visitorSend.textContent = "Send";
+      syncVisitorSendButton();
+    }
+  }
+
+  function initVisitorCompose() {
+    els.visitorInput?.addEventListener("input", syncVisitorSendButton);
+    els.visitorCompose?.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const text = (els.visitorInput?.value || "").trim();
+      if (!text || visitorSending) return;
+      clearError();
+      try {
+        if (!visitorUnlocked) {
+          if (text !== VISITOR_SECRET_CODE) return;
+          await unlockVisitor(text);
+          return;
+        }
+        await sendVisitorMessage(text);
+      } catch (err) {
+        showError(err.message || "Could not send message.");
+      }
+    });
+    updateVisitorComposeUi();
+  }
 
   function isMobileLayout() {
     return window.matchMedia("(max-width: 960px)").matches;
@@ -180,6 +284,7 @@
       els.channelTitle.textContent = `#${ch?.name || selectedChannel}`;
       els.channelTopic.textContent = ch?.topic || "";
       render(state);
+      updateVisitorComposeUi();
       closeSidebar();
     }
 
@@ -333,7 +438,16 @@
           ? `<div class="reply-tag">↩ replying to <strong>@${escapeHtml(m.reply_to_name)}</strong></div>`
           : "";
         const rowClass =
-          m.kind === "query" ? "msg-row is-query" : m.kind === "reply" ? "msg-row is-reply" : "msg-row";
+          m.kind === "visitor"
+            ? "msg-row is-visitor"
+            : m.kind === "query"
+              ? "msg-row is-query"
+              : m.kind === "reply"
+                ? "msg-row is-reply"
+                : "msg-row";
+        const avatarStyle =
+          m.kind === "visitor" ? ' style="background:#2eb67d"' : ` style="background:${color}"`;
+        const avatarContent = m.kind === "visitor" ? "Y" : escapeHtml(initials);
         let code = "";
         if (m.code_body) {
           code = `
@@ -347,7 +461,7 @@
           : "";
         return `
         <article class="${rowClass}">
-          <div class="avatar" style="background:${color}">${escapeHtml(initials)}</div>
+          <div class="avatar"${avatarStyle}>${avatarContent}</div>
           <div class="msg-body">
             <div class="msg-meta">
               <strong>${escapeHtml(m.agent_name)}</strong>
@@ -419,6 +533,7 @@
 
   async function bootstrap() {
     initMobileNav();
+    initVisitorCompose();
     try {
       const res = await fetch(`${API}/api/v1/demo/state`);
       if (res.status === 503) {
