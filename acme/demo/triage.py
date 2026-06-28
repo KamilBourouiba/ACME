@@ -15,6 +15,9 @@ _SPAM_PREFIXES = (
     "fetched https://",
     "vm stack live",
     "shipping latest",
+    "validating the suspected nginx",
+    "validating nginx sensitive",
+    "i'm validating the suspected nginx",
 )
 
 _DEDUP_AGENTS = frozenset({"nina", "sam", "jordan", "chen", "kai"})
@@ -27,13 +30,52 @@ def normalize_message(content: str) -> str:
     return text[:220]
 
 
+def message_fingerprint(content: str) -> str:
+    """Stable topic stem for near-duplicate skill chatter."""
+    text = content.lower().strip()
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"/[\w.\-]+", "", text)
+    words = sorted(set(re.findall(r"[a-z]{5,}", text)))
+    return " ".join(words[:10])
+
+
+def _word_set(content: str) -> set[str]:
+    text = content.lower()
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"/[\w.\-]+", "", text)
+    return set(re.findall(r"[a-z]{5,}", text))
+
+
+def is_near_duplicate(content: str, recent: list[str], *, threshold: float = 0.5) -> bool:
+    words = _word_set(content)
+    if len(words) < 4:
+        return False
+    for prev in recent[-10:]:
+        prev_words = _word_set(prev)
+        if len(prev_words) < 4:
+            continue
+        overlap = len(words & prev_words) / len(words | prev_words)
+        if overlap >= threshold:
+            return True
+    return False
+
+
 def is_spam_duplicate(content: str, recent: list[str]) -> bool:
     norm = normalize_message(content)
     if not norm:
         return False
-    if any(norm.startswith(p) for p in _SPAM_PREFIXES):
-        return norm in recent
-    return False
+    for prefix in _SPAM_PREFIXES:
+        if norm.startswith(prefix) and any(r.startswith(prefix) for r in recent):
+            return True
+    if norm in recent:
+        return True
+    if is_near_duplicate(content, recent):
+        return True
+    fp = message_fingerprint(content)
+    if not fp or len(fp) < 20:
+        return False
+    recent_fps = [message_fingerprint(r) for r in recent[-12:]]
+    return fp in recent_fps
 
 
 def should_dedup_agent(agent_id: str) -> bool:

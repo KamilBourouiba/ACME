@@ -47,6 +47,28 @@ if [[ -f "$SECRETS" ]]; then
     -H "Content-Type: application/json" \
     -d '{"command":"docker system prune -af --volumes","timeout":120}' || true
   "${ROOT}/azure/repair-nexus-vm.sh" || true
+  echo "==> 2b/5 Redeploy full site stack"
+  set -a
+  export DEMO_VM_URL="${URL}"
+  export DEMO_VM_DEPLOY_KEY="${KEY}"
+  set +a
+  PYTHONPATH="${ROOT}" python3 - <<'PY' || true
+import asyncio, os
+from acme.demo.artifacts import load_site_artifacts
+from acme.demo.vm_deploy import deploy_to_vm
+
+async def main():
+    files = load_site_artifacts()
+    result = await deploy_to_vm(
+        files,
+        vm_url=os.environ["DEMO_VM_URL"],
+        deploy_key=os.environ["DEMO_VM_DEPLOY_KEY"],
+        timeout=360.0,
+    )
+    print("live_ok", result.get("live_ok"))
+
+asyncio.run(main())
+PY
 fi
 
 echo "==> 3/5 Reset demo (tenants + in-memory state)"

@@ -18,7 +18,7 @@ from acme.demo.channels import DemoChannel
 from acme.demo.github_deploy import delete_repo, deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
-from acme.demo.improvement import ImprovementPlan, plan_improvement
+from acme.demo.improvement import ImprovementPlan, _fallback_plan, plan_improvement
 from acme.demo.registry import SquadRegistry
 from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
@@ -136,6 +136,9 @@ class DemoService:
         self._consecutive_vm_probe_failures: int = 0
         self._deploy_blocked_until: datetime | None = None
         self._recent_message_norms: list[str] = []
+        self._last_agent_post_at: dict[str, datetime] = {}
+        self._last_plan_signature: str | None = None
+        self._repeat_plan_count: int = 0
         self._last_triage_signature: str | None = None
         self._last_triage_tick: int = -999
         self._remediation = RemediationState()
@@ -229,7 +232,28 @@ class DemoService:
         *,
         observations: str,
         imp_turn: int,
+        artifacts: dict[str, str],
+        deploy_allowed: bool,
+        failure_sig: str,
     ) -> ImprovementPlan:
+        sig = self._plan_signature(plan)
+        if sig == self._last_plan_signature:
+            self._repeat_plan_count += 1
+        else:
+            self._last_plan_signature = sig
+            self._repeat_plan_count = 0
+        if self._repeat_plan_count >= 2:
+            logger.info("Breaking repeat plan loop: %s", sig)
+            self._last_plan_signature = None
+            self._repeat_plan_count = 0
+            plan = _fallback_plan(
+                turn=imp_turn + self._repeat_plan_count,
+                observations=observations,
+                artifacts=artifacts,
+                deploy_allowed=deploy_allowed,
+                failure_sig=failure_sig,
+            )
+
         wants_deploy = plan.deploy or plan.action == "deploy"
         if not wants_deploy:
             return plan
@@ -565,7 +589,12 @@ class DemoService:
             channels=self._registry.list_channels(),
         )
         plan = self._sanitize_improvement_plan(
-            plan, observations=observations, imp_turn=imp_turn
+            plan,
+            observations=observations,
+            imp_turn=imp_turn,
+            artifacts=artifacts_snapshot,
+            deploy_allowed=deploy_allowed,
+            failure_sig=failure_sig,
         )
         agent = self._registry.get_agent(plan.agent_id)
         if agent is None:
@@ -673,6 +702,10 @@ class DemoService:
         else:
             kind = "skill" if plan.action == "probe" else "message"
 
+        if self._should_suppress_agent_message(agent_id=agent.id, content=content):
+            logger.info("Suppressed improvement loop from %s — skipping turn", agent.id)
+            return
+
         msg = _DemoMessage(
             id=str(uuid.uuid4()),
             channel=plan.channel,
@@ -708,6 +741,7 @@ class DemoService:
 
             self._messages.append(msg)
             self._messages = _trim_messages(self._messages)
+            self._mark_agent_post(agent.id, content)
             state = await self.get_state()
             await self._notify(
                 {
@@ -824,6 +858,34 @@ class DemoService:
         if len(self._recent_message_norms) > cap:
             self._recent_message_norms = self._recent_message_norms[-cap:]
 
+    @staticmethod
+    def _plan_signature(plan: ImprovementPlan) -> str:
+        return "|".join(
+            [
+                plan.agent_id,
+                plan.action,
+                plan.skill or "",
+                plan.file or "",
+                plan.recipe or "",
+                (plan.message or "")[:80],
+            ]
+        )
+
+    def _should_suppress_agent_message(self, *, agent_id: str, content: str) -> bool:
+        if self._is_duplicate_spam(agent_id=agent_id, content=content):
+            return True
+        if not self._registry.agent_dedup_messages(agent_id):
+            return False
+        last = self._last_agent_post_at.get(agent_id)
+        if last is None:
+            return False
+        elapsed = (datetime.now(timezone.utc) - last).total_seconds()
+        return elapsed < settings.demo_agent_message_cooldown_sec
+
+    def _mark_agent_post(self, agent_id: str, content: str) -> None:
+        self._last_agent_post_at[agent_id] = datetime.now(timezone.utc)
+        self._remember_message_norm(content)
+
     def _is_duplicate_spam(self, *, agent_id: str, content: str) -> bool:
         if not self._registry.agent_dedup_messages(agent_id):
             return False
@@ -875,7 +937,7 @@ class DemoService:
         answer: str | None = None,
         skip_dedup: bool = False,
     ) -> _DemoMessage | None:
-        if not skip_dedup and self._is_duplicate_spam(agent_id=agent_id, content=content):
+        if not skip_dedup and self._should_suppress_agent_message(agent_id=agent_id, content=content):
             logger.debug("suppressed duplicate demo message from %s", agent_id)
             return None
         agent = self._registry.get_agent(agent_id)
@@ -896,7 +958,7 @@ class DemoService:
         )
         self._messages.append(msg)
         self._messages = _trim_messages(self._messages)
-        self._remember_message_norm(content)
+        self._mark_agent_post(agent_id, content)
         return msg
 
     def _check_visitor_secret(self, secret: str) -> None:
@@ -1475,6 +1537,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._consecutive_vm_probe_failures = 0
         self._deploy_blocked_until = None
         self._recent_message_norms = []
+        self._last_agent_post_at = {}
+        self._last_plan_signature = None
+        self._repeat_plan_count = 0
         self._last_triage_signature = None
         self._last_triage_tick = -999
         self._remediation = RemediationState()

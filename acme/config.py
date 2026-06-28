@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     demo_deploy_cooldown_after_fail_sec: int = 120
     demo_improvement_deploy_interval: int = 8
     demo_message_dedup_ticks: int = 10
+    demo_agent_message_cooldown_sec: int = 15
     demo_triage_interval_ticks: int = 12
     demo_remediation_attempt_cap: int = 2
     demo_belief_refresh_ticks: int = 3
