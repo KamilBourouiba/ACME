@@ -19,7 +19,7 @@ from acme.demo.github_deploy import delete_repo, deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, _fallback_plan, plan_improvement
-from acme.demo.registry import SquadRegistry
+from acme.demo.site_guard import is_protected_site_file, reference_site_files
 from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
 from acme.demo.remediation import RemediationState, execute_remediation, format_remediation_message
@@ -147,6 +147,15 @@ class DemoService:
         self._observations_results: list = []
         self._observations_at: datetime | None = None
         self._turn_busy = asyncio.Lock()
+
+    def _pin_code_artifact(self, path: str, body: str) -> str:
+        """Boot-critical files always use the canonical site/ copy."""
+        norm = path.replace("\\", "/")
+        if is_protected_site_file(norm):
+            pinned = reference_site_files().get(norm)
+            if pinned:
+                return pinned
+        return body
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:
@@ -490,7 +499,7 @@ class DemoService:
                 return
 
             if beat.kind == "code" and beat.code_file and code_body:
-                self._artifacts[beat.code_file] = code_body
+                self._artifacts[beat.code_file] = self._pin_code_artifact(beat.code_file, code_body)
                 if _index_key(self._artifacts):
                     self._preview_ready = True
 
@@ -638,25 +647,22 @@ class DemoService:
                 command=plan.command,
             )
             if skill_result.summary.startswith("recipe") and "exhausted" in skill_result.summary:
+                refs = reference_site_files()
+                async with self._lock:
+                    self._artifacts.update(refs)
                 plan = ImprovementPlan(
-                    agent_id="chen",
-                    channel="engineering",
-                    action="edit",
-                    file="server.py",
-                    lang="python",
-                    message="VM recipes exhausted — patching API/receiver code instead of looping.",
+                    agent_id="nina",
+                    channel="deploy",
+                    action="deploy",
+                    deploy=True,
+                    message="VM recipes exhausted — restored pinned server stack and redeploying.",
                 )
-                chen = self._registry.get_agent("chen")
-                if chen:
-                    agent = chen
-                else:
-                    agent = self._registry.list_agents()[0]
-                beat = plan.to_beat()
-                kind = "code"
+                nina = self._registry.get_agent("nina")
+                agent = nina or self._registry.list_agents()[0]
+                kind = "deploy"
                 content = plan.message
-                if settings.demo_llm_code and beat and beat.code_file:
-                    code_body = await generate_agent_code(agent, beat, artifacts=artifacts_snapshot)
-                    content = f"Pushed `{beat.code_file}` — {plan.message}"
+                beat = None
+                code_body = None
             else:
                 content = format_remediation_message(
                     recipe=recipe,
@@ -735,7 +741,7 @@ class DemoService:
 
         async with self._lock:
             if beat and kind == "code" and beat.code_file and code_body:
-                self._artifacts[beat.code_file] = code_body
+                self._artifacts[beat.code_file] = self._pin_code_artifact(beat.code_file, code_body)
                 if _index_key(self._artifacts):
                     self._preview_ready = True
 

@@ -6,6 +6,7 @@ import re
 from typing import TYPE_CHECKING
 
 from acme.config import settings
+from acme.demo.site_guard import is_protected_site_file, reference_site_files
 from acme.llm.factory import get_llm_client
 
 if TYPE_CHECKING:
@@ -72,6 +73,10 @@ async def generate_agent_code(
 ) -> str:
     """Ask the assigned agent to write a file for the current beat."""
     path = beat.code_file or ""
+    if path and is_protected_site_file(path):
+        pinned = reference_site_files().get(path.replace("\\", "/"))
+        if pinned:
+            return pinned
     lang = beat.code_lang or "text"
     related = _related_context(path, artifacts)
     hint = LANG_HINTS.get(lang, "Write complete, runnable file content only.")

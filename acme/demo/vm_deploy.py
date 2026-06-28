@@ -11,26 +11,19 @@ import httpx
 
 logger = logging.getLogger("acme.demo.vm")
 
+from acme.demo.site_guard import PROTECTED_SITE_FILES
+
 SITE_DIR = Path(__file__).resolve().parent / "site"
-INFRA_NAMES = frozenset(
-    {
-        "Dockerfile",
-        "docker-compose.yml",
-        "nginx.conf",
-        "requirements.txt",
-        "deploy_receiver.py",
-    }
-)
+INFRA_NAMES = PROTECTED_SITE_FILES
 
 
 def _stack_files(artifacts: dict[str, str]) -> dict[str, str]:
-    """Merge squad artifacts with infra files from site/."""
-    stack: dict[str, str] = {}
+    """Merge squad artifacts with infra files from site/ — infra always wins."""
+    stack: dict[str, str] = dict(artifacts)
     for name in INFRA_NAMES:
         path = SITE_DIR / name
         if path.is_file():
             stack[name] = path.read_text(encoding="utf-8")
-    stack.update(artifacts)
     return stack
 
 
