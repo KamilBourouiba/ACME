@@ -31,8 +31,15 @@ chmod 600 /opt/nexus-site/.env
 cd /opt/nexus-site
 docker-compose down --remove-orphans 2>/dev/null || true
 docker rm -f nexus-site_api_1 nexus-site_nginx_1 2>/dev/null || true
-docker-compose up -d --build --force-recreate --no-cache
-sleep 40
+if [ ! -f /opt/nexus-site/certs/server.crt ]; then
+  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /opt/nexus-site/certs/server.key \
+    -out /opt/nexus-site/certs/server.crt \
+    -subj "/CN=nexus-squad-vm"
+fi
+docker-compose build --no-cache api
+docker-compose up -d --force-recreate
+sleep 45
 docker ps
 curl -sk https://127.0.0.1/api/health" \
   -o json | python3 -c "import sys,json; print(json.load(sys.stdin)['value'][0]['message'])"; then
