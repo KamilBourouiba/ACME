@@ -14,18 +14,33 @@ DEPLOY_KEY = os.environ.get("DEPLOY_KEY", "")
 PORT = int(os.environ.get("DEPLOY_PORT", "9090"))
 
 
+def _compose_cmd() -> list[str]:
+    proc = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True)
+    if proc.returncode == 0:
+        return ["docker", "compose"]
+    return ["docker-compose"]
+
+
 def _run_compose(site_dir: Path) -> subprocess.CompletedProcess[str]:
     compose_file = str(site_dir / "docker-compose.yml")
-    for cmd in (["docker", "compose"], ["docker-compose"]):
-        proc = subprocess.run(
-            [*cmd, "-f", compose_file, "up", "-d", "--build"],
-            cwd=site_dir,
-            capture_output=True,
-            text=True,
-        )
-        if proc.returncode == 0 or "unknown shorthand flag" not in proc.stderr:
-            return proc
-    return proc
+    base = _compose_cmd()
+    subprocess.run(
+        [*base, "-f", compose_file, "down", "--remove-orphans"],
+        cwd=site_dir,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["docker", "rm", "-f", "nexus-site_api_1", "nexus-site_nginx_1"],
+        capture_output=True,
+        text=True,
+    )
+    return subprocess.run(
+        [*base, "-f", compose_file, "up", "-d", "--build", "--force-recreate"],
+        cwd=site_dir,
+        capture_output=True,
+        text=True,
+    )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -57,6 +72,14 @@ class Handler(BaseHTTPRequestHandler):
         static = SITE_DIR / "static"
         static.mkdir(parents=True, exist_ok=True)
         (SITE_DIR / "certs").mkdir(parents=True, exist_ok=True)
+
+        env_path = SITE_DIR / ".env"
+        if not env_path.exists():
+            db = os.environ.get("DATABASE_URL", "")
+            key = os.environ.get("DEPLOY_KEY", DEPLOY_KEY)
+            env_path.write_text(f"DATABASE_URL={db}\nDEPLOY_KEY={key}\n", encoding="utf-8")
+            os.chmod(env_path, 0o600)
+
         for name, content in files.items():
             if name in (
                 "server.py",
@@ -64,26 +87,19 @@ class Handler(BaseHTTPRequestHandler):
                 "Dockerfile",
                 "docker-compose.yml",
                 "nginx.conf",
-                "deploy_receiver.py",
             ):
                 (SITE_DIR / name).write_text(content, encoding="utf-8")
             elif name in ("index.html", "styles.css", "app.js"):
                 (static / name).write_text(content, encoding="utf-8")
 
         def _build() -> None:
-            subprocess.run(
-                ["docker-compose", "-f", str(SITE_DIR / "docker-compose.yml"), "down"],
-                cwd=SITE_DIR,
-                capture_output=True,
-                text=True,
-            )
             proc = _run_compose(SITE_DIR)
             status_path = SITE_DIR / "last_deploy.json"
             status_path.write_text(
                 json.dumps(
                     {
                         "ok": proc.returncode == 0,
-                        "stderr": proc.stderr[-4000:] if proc.returncode else "",
+                        "stderr": (proc.stderr or "")[-4000:] if proc.returncode else "",
                     }
                 ),
                 encoding="utf-8",

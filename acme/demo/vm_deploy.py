@@ -34,11 +34,12 @@ async def deploy_to_vm(
     *,
     vm_url: str,
     deploy_key: str,
-    timeout: float = 120.0,
+    timeout: float = 300.0,
 ) -> dict[str, Any]:
     base = vm_url.rstrip("/")
     deploy_url = f"{base}/deploy"
     health_url = f"{base}/health"
+    site_https = settings_site_url(vm_url)
 
     files = _stack_files(artifacts)
     async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
@@ -54,22 +55,33 @@ async def deploy_to_vm(
             resp.raise_for_status()
         body = resp.json()
 
-        site_base = (vm_url.replace(":9090", "").rstrip("/") or vm_url).replace("http://", "https://")
-        for _ in range(60):
+        live_ok = False
+        for _ in range(72):
             await asyncio.sleep(5)
             try:
-                live = await client.get(f"{site_base}/api/health")
-                if live.status_code == 200:
+                live = await client.get(f"{site_https}/api/health")
+                if live.status_code == 200 and "ok" in live.text:
+                    live_ok = True
                     break
             except Exception:
                 continue
 
     return {
         "vm_url": base,
-        "site_url": base.replace(":9090", "").rstrip("/") or base,
+        "site_url": site_https,
         "files": sorted(files.keys()),
         "status": body.get("status", "deployed"),
+        "live_ok": live_ok,
     }
+
+
+def settings_site_url(vm_url: str) -> str:
+    from acme.config import settings
+
+    if settings.demo_vm_site_url:
+        return settings.demo_vm_site_url.rstrip("/")
+    host = vm_url.replace("http://", "").replace("https://", "").split(":")[0]
+    return f"https://{host}"
 
 
 async def check_vm_health(*, vm_url: str, timeout: float = 10.0) -> bool:

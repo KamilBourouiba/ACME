@@ -609,6 +609,14 @@ class DemoService:
             enable_pages=True,
         )
         self._last_deploy = {**result, "deployed_at": datetime.now(timezone.utc).isoformat()}
+        vm_result = await self._deploy_to_vm()
+        if vm_result:
+            site = settings.demo_vm_site_url or vm_result.get("site_url", "")
+            self._last_deploy = {
+                **self._last_deploy,
+                "vm_url": site,
+                "vm_live": vm_result.get("live_ok", False),
+            }
         state = await self.get_state()
         await self._notify({"type": "deploy", "deploy": self._last_deploy, "state": state.model_dump()})
         return result
@@ -648,6 +656,11 @@ class DemoService:
                     )
                 except Exception:
                     logger.exception("Repo baseline reset failed during demo reset")
+            elif self._vm_configured() and settings.demo_vm_auto_deploy:
+                try:
+                    await self._deploy_to_vm()
+                except Exception:
+                    logger.exception("VM baseline reset failed during demo reset")
 
         state = await self.get_state()
         await self._notify({"type": "reset", "state": state.model_dump()})
