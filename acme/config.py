@@ -75,30 +75,34 @@ class Settings(BaseSettings):
 
     # Public multi-agent demo (website)
     demo_enabled: bool = False
-    demo_interval_sec: int = 5
-    demo_reset_cooldown_sec: int = 5
+    demo_interval_sec: int = 3
+    demo_startup_delay_sec: int = 0
+    demo_reset_cooldown_sec: int = 3
     demo_azure_deployment: str = ""  # e.g. gpt-5.4; empty = use AZURE_OPENAI_DEPLOYMENT
     demo_llm_paraphrase: bool = False
     demo_llm_code: bool = True  # agents write files via LLM on code beats
     demo_code_fallback: bool = False  # greenfield — no reference site/ copy
-    demo_code_timeout_sec: int = 90
+    demo_code_timeout_sec: int = 65
     demo_channel_hearsay: bool = True
     demo_github_token: str = ""
     demo_github_repo: str = "KamilBourouiba/erebor-site-demo"
     demo_github_branch: str = "main"
     demo_auto_publish: bool = True
-    demo_publish_cooldown_sec: int = 30
+    demo_publish_cooldown_sec: int = 15
     demo_clean_on_start: bool = True
-    demo_clean_repo_on_reset: bool = False  # repo stays empty until squad publishes
+    demo_wipe_on_clean: bool = True  # VM + GitHub wipe on clean/reset/recycle
+    demo_clean_repo_on_reset: bool = True
+    demo_auto_recycle: bool = True  # full clean when script loop completes
+    demo_belief_refresh_ticks: int = 3
     demo_vector_search_limit: int = 50
-    demo_message_cap: int = 0  # 0 = unlimited history
-    demo_state_message_cap: int = 0  # 0 = send all messages in SSE state
+    demo_message_cap: int = 400
+    demo_state_message_cap: int = 150
     demo_vm_url: str = ""  # e.g. http://1.2.3.4:9090
     demo_vm_deploy_key: str = ""
     demo_vm_site_url: str = ""  # e.g. https://1.2.3.4
     demo_vm_auto_deploy: bool = True
     demo_visitor_secret: str = "LeanLean"
-    demo_visitor_say_cooldown_sec: int = 4
+    demo_visitor_say_cooldown_sec: int = 3
 
 
 settings = Settings()

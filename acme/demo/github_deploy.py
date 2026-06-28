@@ -102,8 +102,8 @@ async def ensure_pages(
 async def wait_for_pages_live(
     pages_url: str,
     *,
-    attempts: int = 18,
-    pause_sec: float = 5.0,
+    attempts: int = 12,
+    pause_sec: float = 3.0,
     expected_snippet: str = "Erebor",
 ) -> dict[str, Any]:
     """Poll the public GitHub Pages URL until the site responds."""
@@ -204,3 +204,62 @@ async def deploy_files(
         "pages_poll_attempts": live_check.get("attempts"),
         "commit_message": commit_message,
     }
+
+
+async def wipe_repo(
+    *,
+    token: str,
+    repo: str,
+    branch: str = "main",
+    keep_paths: frozenset[str] | None = None,
+) -> list[str]:
+    """Delete tracked files so the squad can greenfield again."""
+    if "/" not in repo or repo.count("/") != 1:
+        raise ValueError("repo must be owner/name")
+    keep = keep_paths or frozenset()
+    deleted: list[str] = []
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        ref_resp = await client.get(
+            f"{GITHUB_API}/repos/{repo}/git/ref/heads/{branch}",
+            headers=_headers(token),
+        )
+        if ref_resp.status_code == 404:
+            return deleted
+        ref_resp.raise_for_status()
+        commit_sha = ref_resp.json()["object"]["sha"]
+
+        tree_resp = await client.get(
+            f"{GITHUB_API}/repos/{repo}/git/trees/{commit_sha}",
+            headers=_headers(token),
+            params={"recursive": "1"},
+        )
+        tree_resp.raise_for_status()
+        entries = tree_resp.json().get("tree", [])
+
+        for item in reversed(entries):
+            if item.get("type") != "blob":
+                continue
+            path = item["path"]
+            if path in keep:
+                continue
+            sha = await _get_file_sha(client, token=token, repo=repo, path=path, branch=branch)
+            if not sha:
+                continue
+            url = f"{GITHUB_API}/repos/{repo}/contents/{path}"
+            resp = await client.delete(
+                url,
+                headers=_headers(token),
+                json={
+                    "message": f"ACME demo reset — wipe {path}",
+                    "sha": sha,
+                    "branch": branch,
+                },
+            )
+            if resp.status_code < 400:
+                deleted.append(path)
+            else:
+                logger.warning("GitHub wipe failed for %s: %s", path, resp.text[:200])
+
+    logger.info("Wiped %d files from %s", len(deleted), repo)
+    return deleted

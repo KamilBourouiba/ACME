@@ -15,7 +15,7 @@ from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, DemoAgent
 from acme.demo.artifacts import baseline_artifacts, empty_artifacts
 from acme.demo.coding import generate_agent_code
 from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
-from acme.demo.github_deploy import deploy_files
+from acme.demo.github_deploy import deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.reset import cleanup_all_demo_tenants
@@ -109,6 +109,9 @@ class DemoService:
         self._bg_tasks: set[asyncio.Task] = set()
         self._last_visitor_say_at: datetime | None = None
         self._visitor_turn: int = 0
+        self._belief_counts: dict[str, int] = {a.id: 0 for a in DEMO_AGENTS}
+        self._belief_fetch_tick: int = -999
+        self._recycling: bool = False
 
     def model_label(self) -> str:
         if settings.demo_azure_deployment:
@@ -157,22 +160,31 @@ class DemoService:
             self._subscribers.discard(q)
 
     async def _loop(self) -> None:
-        await asyncio.sleep(2)
+        delay = max(0, settings.demo_startup_delay_sec)
+        if delay:
+            await asyncio.sleep(delay)
         while self.running and settings.demo_enabled:
             try:
-                async with self._lock:
-                    await self._run_turn()
+                await self._run_turn()
             except Exception:
                 logger.exception("Demo turn failed")
             await asyncio.sleep(max(1, settings.demo_interval_sec))
 
     async def _run_turn(self) -> None:
-        beat = SCRIPT_BEATS[self._beat_index % len(SCRIPT_BEATS)]
-        self._beat_index += 1
-        self._turn_index += 1
-        self.tick = self._turn_index
-        agent = AGENT_BY_ID[beat.agent_id]
-        reply_name = AGENT_BY_ID[beat.reply_to].name if beat.reply_to and beat.reply_to in AGENT_BY_ID else None
+        async with self._lock:
+            if self._recycling:
+                return
+            beat = SCRIPT_BEATS[self._beat_index % len(SCRIPT_BEATS)]
+            self._beat_index += 1
+            self._turn_index += 1
+            tick = self._turn_index
+            self.tick = tick
+            cycle_done = self._beat_index > 0 and self._beat_index % len(SCRIPT_BEATS) == 0
+            agent = AGENT_BY_ID[beat.agent_id]
+            reply_name = (
+                AGENT_BY_ID[beat.reply_to].name if beat.reply_to and beat.reply_to in AGENT_BY_ID else None
+            )
+            artifacts_snapshot = dict(self._artifacts)
 
         content = beat.content
         if settings.demo_llm_paraphrase and beat.kind not in ("code", "preview"):
@@ -181,7 +193,7 @@ class DemoService:
         code_body = beat.code_body
         if beat.kind == "code" and beat.code_file:
             if code_body is None and settings.demo_llm_code:
-                code_body = await generate_agent_code(agent, beat, artifacts=self._artifacts)
+                code_body = await generate_agent_code(agent, beat, artifacts=artifacts_snapshot)
                 content = f"Pushed `{beat.code_file}` — {beat.content}"
 
         msg = _DemoMessage(
@@ -200,31 +212,35 @@ class DemoService:
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-        if beat.kind == "code" and beat.code_file and code_body:
-            self._artifacts[beat.code_file] = code_body
-            if _index_key(self._artifacts):
-                self._preview_ready = True
-
-        if beat.kind == "preview":
-            self._preview_ready = bool(_index_key(self._artifacts))
-            if self._last_deploy and self._last_deploy.get("pages_verified"):
-                msg.content = f"{content} Live: {self._last_deploy.get('pages_url', '')}"
-
         if beat.kind == "query":
             await self._run_acme_query(beat, msg, agent)
 
-        self._messages.append(msg)
-        self._messages = _trim_messages(self._messages)
+        async with self._lock:
+            if self._recycling:
+                return
 
-        state = await self.get_state()
-        await self._notify(
-            {
-                "type": "turn",
-                "tick": self.tick,
-                "message": msg.to_out().model_dump(),
-                "state": state.model_dump(),
-            }
-        )
+            if beat.kind == "code" and beat.code_file and code_body:
+                self._artifacts[beat.code_file] = code_body
+                if _index_key(self._artifacts):
+                    self._preview_ready = True
+
+            if beat.kind == "preview":
+                self._preview_ready = bool(_index_key(self._artifacts))
+                if self._last_deploy and self._last_deploy.get("pages_verified"):
+                    msg.content = f"{content} Live: {self._last_deploy.get('pages_url', '')}"
+
+            self._messages.append(msg)
+            self._messages = _trim_messages(self._messages)
+
+            state = await self.get_state()
+            await self._notify(
+                {
+                    "type": "turn",
+                    "tick": tick,
+                    "message": msg.to_out().model_dump(),
+                    "state": state.model_dump(),
+                }
+            )
 
         task = asyncio.create_task(self._process_acme(beat, msg, agent))
         self._bg_tasks.add(task)
@@ -234,6 +250,11 @@ class DemoService:
             pub = asyncio.create_task(self._autonomous_publish(trigger_msg=msg))
             self._bg_tasks.add(pub)
             pub.add_done_callback(self._bg_tasks.discard)
+
+        if cycle_done and settings.demo_auto_recycle:
+            recycle = asyncio.create_task(self._recycle_after_cycle())
+            self._bg_tasks.add(recycle)
+            recycle.add_done_callback(self._bg_tasks.discard)
 
     async def _run_acme_query(self, beat: DemoBeat, msg: _DemoMessage, agent: DemoAgent) -> None:
         """Run ACME query synchronously so Q&A appears in the same turn."""
@@ -703,23 +724,32 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         selected_agent: str | None = None,
         selected_channel: str | None = None,
     ) -> DemoStateOut:
+        refresh_beliefs = (
+            self._belief_fetch_tick < 0
+            or (self.tick - self._belief_fetch_tick) >= settings.demo_belief_refresh_ticks
+        )
+        if refresh_beliefs:
+            async with SessionLocal() as session:
+                for agent in DEMO_AGENTS:
+                    beliefs = await self._list_beliefs_for_tenant(session, agent.tenant_id)
+                    self._belief_counts[agent.id] = len(beliefs)
+            self._belief_fetch_tick = self.tick
+
         agents_out: list[DemoAgentOut] = []
-        async with SessionLocal() as session:
-            for agent in DEMO_AGENTS:
-                beliefs = await self._list_beliefs_for_tenant(session, agent.tenant_id)
-                agents_out.append(
-                    DemoAgentOut(
-                        id=agent.id,
-                        name=agent.name,
-                        role=agent.role,
-                        tenant_id=agent.tenant_id,
-                        color=agent.color,
-                        initials=agent.initials,
-                        channels=list(agent.channels),
-                        belief_count=len(beliefs),
-                        beliefs=[],
-                    )
+        for agent in DEMO_AGENTS:
+            agents_out.append(
+                DemoAgentOut(
+                    id=agent.id,
+                    name=agent.name,
+                    role=agent.role,
+                    tenant_id=agent.tenant_id,
+                    color=agent.color,
+                    initials=agent.initials,
+                    channels=list(agent.channels),
+                    belief_count=self._belief_counts.get(agent.id, 0),
+                    beliefs=[],
                 )
+            )
 
         sel_agent = selected_agent if selected_agent in AGENT_BY_ID else None
         sel_channel = selected_channel if selected_channel in CHANNEL_BY_ID else None
@@ -816,7 +846,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         await self._notify({"type": "deploy", "deploy": self._last_deploy, "state": state.model_dump()})
         return result
 
-    async def _clean_state(self, *, force: bool = False) -> list[dict[str, int | str]]:
+    async def _clean_state(self, *, force: bool = False, wipe_external: bool = True) -> list[dict[str, int | str]]:
         async with SessionLocal() as session:
             stats = await cleanup_all_demo_tenants(session, neo4j_client)
 
@@ -829,9 +859,48 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._beat_index = 0
         self._turn_index = 0
         self.tick = 0
+        self._last_visitor_say_at = None
+        self._visitor_turn = 0
+        self._belief_counts = {a.id: 0 for a in DEMO_AGENTS}
+        self._belief_fetch_tick = -999
         if force:
             self._last_reset_at = None
+
+        if wipe_external and settings.demo_wipe_on_clean:
+            if self._vm_configured():
+                await self._wipe_vm_product()
+            if self._publish_configured() and settings.demo_clean_repo_on_reset:
+                await self._wipe_github_repo()
+
         return stats
+
+    async def _wipe_github_repo(self) -> None:
+        if not self._publish_configured():
+            return
+        try:
+            await wipe_repo(
+                token=settings.demo_github_token,
+                repo=settings.demo_github_repo,
+                branch=settings.demo_github_branch,
+            )
+        except Exception:
+            logger.exception("GitHub repo wipe failed")
+
+    async def _recycle_after_cycle(self) -> None:
+        async with self._lock:
+            if self._recycling:
+                return
+            self._recycling = True
+        try:
+            logger.info("Demo script cycle complete — fresh restart")
+            stats = await self._clean_state(force=False, wipe_external=True)
+            state = await self.get_state()
+            await self._notify({"type": "recycle", "stats": stats, "state": state.model_dump()})
+        except Exception:
+            logger.exception("Demo recycle failed")
+        finally:
+            async with self._lock:
+                self._recycling = False
 
     async def _wipe_vm_product(self) -> None:
         """Remove prior squad files on VM so deploy starts clean."""
@@ -858,21 +927,8 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 if wait > 0:
                     return False, f"Please wait {int(wait)}s before resetting again.", []
 
-            stats = await self._clean_state(force=False)
+            stats = await self._clean_state(force=False, wipe_external=True)
             self._last_reset_at = now
-
-            if settings.demo_clean_repo_on_reset and self._publish_configured():
-                try:
-                    await self.deploy(
-                        commit_message="Reset Erebor demo site to baseline (ACME squad clean)",
-                    )
-                except Exception:
-                    logger.exception("Repo baseline reset failed during demo reset")
-            elif self._vm_configured() and settings.demo_vm_auto_deploy:
-                try:
-                    await self._wipe_vm_product()
-                except Exception:
-                    logger.exception("VM wipe failed during demo reset")
 
         state = await self.get_state()
         await self._notify({"type": "reset", "state": state.model_dump()})
