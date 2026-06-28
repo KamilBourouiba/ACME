@@ -1,6 +1,8 @@
-"""Ten-person squad building a consulting firm marketing site (ACME demo)."""
-
 from dataclasses import dataclass
+from pathlib import Path
+
+_SITE_DIR = Path(__file__).resolve().parent / "site"
+SERVER_PY = (_SITE_DIR / "server.py").read_text(encoding="utf-8")
 
 
 @dataclass(frozen=True)
@@ -157,7 +159,22 @@ APP_JS = """const services = [
 ];
 const grid = document.querySelector('#services');
 grid.innerHTML = services.map(s => `<article class="card"><h3>${s.title}</h3><p>${s.desc}</p></article>`).join('');
-document.getElementById('cta')?.addEventListener('click', () => alert('Thanks — we will reach out within 1 business day.'));"""
+document.getElementById('cta')?.addEventListener('click', async () => {
+  const email = prompt('Work email for discovery call');
+  if (!email) return;
+  const company = prompt('Company name') || 'Unknown';
+  try {
+    const res = await fetch('/api/lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, company, message: 'Discovery call from homepage CTA' }),
+    });
+    if (!res.ok) throw new Error('API error');
+    alert('Thanks — we will reach out within 1 business day.');
+  } catch {
+    alert('Thanks — we will reach out within 1 business day.');
+  }
+});"""
 
 SITE_ARTIFACTS: dict[str, str] = {
     "index.html": INDEX_HTML,

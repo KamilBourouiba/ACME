@@ -38,6 +38,22 @@ if [[ -n "${DEMO_GITHUB_TOKEN:-}" ]]; then
   ENV_VARS+=("DEMO_GITHUB_TOKEN=secretref:demo-github-token")
 fi
 
+SECRETS_FILE="${ROOT}/azure/demo-squad.env"
+if [[ -f "$SECRETS_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$SECRETS_FILE"
+  if [[ -n "${DEMO_VM_URL:-}" ]]; then
+    ENV_VARS+=("DEMO_VM_URL=${DEMO_VM_URL}")
+    ENV_VARS+=("DEMO_VM_SITE_URL=${DEMO_VM_SITE_URL:-}")
+    ENV_VARS+=("DEMO_VM_AUTO_DEPLOY=true")
+  fi
+  if [[ -n "${DEMO_VM_DEPLOY_KEY:-}" ]]; then
+    az containerapp secret set -n "$API_APP" -g "$RG" \
+      --secrets "demo-vm-deploy-key=${DEMO_VM_DEPLOY_KEY}" -o none
+    ENV_VARS+=("DEMO_VM_DEPLOY_KEY=secretref:demo-vm-deploy-key")
+  fi
+fi
+
 echo "==> Deploy demo (interval=${INTERVAL}s, auto-publish=${GITHUB_REPO})"
 
 if [[ -n "${DEMO_GITHUB_TOKEN:-}" ]]; then

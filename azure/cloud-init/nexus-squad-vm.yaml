@@ -1,0 +1,25 @@
+#cloud-config
+package_update: true
+packages:
+  - docker.io
+  - docker-compose
+  - python3-pip
+  - openssl
+
+runcmd:
+  - usermod -aG docker azureuser
+  - systemctl enable docker
+  - systemctl start docker
+  - mkdir -p /opt/nexus-site/static /opt/nexus-site/certs
+  - |
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout /opt/nexus-site/certs/server.key \
+      -out /opt/nexus-site/certs/server.crt \
+      -subj "/CN=nexus-squad"
+  - pip3 install fastapi uvicorn httpx
+  - |
+    cat > /opt/nexus-site/.env <<EOF
+    DATABASE_URL=__DATABASE_URL__
+    DEPLOY_KEY=__DEPLOY_KEY__
+    EOF
+  - chmod 600 /opt/nexus-site/.env

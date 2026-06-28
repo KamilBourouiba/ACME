@@ -16,6 +16,7 @@ from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
 from acme.demo.github_deploy import deploy_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.reset import cleanup_all_demo_tenants
+from acme.demo.vm_deploy import deploy_to_vm
 from acme.demo.schemas import (
     DemoAgentOut,
     DemoChannelOut,
@@ -257,6 +258,22 @@ class DemoService:
     def _publish_configured(self) -> bool:
         return bool(settings.demo_github_token and settings.demo_github_repo)
 
+    def _vm_configured(self) -> bool:
+        return bool(settings.demo_vm_url and settings.demo_vm_deploy_key)
+
+    async def _deploy_to_vm(self) -> dict[str, Any] | None:
+        if not self._vm_configured() or not settings.demo_vm_auto_deploy:
+            return None
+        try:
+            return await deploy_to_vm(
+                self._artifacts,
+                vm_url=settings.demo_vm_url,
+                deploy_key=settings.demo_vm_deploy_key,
+            )
+        except Exception:
+            logger.exception("VM deploy failed")
+            return None
+
     def _publish_on_cooldown(self) -> bool:
         if self._last_publish_at is None:
             return False
@@ -350,6 +367,20 @@ class DemoService:
                 content=jordan_msg,
             )
             await self._ingest_pages_access(pages_url, verified=bool(verified))
+            vm_result = await self._deploy_to_vm()
+            if vm_result:
+                site = settings.demo_vm_site_url or vm_result.get("site_url", settings.demo_vm_url)
+                self._last_deploy = {
+                    **(self._last_deploy or {}),
+                    "vm_url": site,
+                    "vm_files": vm_result.get("files", []),
+                }
+                await self._append_agent_message(
+                    channel="deploy",
+                    agent_id="chen",
+                    kind="message",
+                    content=f"VM stack live — API + Postgres on secure host. Site: {site}",
+                )
             state = await self.get_state()
             await self._notify(
                 {
@@ -521,9 +552,14 @@ class DemoService:
             if (self._preview_ready or self._artifacts.get("index.html"))
             else None,
             live_preview_url=(
-                self._last_deploy.get("pages_url")
-                if self._last_deploy and self._last_deploy.get("pages_verified")
-                else None
+                self._last_deploy.get("vm_url")
+                or (
+                    self._last_deploy.get("pages_url")
+                    if self._last_deploy and self._last_deploy.get("pages_verified")
+                    else None
+                )
+                if self._last_deploy
+                else (settings.demo_vm_site_url or None)
             ),
         )
 

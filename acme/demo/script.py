@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from acme.demo.agents import APP_JS, INDEX_HTML, SITE_ARTIFACTS, STYLES_CSS
+from acme.demo.agents import APP_JS, INDEX_HTML, SERVER_PY, SITE_ARTIFACTS, STYLES_CSS
 
 
 @dataclass(frozen=True)
@@ -111,10 +111,25 @@ SCRIPT_BEATS: tuple[DemoBeat, ...] = (
         "engineering",
         "marco",
         "code",
-        "Services grid from JS array + CTA handler.",
+        "Services grid from JS array + CTA handler (posts to `/api/lead`).",
         code_file="app.js",
         code_lang="javascript",
         code_body=APP_JS,
+    ),
+    DemoBeat(
+        "engineering",
+        "chen",
+        "code",
+        "Lead capture API — FastAPI + asyncpg on secure Postgres VM.",
+        code_file="server.py",
+        code_lang="python",
+        code_body=SERVER_PY,
+    ),
+    DemoBeat(
+        "engineering",
+        "chen",
+        "message",
+        "@Nina — backend ready for VM deploy: `/api/lead` persists to private Postgres (~1 TB).",
     ),
     DemoBeat(
         "engineering",
@@ -152,7 +167,7 @@ SCRIPT_BEATS: tuple[DemoBeat, ...] = (
         "deploy",
         "nina",
         "deploy",
-        "Autonomous publish: pushing `index.html`, `styles.css`, `app.js` to GitHub Pages…",
+        "Autonomous publish: static files to GitHub Pages + stack to secure squad VM…",
     ),
     DemoBeat(
         "deploy",

@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     demo_publish_cooldown_sec: int = 300
     demo_clean_on_start: bool = True
     demo_clean_repo_on_reset: bool = True
+    demo_vm_url: str = ""  # e.g. http://1.2.3.4:9090
+    demo_vm_deploy_key: str = ""
+    demo_vm_site_url: str = ""  # e.g. https://1.2.3.4
+    demo_vm_auto_deploy: bool = True
 
 
 settings = Settings()
