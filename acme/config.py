@@ -113,6 +113,9 @@ class Settings(BaseSettings):
     demo_vm_deploy_key: str = ""
     demo_vm_site_url: str = ""  # e.g. https://1.2.3.4
     demo_vm_auto_deploy: bool = True
+    demo_static_only_deploy: bool = True  # routine publish syncs static/ only — no docker rebuild
+    demo_platform_reconcile_sec: int = 45  # auto-heal VM from reference when probes fail
+    demo_platform_reconcile_cooldown_sec: int = 180
     demo_visitor_secret: str = "LeanLean"
     demo_visitor_say_cooldown_sec: int = 3
 

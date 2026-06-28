@@ -168,7 +168,7 @@ def _fallback_plan(
     targets = [
         ("marco", "static/js/scene.js", "javascript", "Polish Three.js globe — nodes, arcs, damping."),
         ("priya", "static/css/shell.css", "css", "Refine obsidian shell spacing and mobile layout."),
-        ("chen", "api/routes/intelligence.py", "python", "Harden OSS search fan-out and error handling."),
+        ("chen", "static/js/api.js", "javascript", "Harden API client error handling and base URL."),
         ("marco", "static/js/app.js", "javascript", "Wire search results to globe selection + inspector."),
     ]
     pick = targets[turn % len(targets)]

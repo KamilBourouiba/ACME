@@ -123,7 +123,31 @@ def _compose_cmd() -> list[str]:
     return ["docker-compose"]
 
 
-def _run_compose(site_dir: Path) -> subprocess.CompletedProcess[str]:
+def _services_running(site_dir: Path) -> bool:
+    base = _compose_cmd()
+    compose_file = str(site_dir / "docker-compose.yml")
+    proc = subprocess.run(
+        [*base, "-f", compose_file, "ps", "--status", "running", "--services"],
+        cwd=site_dir,
+        capture_output=True,
+        text=True,
+    )
+    running = {line.strip() for line in (proc.stdout or "").splitlines() if line.strip()}
+    return "api" in running and "nginx" in running
+
+
+def _reload_nginx(site_dir: Path) -> None:
+    base = _compose_cmd()
+    compose_file = str(site_dir / "docker-compose.yml")
+    subprocess.run(
+        [*base, "-f", compose_file, "exec", "-T", "nginx", "nginx", "-s", "reload"],
+        cwd=site_dir,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _run_compose(site_dir: Path, *, rebuild_api: bool = True) -> subprocess.CompletedProcess[str]:
     compose_file = str(site_dir / "docker-compose.yml")
     base = _compose_cmd()
     subprocess.run(
@@ -137,18 +161,37 @@ def _run_compose(site_dir: Path) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
     )
-    subprocess.run(
-        [*base, "-f", compose_file, "build", "--no-cache", "api"],
-        cwd=site_dir,
-        capture_output=True,
-        text=True,
-    )
+    if rebuild_api:
+        subprocess.run(
+            [*base, "-f", compose_file, "build", "api"],
+            cwd=site_dir,
+            capture_output=True,
+            text=True,
+        )
     return subprocess.run(
         [*base, "-f", compose_file, "up", "-d", "--force-recreate"],
         cwd=site_dir,
         capture_output=True,
         text=True,
     )
+
+
+def _deploy_stack(site_dir: Path, *, mode: str = "full") -> subprocess.CompletedProcess[str]:
+    """static = nginx reload only when healthy; platform/full = docker compose."""
+    if mode == "static" and _services_running(site_dir):
+        _reload_nginx(site_dir)
+        return subprocess.CompletedProcess(
+            args=["static-sync"],
+            returncode=0,
+            stdout="static sync (nginx reload)",
+            stderr="",
+        )
+    rebuild = mode in ("full", "platform", "auto")
+    return _run_compose(site_dir, rebuild_api=rebuild)
+
+
+def _run_compose(site_dir: Path) -> subprocess.CompletedProcess[str]:
+    return _deploy_stack(site_dir, mode="full")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -230,6 +273,7 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         payload = json.loads(self.rfile.read(length).decode())
         files = payload.get("files", {})
+        deploy_mode = str(payload.get("mode", "full")).lower()
         if payload.get("wipe"):
             import shutil
 
@@ -266,7 +310,7 @@ class Handler(BaseHTTPRequestHandler):
             dest.write_text(content, encoding="utf-8")
 
         def _build() -> None:
-            proc = _run_compose(SITE_DIR)
+            proc = _deploy_stack(SITE_DIR, mode=deploy_mode)
             status_path = SITE_DIR / "last_deploy.json"
             status_path.write_text(
                 json.dumps(

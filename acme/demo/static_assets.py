@@ -53,6 +53,21 @@ def github_pages_bundle(artifacts: dict[str, str]) -> dict[str, str]:
     return out
 
 
+def is_agent_editable_file(path: str) -> bool:
+    """After bootstrap, agents may only change the static front-end."""
+    norm = path.replace("\\", "/")
+    return norm.startswith("static/")
+
+
+def static_artifact_keys(artifacts: dict[str, str]) -> dict[str, str]:
+    return {k: v for k, v in artifacts.items() if k.startswith("static/")}
+
+
+def platform_reference_artifacts() -> dict[str, str]:
+    """Full canonical site tree for platform reconcile (API + static)."""
+    return load_site_artifacts()
+
+
 def vm_static_bundle(artifacts: dict[str, str]) -> dict[str, str]:
     """VM nginx root mounts ./static — normalize index.html asset URLs."""
     merged = merge_static_bundle(artifacts)

@@ -5,18 +5,23 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
 logger = logging.getLogger("acme.demo.vm")
 
-from acme.demo.site_guard import DEPLOY_PINNED_FILES, safe_site_artifact
-
-from acme.demo.static_assets import vm_static_bundle
+from acme.demo.site_guard import DEPLOY_PINNED_FILES
+from acme.demo.static_assets import (
+    platform_reference_artifacts,
+    static_artifact_keys,
+    vm_static_bundle,
+)
 
 SITE_DIR = Path(__file__).resolve().parent / "site"
 INFRA_NAMES = DEPLOY_PINNED_FILES
+
+DeployMode = Literal["auto", "static", "platform", "full"]
 
 
 def _stack_files(artifacts: dict[str, str]) -> dict[str, str]:
@@ -29,25 +34,41 @@ def _stack_files(artifacts: dict[str, str]) -> dict[str, str]:
     return stack
 
 
+def _payload_for_mode(artifacts: dict[str, str], mode: DeployMode) -> tuple[dict[str, str], str]:
+    bundled = vm_static_bundle(artifacts)
+    if mode == "static":
+        return static_artifact_keys(bundled), "static"
+    if mode == "platform":
+        return _stack_files(bundled), "platform"
+    if mode == "full":
+        return _stack_files(bundled), "full"
+    # auto: static sync when only front-end files present
+    static_only = bool(bundled) and all(k.startswith("static/") for k in bundled)
+    if static_only:
+        return static_artifact_keys(bundled), "static"
+    return _stack_files(bundled), "platform"
+
+
 async def deploy_to_vm(
     artifacts: dict[str, str],
     *,
     vm_url: str,
     deploy_key: str,
     timeout: float = 300.0,
+    mode: DeployMode = "auto",
 ) -> dict[str, Any]:
     base = vm_url.rstrip("/")
     deploy_url = f"{base}/deploy"
     health_url = f"{base}/health"
     site_https = settings_site_url(vm_url)
 
-    files = _stack_files(vm_static_bundle(artifacts))
+    files, deploy_mode = _payload_for_mode(artifacts, mode)
     async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
         health = await client.get(health_url)
         health.raise_for_status()
         resp = await client.post(
             deploy_url,
-            json={"files": files},
+            json={"files": files, "mode": deploy_mode},
             headers={"Authorization": f"Bearer {deploy_key}"},
         )
         if resp.status_code not in (200, 202):
@@ -70,9 +91,30 @@ async def deploy_to_vm(
         "vm_url": base,
         "site_url": site_https,
         "files": sorted(files.keys()),
+        "mode": deploy_mode,
         "status": body.get("status", "deployed"),
         "live_ok": live_ok,
     }
+
+
+async def reconcile_platform(
+    *,
+    agent_static: dict[str, str] | None = None,
+    vm_url: str,
+    deploy_key: str,
+    timeout: float = 360.0,
+) -> dict[str, Any]:
+    """Restore pinned API stack from reference; keep agent static/ overrides."""
+    refs = platform_reference_artifacts()
+    if agent_static:
+        refs.update(static_artifact_keys(agent_static))
+    return await deploy_to_vm(
+        refs,
+        vm_url=vm_url,
+        deploy_key=deploy_key,
+        timeout=timeout,
+        mode="platform",
+    )
 
 
 def settings_site_url(vm_url: str) -> str:

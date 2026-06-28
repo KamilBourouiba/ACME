@@ -33,7 +33,8 @@ from acme.demo.triage import (
     is_spam_duplicate,
     normalize_message,
 )
-from acme.demo.vm_deploy import deploy_to_vm
+from acme.demo.static_assets import is_agent_editable_file, static_artifact_keys
+from acme.demo.vm_deploy import deploy_to_vm, reconcile_platform
 from acme.demo.schemas import (
     DemoAgentOut,
     DemoChannelOut,
@@ -151,14 +152,81 @@ class DemoService:
         self._observations_results: list = []
         self._observations_at: datetime | None = None
         self._turn_busy = asyncio.Lock()
+        self._platform_watchdog_task: asyncio.Task | None = None
+        self._last_platform_reconcile_at: datetime | None = None
+        self._platform_reconcile_lock = asyncio.Lock()
 
     def _pin_code_artifact(self, path: str, body: str) -> str:
-        """Boot-critical files always use the canonical site/ copy; reject syntax errors."""
-        safe = safe_site_artifact(path, body, previous=self._artifacts.get(path.replace("\\", "/")))
+        """Boot-critical files use canonical copies; improve phase is static/ only."""
         norm = path.replace("\\", "/")
+        if self._phase == "improve" and not is_agent_editable_file(norm):
+            logger.info("Blocked non-static edit in improve phase: %s", norm)
+            return self._artifacts.get(norm) or safe_site_artifact(norm, body)
+        safe = safe_site_artifact(norm, body, previous=self._artifacts.get(norm))
         if norm in ("static/index.html", "index.html"):
             return normalize_static_asset_paths(safe)
         return safe
+
+    def _strip_non_static_artifacts(self) -> None:
+        self._artifacts = static_artifact_keys(self._artifacts)
+
+    async def _platform_watchdog_loop(self) -> None:
+        interval = max(30, settings.demo_platform_reconcile_sec)
+        cooldown = max(60, settings.demo_platform_reconcile_cooldown_sec)
+        while self.running and settings.demo_enabled:
+            try:
+                await asyncio.sleep(interval)
+                if self._paused or not self._vm_configured():
+                    continue
+                async with self._lock:
+                    artifacts_snapshot = static_artifact_keys(self._artifacts)
+                    obs = self._observations_text
+                if "http_probe] OK" in obs and "receiver_probe] OK" in obs:
+                    continue
+                now = datetime.now(timezone.utc)
+                if self._last_platform_reconcile_at is not None:
+                    elapsed = (now - self._last_platform_reconcile_at).total_seconds()
+                    if elapsed < cooldown:
+                        continue
+                await self._reconcile_platform(artifacts_snapshot, reason="watchdog")
+            except Exception:
+                logger.exception("Platform watchdog failed")
+
+    async def _reconcile_platform(
+        self, agent_static: dict[str, str] | None = None, *, reason: str = "manual"
+    ) -> dict[str, Any] | None:
+        if not self._vm_configured() or not settings.demo_vm_auto_deploy:
+            return None
+        if self._platform_reconcile_lock.locked():
+            return None
+        async with self._platform_reconcile_lock:
+            static = agent_static if agent_static is not None else static_artifact_keys(self._artifacts)
+            try:
+                result = await reconcile_platform(
+                    agent_static=static,
+                    vm_url=settings.demo_vm_url,
+                    deploy_key=settings.demo_vm_deploy_key,
+                )
+                self._last_platform_reconcile_at = datetime.now(timezone.utc)
+                self._consecutive_vm_probe_failures = 0
+                self._remediation = RemediationState()
+                if result.get("live_ok"):
+                    self._record_deploy_success()
+                site = settings.demo_vm_site_url or result.get("site_url", "")
+                await self._append_agent_message(
+                    channel="ops",
+                    agent_id="vera",
+                    kind="message",
+                    content=(
+                        f"*Platform reconcile* ({reason}) — restored pinned API stack from reference. "
+                        f"Site: {site} live={result.get('live_ok')}. Agents edit `static/` only."
+                    ),
+                    skip_dedup=True,
+                )
+                return result
+            except Exception:
+                logger.exception("Platform reconcile failed")
+                return None
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:
@@ -295,13 +363,15 @@ class DemoService:
         vm_down = "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
         pages_ok = "Pages-only mode OK" in observations
 
-        if vm_down and "server.py" in self._artifacts:
+        if vm_down:
+            asyncio.create_task(self._reconcile_platform(reason="deploy-blocked"))
             return ImprovementPlan(
-                agent_id="vera",
-                channel="ops",
-                action="remediate",
-                skill="vm_remediate",
-                message=f"Deploy blocked ({reason}). Running VM curl/docker fix before code edits.",
+                agent_id="marco",
+                channel="engineering",
+                action="edit",
+                file="static/js/scene.js",
+                lang="javascript",
+                message=f"Deploy blocked ({reason}). Platform reconcile queued — polishing front-end.",
             )
         if pages_ok:
             return ImprovementPlan(
@@ -344,6 +414,10 @@ class DemoService:
             self._observation_task = asyncio.create_task(
                 self._observation_loop(), name="acme-demo-observations"
             )
+        if settings.demo_platform_reconcile_sec > 0 and self._vm_configured():
+            self._platform_watchdog_task = asyncio.create_task(
+                self._platform_watchdog_loop(), name="acme-demo-platform-watchdog"
+            )
         logger.info(
             "Demo loop started (pipeline=%s, interval=%ss, model=%s)",
             settings.demo_pipeline_mode,
@@ -369,6 +443,13 @@ class DemoService:
             except asyncio.CancelledError:
                 pass
             self._observation_task = None
+        if self._platform_watchdog_task:
+            self._platform_watchdog_task.cancel()
+            try:
+                await self._platform_watchdog_task
+            except asyncio.CancelledError:
+                pass
+            self._platform_watchdog_task = None
 
     async def _observation_loop(self) -> None:
         """Refresh probes/logs on its own cadence — agents don't wait on this."""
@@ -563,12 +644,13 @@ class DemoService:
             kind="message",
             content=(
                 "Bootstrap script complete — switching to *continuous improvement* (pipeline mode — no idle waits). "
-                "Squad probes in the background, patches files, and ships until POST /api/v1/demo/pause. "
-                "Vera triages incidents in #ops."
+                "Squad probes in the background, patches *static/* only, and ships until POST /api/v1/demo/pause. "
+                "Platform API is pinned — Vera auto-reconciles the VM if probes fail."
             ),
         )
         async with self._lock:
             self._phase = "improve"
+            self._strip_non_static_artifacts()
             state = await self.get_state()
             if msg:
                 await self._notify(
@@ -668,22 +750,20 @@ class DemoService:
                 command=plan.command,
             )
             if skill_result.summary.startswith("recipe") and "exhausted" in skill_result.summary:
-                refs = reference_site_files()
-                async with self._lock:
-                    self._artifacts.update(refs)
-                plan = ImprovementPlan(
-                    agent_id="nina",
-                    channel="deploy",
-                    action="deploy",
-                    deploy=True,
-                    message="VM recipes exhausted — restored pinned server stack and redeploying.",
+                task = asyncio.create_task(
+                    self._reconcile_platform(reason="remediation-exhausted")
                 )
-                nina = self._registry.get_agent("nina")
-                agent = nina or self._registry.list_agents()[0]
-                kind = "deploy"
+                self._bg_tasks.add(task)
+                task.add_done_callback(self._bg_tasks.discard)
+                plan = ImprovementPlan(
+                    agent_id="vera",
+                    channel="ops",
+                    action="announce",
+                    message="VM recipes exhausted — platform reconcile restoring pinned API stack.",
+                )
+                agent = self._registry.get_agent("vera") or agent
+                kind = "message"
                 content = plan.message
-                beat = None
-                code_body = None
             else:
                 content = format_remediation_message(
                     recipe=recipe,
@@ -858,7 +938,7 @@ class DemoService:
     def _vm_configured(self) -> bool:
         return bool(settings.demo_vm_url and settings.demo_vm_deploy_key)
 
-    async def _deploy_to_vm(self) -> dict[str, Any] | None:
+    async def _deploy_to_vm(self, *, mode: str = "auto") -> dict[str, Any] | None:
         if not self._vm_configured() or not settings.demo_vm_auto_deploy:
             return None
         try:
@@ -866,6 +946,7 @@ class DemoService:
                 self._artifacts,
                 vm_url=settings.demo_vm_url,
                 deploy_key=settings.demo_vm_deploy_key,
+                mode=mode,  # type: ignore[arg-type]
             )
         except Exception:
             logger.exception("VM deploy failed")
@@ -1234,7 +1315,10 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 if not pages_already_ok:
                     await self._ingest_pages_access(pages_url, verified=bool(verified))
 
-                vm_result = await self._deploy_to_vm()
+                vm_mode = "static"
+                if not settings.demo_static_only_deploy or "http_probe] FAIL" in self._observations_text:
+                    vm_mode = "platform"
+                vm_result = await self._deploy_to_vm(mode=vm_mode)
                 if vm_result:
                     site = settings.demo_vm_site_url or vm_result.get("site_url", settings.demo_vm_url)
                     self._last_deploy = {

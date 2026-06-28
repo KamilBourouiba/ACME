@@ -37,6 +37,12 @@ SQUAD_LESSONS: tuple[tuple[str, str], ...] = (
         "If probes fail, Vera remediates on the VM — do not spam triage or patch server.py in a loop.",
     ),
     (
+        "static-only-deploy",
+        "Routine deploy syncs static/ only (css, js, html) — nginx reload, no docker rebuild. "
+        "Platform API (server.py, api/*) is pinned from reference. If VM probes fail, "
+        "watchdog auto-reconciles the full pinned stack; agents must not edit backend files.",
+    ),
+    (
         "hire-and-channels",
         "Kai can hire specialists or open channels when the squad needs capacity. "
         "Keep improvement turns concrete: one edit, one probe, or one deploy — not endless planning messages.",
