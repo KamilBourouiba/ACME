@@ -41,8 +41,13 @@ def load_site_artifacts() -> dict[str, str]:
     return artifacts
 
 
+def empty_artifacts() -> dict[str, str]:
+    """Fresh squad start — no product files until agents commit."""
+    return {}
+
+
 def baseline_artifacts() -> dict[str, str]:
-    """Docker/nginx/requirements only — product files are written by agents."""
+    """Infra-only snapshot for VM docker (not exposed in demo UI artifacts)."""
     full = load_site_artifacts()
     return {k: v for k, v in full.items() if k in BASELINE_NAMES}
 

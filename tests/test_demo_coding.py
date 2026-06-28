@@ -1,16 +1,14 @@
 import pytest
 
 from acme.demo.agents import AGENT_BY_ID
-from acme.demo.artifacts import REFERENCE_ARTIFACTS, baseline_artifacts
+from acme.demo.artifacts import REFERENCE_ARTIFACTS, baseline_artifacts, empty_artifacts
 from acme.demo.coding import _strip_fences, generate_agent_code
 from acme.demo.script import SCRIPT_BEATS
 
 
-def test_baseline_is_infra_only():
-    base = baseline_artifacts()
-    assert "requirements.txt" in base
-    assert "static/index.html" not in base
-    assert len(base) < len(REFERENCE_ARTIFACTS)
+def test_empty_artifacts_on_fresh_start():
+    assert empty_artifacts() == {}
+    assert "static/index.html" not in baseline_artifacts()
 
 
 def test_strip_fences():
@@ -31,7 +29,7 @@ async def test_generate_agent_code_uses_llm(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_generate_agent_code_fallback(monkeypatch):
+async def test_generate_agent_code_no_fallback(monkeypatch):
     beat = next(b for b in SCRIPT_BEATS if b.code_file == "static/css/tokens.css")
 
     class FailLLM:
@@ -40,7 +38,8 @@ async def test_generate_agent_code_fallback(monkeypatch):
 
     monkeypatch.setattr("acme.demo.coding.get_llm_client", lambda: FailLLM())
     code = await generate_agent_code(AGENT_BY_ID["marco"], beat, artifacts={})
-    assert code == REFERENCE_ARTIFACTS["static/css/tokens.css"]
+    assert code != REFERENCE_ARTIFACTS.get("static/css/tokens.css", "")
+    assert "pending" in code
 
 
 def test_script_beats_have_no_preloaded_code():

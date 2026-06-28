@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     demo_azure_deployment: str = ""  # e.g. gpt-5.4; empty = use AZURE_OPENAI_DEPLOYMENT
     demo_llm_paraphrase: bool = False
     demo_llm_code: bool = True  # agents write files via LLM on code beats
-    demo_code_fallback: bool = True  # use reference site/ file if LLM fails
+    demo_code_fallback: bool = False  # greenfield — no reference site/ copy
     demo_code_timeout_sec: int = 90
     demo_channel_hearsay: bool = True
     demo_github_token: str = ""
@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     demo_auto_publish: bool = True
     demo_publish_cooldown_sec: int = 30
     demo_clean_on_start: bool = True
-    demo_clean_repo_on_reset: bool = True
+    demo_clean_repo_on_reset: bool = False  # repo stays empty until squad publishes
     demo_vector_search_limit: int = 50
     demo_message_cap: int = 0  # 0 = unlimited history
     demo_state_message_cap: int = 0  # 0 = send all messages in SSE state

@@ -75,6 +75,25 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         payload = json.loads(self.rfile.read(length).decode())
         files = payload.get("files", {})
+        if payload.get("wipe"):
+            import shutil
+
+            for sub in ("static", "tests"):
+                p = SITE_DIR / sub
+                if p.is_dir():
+                    shutil.rmtree(p)
+            for name in ("server.py", "ARCHITECTURE.md", "README.md"):
+                f = SITE_DIR / name
+                if f.is_file():
+                    f.unlink()
+            api_dir = SITE_DIR / "api"
+            if api_dir.is_dir():
+                for f in api_dir.rglob("*"):
+                    if f.is_file() and f.name != "__init__.py" and "routes/__init__" not in str(f):
+                        rel = f.relative_to(api_dir)
+                        if str(rel) not in ("__init__.py", "routes/__init__.py"):
+                            f.unlink()
+
         static = SITE_DIR / "static"
         static.mkdir(parents=True, exist_ok=True)
         (SITE_DIR / "certs").mkdir(parents=True, exist_ok=True)

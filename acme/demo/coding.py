@@ -1,4 +1,4 @@
-"""LLM-driven code generation for demo squad agents."""
+"""LLM-driven code generation for demo squad agents — greenfield only."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import re
 from typing import TYPE_CHECKING
 
 from acme.config import settings
-from acme.demo.artifacts import REFERENCE_ARTIFACTS
 from acme.llm.factory import get_llm_client
 
 if TYPE_CHECKING:
@@ -23,6 +22,8 @@ Requirements:
 - Entity inspector + investigation timeline
 - FastAPI backend proxies open APIs via httpx (no proprietary data)
 - Site must feel premium, polished, production-grade
+
+You are building from ZERO — no reference implementation exists. Invent clean, cohesive code.
 """
 
 LANG_HINTS = {
@@ -71,13 +72,12 @@ async def generate_agent_code(
     """Ask the assigned agent to write a file for the current beat."""
     path = beat.code_file or ""
     lang = beat.code_lang or "text"
-    reference = REFERENCE_ARTIFACTS.get(path, "")
     related = _related_context(path, artifacts)
     hint = LANG_HINTS.get(lang, "Write complete, runnable file content only.")
 
     system = (
         f"{agent.system_prompt}\n\n"
-        "You are committing code to the Erebor repo. Output ONLY the raw file contents — "
+        "You are committing code to the Erebor repo from scratch. Output ONLY the raw file contents — "
         "no markdown fences, no explanation before or after."
     )
     prompt = f"""{EREBOR_BRIEF}
@@ -88,10 +88,7 @@ Language: {lang}
 Hint: {hint}
 
 Already committed in this branch:
-{related or "(none yet — you may set conventions)"}
-
-Architectural reference (match quality and APIs, implement fresh — do not copy blindly):
-{reference[:4000] if reference else "(greenfield)"}
+{related or "(empty repo — you define conventions first)"}
 
 Write the complete `{path}` now:"""
 
@@ -111,6 +108,4 @@ Write the complete `{path}` now:"""
     except Exception:
         pass
 
-    if settings.demo_code_fallback and reference:
-        return reference
     return f"// {agent.name} — pending: {beat.content}\n"

@@ -12,7 +12,7 @@ from typing import Any
 from acme.config import settings
 from acme.db.session import SessionLocal
 from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, DemoAgent
-from acme.demo.artifacts import REFERENCE_ARTIFACTS, baseline_artifacts
+from acme.demo.artifacts import baseline_artifacts, empty_artifacts
 from acme.demo.coding import generate_agent_code
 from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
 from acme.demo.github_deploy import deploy_files
@@ -95,7 +95,7 @@ class DemoService:
         self._beat_index = 0
         self._turn_index = 0
         self._messages: list[_DemoMessage] = []
-        self._artifacts: dict[str, str] = baseline_artifacts()
+        self._artifacts: dict[str, str] = empty_artifacts()
         self._last_deploy: dict[str, Any] | None = None
         self._last_sessions: dict[str, str] = {}
         self._subscribers: set[asyncio.Queue] = set()
@@ -179,8 +179,6 @@ class DemoService:
             if code_body is None and settings.demo_llm_code:
                 code_body = await generate_agent_code(agent, beat, artifacts=self._artifacts)
                 content = f"Pushed `{beat.code_file}` — {beat.content}"
-            elif code_body is None and settings.demo_code_fallback:
-                code_body = REFERENCE_ARTIFACTS.get(beat.code_file, "")
 
         msg = _DemoMessage(
             id=str(uuid.uuid4()),
@@ -657,7 +655,7 @@ class DemoService:
 
         self._messages.clear()
         self._last_sessions.clear()
-        self._artifacts = baseline_artifacts()
+        self._artifacts = empty_artifacts()
         self._last_deploy = None
         self._last_publish_at = None
         self._preview_ready = False
@@ -667,6 +665,23 @@ class DemoService:
         if force:
             self._last_reset_at = None
         return stats
+
+    async def _wipe_vm_product(self) -> None:
+        """Remove prior squad files on VM so deploy starts clean."""
+        if not self._vm_configured():
+            return
+        try:
+            import httpx
+
+            base = settings.demo_vm_url.rstrip("/")
+            async with httpx.AsyncClient(timeout=120.0, verify=False) as client:
+                await client.post(
+                    f"{base}/deploy",
+                    json={"files": dict(baseline_artifacts()), "wipe": True},
+                    headers={"Authorization": f"Bearer {settings.demo_vm_deploy_key}"},
+                )
+        except Exception:
+            logger.exception("VM product wipe failed")
 
     async def reset(self) -> tuple[bool, str, list[dict[str, int | str]]]:
         async with self._lock:
@@ -688,9 +703,9 @@ class DemoService:
                     logger.exception("Repo baseline reset failed during demo reset")
             elif self._vm_configured() and settings.demo_vm_auto_deploy:
                 try:
-                    await self._deploy_to_vm()
+                    await self._wipe_vm_product()
                 except Exception:
-                    logger.exception("VM baseline reset failed during demo reset")
+                    logger.exception("VM wipe failed during demo reset")
 
         state = await self.get_state()
         await self._notify({"type": "reset", "state": state.model_dump()})
