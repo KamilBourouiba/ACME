@@ -136,6 +136,11 @@ class DemoService:
         self._last_triage_signature: str | None = None
         self._last_triage_tick: int = -999
         self._remediation = RemediationState()
+        self._observation_task: asyncio.Task | None = None
+        self._observations_text: str = ""
+        self._observations_results: list = []
+        self._observations_at: datetime | None = None
+        self._turn_busy = asyncio.Lock()
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:
@@ -278,7 +283,16 @@ class DemoService:
             await self._clean_state(force=True)
         self.running = True
         self._task = asyncio.create_task(self._loop(), name="acme-demo-loop")
-        logger.info("Demo loop started (interval=%ss, model=%s)", settings.demo_interval_sec, self.model_label())
+        if settings.demo_probe_refresh_sec > 0:
+            self._observation_task = asyncio.create_task(
+                self._observation_loop(), name="acme-demo-observations"
+            )
+        logger.info(
+            "Demo loop started (pipeline=%s, interval=%ss, model=%s)",
+            settings.demo_pipeline_mode,
+            settings.demo_interval_sec,
+            self.model_label(),
+        )
 
     async def stop(self) -> None:
         self.running = False
@@ -291,6 +305,62 @@ class DemoService:
             self._task = None
         for t in list(self._bg_tasks):
             t.cancel()
+        if self._observation_task:
+            self._observation_task.cancel()
+            try:
+                await self._observation_task
+            except asyncio.CancelledError:
+                pass
+            self._observation_task = None
+
+    async def _observation_loop(self) -> None:
+        """Refresh probes/logs on its own cadence — agents don't wait on this."""
+        interval = max(2, settings.demo_probe_refresh_sec)
+        while self.running and settings.demo_enabled:
+            try:
+                await self._refresh_observations()
+            except Exception:
+                logger.exception("Background observation refresh failed")
+            await asyncio.sleep(interval)
+
+    async def _refresh_observations(self) -> None:
+        async with self._lock:
+            artifacts_snapshot = dict(self._artifacts)
+            last_deploy = dict(self._last_deploy) if self._last_deploy else None
+        skills = DemoSkills(artifacts=artifacts_snapshot, last_deploy=last_deploy)
+        observations, skill_results = await skills.gather_observations()
+        async with self._lock:
+            self._observations_text = observations
+            self._observations_results = skill_results
+            self._observations_at = datetime.now(timezone.utc)
+            probe_results = [
+                r for r in skill_results if r.skill in ("http_probe", "receiver_probe")
+            ]
+            if probe_results:
+                if any(not r.ok for r in probe_results):
+                    self._consecutive_vm_probe_failures += 1
+                elif all(r.ok for r in probe_results):
+                    self._consecutive_vm_probe_failures = 0
+
+    async def _get_observations(
+        self, *, artifacts: dict[str, str], last_deploy: dict[str, Any] | None
+    ) -> tuple[str, list]:
+        max_age = settings.demo_observations_max_age_sec
+        async with self._lock:
+            cached_at = self._observations_at
+            if (
+                cached_at is not None
+                and self._observations_text
+                and (datetime.now(timezone.utc) - cached_at).total_seconds() <= max_age
+            ):
+                return self._observations_text, list(self._observations_results)
+        skills = DemoSkills(artifacts=artifacts, last_deploy=last_deploy)
+        observations, skill_results = await skills.gather_observations()
+        async with self._lock:
+            self._observations_text = observations
+            self._observations_results = skill_results
+            self._observations_at = datetime.now(timezone.utc)
+        return observations, skill_results
 
     def subscribe(self) -> asyncio.Queue:
         q: asyncio.Queue = asyncio.Queue(maxsize=64)
@@ -315,11 +385,19 @@ class DemoService:
         if delay:
             await asyncio.sleep(delay)
         while self.running and settings.demo_enabled:
+            if self._paused:
+                await asyncio.sleep(0.25)
+                continue
             try:
-                await self._run_turn()
+                async with self._turn_busy:
+                    await self._run_turn()
             except Exception:
                 logger.exception("Demo turn failed")
-            await asyncio.sleep(max(1, settings.demo_interval_sec))
+            if settings.demo_pipeline_mode:
+                if settings.demo_turn_yield_ms > 0:
+                    await asyncio.sleep(settings.demo_turn_yield_ms / 1000.0)
+            elif settings.demo_interval_sec > 0:
+                await asyncio.sleep(settings.demo_interval_sec)
 
     async def _run_turn(self) -> None:
         if self._paused:
@@ -423,9 +501,9 @@ class DemoService:
             agent_id="kai",
             kind="message",
             content=(
-                "Bootstrap script complete — switching to *continuous improvement*. "
-                "Squad will probe the live site, read console logs, patch files, and redeploy "
-                "until a human calls POST /api/v1/demo/pause. Vera triages incidents in #ops."
+                "Bootstrap script complete — switching to *continuous improvement* (pipeline mode — no idle waits). "
+                "Squad probes in the background, patches files, and ships until POST /api/v1/demo/pause. "
+                "Vera triages incidents in #ops."
             ),
         )
         async with self._lock:
@@ -458,18 +536,12 @@ class DemoService:
             imp_turn = self._improvement_turn
 
         skills = DemoSkills(artifacts=artifacts_snapshot, last_deploy=last_deploy)
-        observations, skill_results = await skills.gather_observations()
+        observations, skill_results = await self._get_observations(
+            artifacts=artifacts_snapshot, last_deploy=last_deploy
+        )
         failure_sig = failure_signature(observations, skill_results)
 
         async with self._lock:
-            probe_results = [
-                r for r in skill_results if r.skill in ("http_probe", "receiver_probe")
-            ]
-            if probe_results:
-                if any(not r.ok for r in probe_results):
-                    self._consecutive_vm_probe_failures += 1
-                elif all(r.ok for r in probe_results):
-                    self._consecutive_vm_probe_failures = 0
             deploy_allowed, deploy_block_reason = self._deploy_allowed(
                 observations=observations, imp_turn=imp_turn
             )
@@ -1351,6 +1423,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._last_triage_signature = None
         self._last_triage_tick = -999
         self._remediation = RemediationState()
+        self._observations_text = ""
+        self._observations_results = []
+        self._observations_at = None
         self.tick = 0
         self._phase = "bootstrap"
         self._paused = False

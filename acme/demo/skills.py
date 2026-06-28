@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -242,13 +243,34 @@ class DemoSkills:
 
     async def gather_observations(self, *, include_logs: bool = True) -> tuple[str, list[SkillResult]]:
         results: list[SkillResult] = [self.list_artifacts()]
-        results.append(await self.probe_receiver())
-        results.append(await self.probe_site_health())
-        results.append(await self.probe_search())
-        results.append(await self.read_deploy_status())
+        parallel = await asyncio.gather(
+            self.probe_receiver(),
+            self.probe_site_health(),
+            self.probe_search(),
+            self.read_deploy_status(),
+            return_exceptions=True,
+        )
+        for item in parallel:
+            if isinstance(item, SkillResult):
+                results.append(item)
+            elif isinstance(item, Exception):
+                results.append(
+                    SkillResult(
+                        skill="http_probe",
+                        ok=False,
+                        summary=str(item),
+                        detail={},
+                    )
+                )
         if include_logs:
-            results.append(await self.read_container_logs(service="api", tail=60))
-            results.append(await self.read_container_logs(service="nginx", tail=40))
+            log_results = await asyncio.gather(
+                self.read_container_logs(service="api", tail=60),
+                self.read_container_logs(service="nginx", tail=40),
+                return_exceptions=True,
+            )
+            for item in log_results:
+                if isinstance(item, SkillResult):
+                    results.append(item)
 
         if self.last_deploy.get("pages_url"):
             results.append(await self.http_get(self.last_deploy["pages_url"]))

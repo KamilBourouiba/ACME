@@ -8,7 +8,9 @@ API_APP="${API_APP:-acme-api}"
 TAG="${TAG:-membench-v3-fidelity}"
 SUFFIX="${SUFFIX:-demo-live-$(date +%Y%m%d%H%M)}"
 DEMO_MODEL="${DEMO_AZURE_DEPLOYMENT:-gpt-5.4}"
-INTERVAL="${DEMO_INTERVAL_SEC:-3}"
+INTERVAL="${DEMO_INTERVAL_SEC:-0}"
+PIPELINE="${DEMO_PIPELINE_MODE:-true}"
+PROBE_REFRESH="${DEMO_PROBE_REFRESH_SEC:-8}"
 PUBLISH_COOLDOWN="${DEMO_PUBLISH_COOLDOWN_SEC:-15}"
 CODE_TIMEOUT="${DEMO_CODE_TIMEOUT_SEC:-65}"
 GITHUB_REPO="${DEMO_GITHUB_REPO:-KamilBourouiba/erebor-site-demo}"
@@ -29,6 +31,9 @@ ENV_VARS=(
   "DEMO_ENABLED=true"
   "DEMO_AZURE_DEPLOYMENT=${DEMO_MODEL}"
   "DEMO_INTERVAL_SEC=${INTERVAL}"
+  "DEMO_PIPELINE_MODE=${PIPELINE}"
+  "DEMO_PROBE_REFRESH_SEC=${PROBE_REFRESH}"
+  "DEMO_TURN_YIELD_MS=0"
   "DEMO_STARTUP_DELAY_SEC=0"
   "DEMO_RESET_COOLDOWN_SEC=3"
   "DEMO_PUBLISH_COOLDOWN_SEC=${PUBLISH_COOLDOWN}"
@@ -70,7 +75,7 @@ if [[ -f "$SECRETS_FILE" ]]; then
   fi
 fi
 
-echo "==> Deploy demo (interval=${INTERVAL}s, auto-publish=${GITHUB_REPO})"
+echo "==> Deploy demo (pipeline=${PIPELINE}, interval=${INTERVAL}s, auto-publish=${GITHUB_REPO})"
 
 if [[ -n "${DEMO_GITHUB_TOKEN:-}" ]]; then
   az containerapp secret set -n "$API_APP" -g "$RG" \

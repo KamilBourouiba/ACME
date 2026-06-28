@@ -75,7 +75,11 @@ class Settings(BaseSettings):
 
     # Public multi-agent demo (website)
     demo_enabled: bool = False
-    demo_interval_sec: int = 3
+    demo_interval_sec: int = 0  # legacy throttle when pipeline_mode=false
+    demo_pipeline_mode: bool = True  # next turn starts immediately when previous finishes
+    demo_turn_yield_ms: int = 0  # optional event-loop breathe between turns
+    demo_probe_refresh_sec: int = 8  # background VM/site probes (decoupled from agent turns)
+    demo_observations_max_age_sec: float = 12.0
     demo_startup_delay_sec: int = 0
     demo_reset_cooldown_sec: int = 3
     demo_azure_deployment: str = ""  # e.g. gpt-5.4; empty = use AZURE_OPENAI_DEPLOYMENT
