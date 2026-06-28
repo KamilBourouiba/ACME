@@ -77,6 +77,41 @@ async def test_visitor_unlock_and_say(monkeypatch):
     assert "Hello squad" in body["replies"][0]["content"]
 
 
+@pytest.mark.asyncio
+async def test_visitor_stop_deploy_pauses_publish(monkeypatch):
+    async def fake_reply(agent, *, channel, visitor_text):
+        return "ok"
+
+    async def fake_ingest(*args, **kwargs):
+        return None
+
+    async def fake_get_state(*, selected_agent=None, selected_channel=None):
+        return _fake_state()
+
+    async def fake_notify(_event):
+        return None
+
+    monkeypatch.setattr(settings, "demo_enabled", True)
+    monkeypatch.setattr(settings, "demo_visitor_secret", "LeanLean")
+    monkeypatch.setattr(settings, "demo_visitor_say_cooldown_sec", 0)
+    monkeypatch.setattr(demo_service, "_agent_reply_to_visitor", fake_reply)
+    monkeypatch.setattr(demo_service, "_ingest_visitor_exchange", fake_ingest)
+    monkeypatch.setattr(demo_service, "get_state", fake_get_state)
+    monkeypatch.setattr(demo_service, "_notify", fake_notify)
+
+    demo_service._deploy_paused = False
+    client = TestClient(app)
+    r = client.post(
+        "/api/v1/demo/say",
+        json={"secret": "LeanLean", "channel": "general", "message": "Stop deploying please"},
+    )
+    assert r.status_code == 200
+    assert demo_service._deploy_paused is True
+    allowed, reason = demo_service._deploy_allowed()
+    assert allowed is False
+    assert "visitor" in (reason or "")
+
+
 def test_visitor_say_invalid_channel(monkeypatch):
     async def fake_reply(agent, *, channel, visitor_text):
         return "ok"

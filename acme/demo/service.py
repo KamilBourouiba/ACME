@@ -118,6 +118,12 @@ class DemoService:
         self._paused: bool = False
         self._phase: str = "bootstrap"
         self._improvement_turn: int = 0
+        self._publish_lock = asyncio.Lock()
+        self._deploy_paused: bool = False
+        self._deploy_paused_reason: str | None = None
+        self._consecutive_deploy_failures: int = 0
+        self._consecutive_vm_probe_failures: int = 0
+        self._deploy_blocked_until: datetime | None = None
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:
@@ -137,6 +143,107 @@ class DemoService:
         state = await self.get_state()
         await self._notify({"type": "resume", "state": state.model_dump()})
         return DemoPauseOut(ok=True, paused=False, phase=self._phase)
+
+    @staticmethod
+    def _visitor_wants_stop_deploy(text: str) -> bool:
+        lower = text.lower()
+        stop_phrases = (
+            "stop deploy",
+            "stop deploying",
+            "pause deploy",
+            "no more deploy",
+            "stop redeploy",
+            "arrête le deploy",
+            "arrete le deploy",
+            "arrête de deploy",
+        )
+        return any(p in lower for p in stop_phrases)
+
+    @staticmethod
+    def _visitor_wants_resume_deploy(text: str) -> bool:
+        lower = text.lower()
+        return any(p in lower for p in ("resume deploy", "start deploy", "reprendre deploy"))
+
+    def _deploy_failure_blocked(self) -> bool:
+        if self._consecutive_deploy_failures < settings.demo_deploy_failure_cap:
+            return False
+        if self._deploy_blocked_until is None:
+            return True
+        return datetime.now(timezone.utc) < self._deploy_blocked_until
+
+    def _deploy_allowed(self, *, observations: str = "", imp_turn: int = 0) -> tuple[bool, str | None]:
+        if self._deploy_paused:
+            return False, self._deploy_paused_reason or "visitor requested stop"
+        if self._deploy_failure_blocked():
+            return False, f"{self._consecutive_deploy_failures} consecutive publish failures (cooldown)"
+        if self._publish_on_cooldown():
+            return False, "publish cooldown"
+        if self._publish_lock.locked():
+            return False, "publish already in progress"
+        if (
+            imp_turn > 0
+            and imp_turn % settings.demo_improvement_deploy_interval != 0
+            and "http_probe] FAIL" in observations
+        ):
+            return False, "VM probes failing — code/probe turn"
+        if self._consecutive_vm_probe_failures >= 3:
+            return False, "VM API unreachable for 3+ turns — fix code first"
+        return True, None
+
+    def _record_deploy_failure(self) -> None:
+        self._consecutive_deploy_failures += 1
+        if self._consecutive_deploy_failures >= settings.demo_deploy_failure_cap:
+            from datetime import timedelta
+
+            self._deploy_blocked_until = datetime.now(timezone.utc) + timedelta(
+                seconds=settings.demo_deploy_cooldown_after_fail_sec
+            )
+
+    def _record_deploy_success(self) -> None:
+        self._consecutive_deploy_failures = 0
+        self._deploy_blocked_until = None
+
+    def _sanitize_improvement_plan(
+        self,
+        plan: ImprovementPlan,
+        *,
+        observations: str,
+        imp_turn: int,
+    ) -> ImprovementPlan:
+        wants_deploy = plan.deploy or plan.action == "deploy"
+        if not wants_deploy:
+            return plan
+
+        allowed, reason = self._deploy_allowed(observations=observations, imp_turn=imp_turn)
+        if allowed:
+            return plan
+
+        vm_down = "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
+        pages_ok = "Pages-only mode OK" in observations
+
+        if vm_down and "server.py" in self._artifacts:
+            return ImprovementPlan(
+                agent_id="chen",
+                channel="engineering",
+                action="edit",
+                file="server.py",
+                lang="python",
+                message=f"Deploy blocked ({reason}). Patching server diagnostics instead of blind VM redeploy.",
+            )
+        if pages_ok:
+            return ImprovementPlan(
+                agent_id="jordan",
+                channel="engineering",
+                action="probe",
+                skill="deploy_status",
+                message=f"Deploy blocked ({reason}). GitHub Pages OK — probing VM receiver before next publish.",
+            )
+        return ImprovementPlan(
+            agent_id="sam",
+            channel="engineering",
+            action="announce",
+            message=f"Holding deploy ({reason}). Next turn focuses on probes or code fixes.",
+        )
 
     @property
     def phase(self) -> str:
@@ -340,11 +447,30 @@ class DemoService:
 
         skills = DemoSkills(artifacts=artifacts_snapshot, last_deploy=last_deploy)
         observations, skill_results = await skills.gather_observations()
+
+        async with self._lock:
+            probe_results = [
+                r for r in skill_results if r.skill in ("http_probe", "receiver_probe")
+            ]
+            if probe_results:
+                if any(not r.ok for r in probe_results):
+                    self._consecutive_vm_probe_failures += 1
+                elif all(r.ok for r in probe_results):
+                    self._consecutive_vm_probe_failures = 0
+            deploy_allowed, deploy_block_reason = self._deploy_allowed(
+                observations=observations, imp_turn=imp_turn
+            )
+
         plan = await plan_improvement(
             turn=imp_turn,
             observations=observations,
             artifacts=artifacts_snapshot,
             recent_thread=recent,
+            deploy_allowed=deploy_allowed,
+            deploy_block_reason=deploy_block_reason,
+        )
+        plan = self._sanitize_improvement_plan(
+            plan, observations=observations, imp_turn=imp_turn
         )
         agent = AGENT_BY_ID[plan.agent_id]
 
@@ -425,9 +551,11 @@ class DemoService:
 
         should_deploy = plan.deploy or plan.action == "deploy"
         if should_deploy and settings.demo_auto_publish and self._artifacts:
-            pub = asyncio.create_task(self._autonomous_publish(trigger_msg=msg))
-            self._bg_tasks.add(pub)
-            pub.add_done_callback(self._bg_tasks.discard)
+            allowed, _ = self._deploy_allowed(observations=observations, imp_turn=imp_turn)
+            if allowed:
+                pub = asyncio.create_task(self._autonomous_publish(trigger_msg=msg))
+                self._bg_tasks.add(pub)
+                pub.add_done_callback(self._bg_tasks.discard)
 
     async def _run_acme_query(self, beat: DemoBeat, msg: _DemoMessage, agent: DemoAgent) -> None:
         """Run ACME query synchronously so Q&A appears in the same turn."""
@@ -582,6 +710,15 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                     raise ValueError(f"Slow down — try again in {int(wait)}s")
             self._last_visitor_say_at = now
 
+            if self._visitor_wants_stop_deploy(text):
+                self._deploy_paused = True
+                self._deploy_paused_reason = "visitor requested stop"
+            elif self._visitor_wants_resume_deploy(text):
+                self._deploy_paused = False
+                self._deploy_paused_reason = None
+                self._consecutive_deploy_failures = 0
+                self._deploy_blocked_until = None
+
             visitor_msg = _DemoMessage(
                 id=str(uuid.uuid4()),
                 channel=channel,
@@ -689,6 +826,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
 
     async def _autonomous_publish(self, *, trigger_msg: _DemoMessage) -> None:
         """Nina's squad publishes without visitor interaction."""
+        if self._deploy_paused:
+            return
+
         if not self._publish_configured():
             trigger_msg.content = (
                 f"{trigger_msg.content}\n\n_(GitHub token missing on server — set DEMO_GITHUB_TOKEN.)_"
@@ -697,100 +837,131 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             await self._notify({"type": "update", "state": state.model_dump()})
             return
 
-        if self._publish_on_cooldown() and self._last_deploy:
-            url = self._last_deploy.get("pages_url", "")
-            follow = await self._append_agent_message(
-                channel="deploy",
-                agent_id="nina",
-                kind="message",
-                content=f"Publish cooldown active — site still live at {url}",
-            )
-            state = await self.get_state()
-            await self._notify(
-                {
-                    "type": "turn",
-                    "tick": self.tick,
-                    "message": follow.to_out().model_dump(),
-                    "state": state.model_dump(),
-                }
-            )
+        if self._publish_lock.locked():
             return
 
-        try:
-            result = await self.deploy()
-            self._last_publish_at = datetime.now(timezone.utc)
-            trigger_msg.content = (
-                f"Published {', '.join(result['files'])} to `{result['repo']}` on `{result['branch']}`."
-            )
-            pages_url = result["pages_url"]
-            verified = result.get("pages_verified")
-            status = result.get("pages_status_code")
-            if verified:
-                nina_msg = f"GitHub Pages reachable — site live at {pages_url} (HTTP {status})."
-                jordan_msg = (
-                    f"Fetched {pages_url} — found Erebor globe + OSS search shell. Pages build OK."
-                )
-            else:
-                nina_msg = (
-                    f"Pushed to GitHub; Pages URL {pages_url} not ready yet "
-                    f"(HTTP {status or 'timeout'}). Build may still be propagating."
-                )
-                jordan_msg = f"Pages poll incomplete — retrying on next cycle. Target: {pages_url}"
+        async with self._publish_lock:
+            if self._publish_on_cooldown():
+                return
 
-            follow = await self._append_agent_message(
-                channel="deploy",
-                agent_id="nina",
-                kind="message",
-                content=nina_msg,
-            )
-            await self._append_agent_message(
-                channel="deploy",
-                agent_id="jordan",
-                kind="message",
-                content=jordan_msg,
-            )
-            await self._ingest_pages_access(pages_url, verified=bool(verified))
-            vm_result = await self._deploy_to_vm()
-            if vm_result:
-                site = settings.demo_vm_site_url or vm_result.get("site_url", settings.demo_vm_url)
-                self._last_deploy = {
-                    **(self._last_deploy or {}),
-                    "vm_url": site,
-                    "vm_files": vm_result.get("files", []),
-                }
+            pages_already_ok = bool((self._last_deploy or {}).get("pages_verified"))
+
+            try:
+                if pages_already_ok:
+                    result = {
+                        "repo": (self._last_deploy or {}).get("repo", settings.demo_github_repo),
+                        "branch": (self._last_deploy or {}).get("branch", settings.demo_github_branch),
+                        "files": [],
+                        "pages_url": (self._last_deploy or {}).get("pages_url", ""),
+                        "pages_verified": True,
+                        "pages_status_code": (self._last_deploy or {}).get("pages_status_code"),
+                    }
+                else:
+                    result = await self.deploy(skip_vm=True)
+                self._last_publish_at = datetime.now(timezone.utc)
+                self._record_deploy_success()
+
+                if not pages_already_ok:
+                    trigger_msg.content = (
+                        f"Published {', '.join(result['files'])} to `{result['repo']}` on `{result['branch']}`."
+                    )
+                pages_url = result["pages_url"]
+                verified = result.get("pages_verified")
+                status = result.get("pages_status_code")
+                if verified:
+                    nina_msg = f"GitHub Pages reachable — site live at {pages_url} (HTTP {status})."
+                    jordan_msg = (
+                        f"Fetched {pages_url} — found Erebor globe + OSS search shell. Pages build OK."
+                    )
+                elif pages_already_ok:
+                    nina_msg = f"GitHub Pages still healthy at {pages_url} — VM-only deploy this turn."
+                    jordan_msg = f"Skipped GitHub publish (Pages OK). Target VM restore: {settings.demo_vm_site_url or settings.demo_vm_url}"
+                else:
+                    nina_msg = (
+                        f"Pushed to GitHub; Pages URL {pages_url} not ready yet "
+                        f"(HTTP {status or 'timeout'}). Build may still be propagating."
+                    )
+                    jordan_msg = f"Pages poll incomplete — retrying on next cycle. Target: {pages_url}"
+
+                follow = await self._append_agent_message(
+                    channel="deploy",
+                    agent_id="nina",
+                    kind="message",
+                    content=nina_msg,
+                )
                 await self._append_agent_message(
                     channel="deploy",
-                    agent_id="chen",
+                    agent_id="jordan",
                     kind="message",
-                    content=f"VM stack live — API + Postgres on secure host. Site: {site}",
+                    content=jordan_msg,
                 )
-            state = await self.get_state()
-            await self._notify(
-                {
-                    "type": "turn",
-                    "tick": self.tick,
-                    "message": follow.to_out().model_dump(),
-                    "state": state.model_dump(),
-                }
-            )
-        except Exception as exc:
-            logger.exception("Autonomous publish failed")
-            trigger_msg.content = f"{trigger_msg.content}\n\nPublish failed: {exc}"
-            fail = await self._append_agent_message(
-                channel="deploy",
-                agent_id="sam",
-                kind="message",
-                content=f"Publish blocked — check repo permissions and DEMO_GITHUB_TOKEN. ({exc})",
-            )
-            state = await self.get_state()
-            await self._notify(
-                {
-                    "type": "turn",
-                    "tick": self.tick,
-                    "message": fail.to_out().model_dump(),
-                    "state": state.model_dump(),
-                }
-            )
+                if not pages_already_ok:
+                    await self._ingest_pages_access(pages_url, verified=bool(verified))
+
+                vm_result = await self._deploy_to_vm()
+                if vm_result:
+                    site = settings.demo_vm_site_url or vm_result.get("site_url", settings.demo_vm_url)
+                    self._last_deploy = {
+                        **(self._last_deploy or {}),
+                        **result,
+                        "vm_url": site,
+                        "vm_files": vm_result.get("files", []),
+                    }
+                    await self._append_agent_message(
+                        channel="deploy",
+                        agent_id="chen",
+                        kind="message",
+                        content=f"VM stack live — API + Postgres on secure host. Site: {site}",
+                    )
+                state = await self.get_state()
+                await self._notify(
+                    {
+                        "type": "turn",
+                        "tick": self.tick,
+                        "message": follow.to_out().model_dump(),
+                        "state": state.model_dump(),
+                    }
+                )
+            except Exception as exc:
+                logger.exception("Autonomous publish failed")
+                self._record_deploy_failure()
+                trigger_msg.content = f"{trigger_msg.content}\n\nPublish failed: {exc}"
+                fail = await self._append_agent_message(
+                    channel="deploy",
+                    agent_id="sam",
+                    kind="message",
+                    content=f"Publish blocked — check repo permissions and DEMO_GITHUB_TOKEN. ({exc})",
+                )
+                state = await self.get_state()
+                await self._notify(
+                    {
+                        "type": "turn",
+                        "tick": self.tick,
+                        "message": fail.to_out().model_dump(),
+                        "state": state.model_dump(),
+                    }
+                )
+                if pages_already_ok and self._vm_configured():
+                    try:
+                        vm_result = await self._deploy_to_vm()
+                        if vm_result:
+                            site = settings.demo_vm_site_url or vm_result.get(
+                                "site_url", settings.demo_vm_url
+                            )
+                            self._last_deploy = {
+                                **(self._last_deploy or {}),
+                                "vm_url": site,
+                                "vm_files": vm_result.get("files", []),
+                            }
+                            await self._append_agent_message(
+                                channel="deploy",
+                                agent_id="nina",
+                                kind="message",
+                                content=f"GitHub skipped after error; pushed VM-only to {site}.",
+                            )
+                            self._record_deploy_success()
+                    except Exception:
+                        logger.exception("VM-only fallback deploy failed")
 
     async def _process_acme(self, beat: DemoBeat, msg: _DemoMessage, agent: DemoAgent) -> None:
         try:
@@ -989,35 +1160,42 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         branch: str | None = None,
         token: str | None = None,
         commit_message: str | None = None,
+        skip_github: bool = False,
+        skip_vm: bool = False,
     ) -> dict[str, Any]:
         auth = token or settings.demo_github_token
-        if not auth:
-            raise ValueError("GitHub token not configured — set DEMO_GITHUB_TOKEN or pass token")
-
         target_repo = repo or settings.demo_github_repo
         target_branch = branch or settings.demo_github_branch
-        if not target_repo:
-            raise ValueError("GitHub repo not configured — set DEMO_GITHUB_REPO or pass repo")
 
-        result = await deploy_files(
-            github_pages_files(self._artifacts),
-            token=auth,
-            repo=target_repo,
-            branch=target_branch,
-            commit_message=commit_message
-            or "Autonomous publish — Erebor open intelligence graph (ACME demo squad)",
-            bootstrap_repo=True,
-            enable_pages=True,
-        )
-        self._last_deploy = {**result, "deployed_at": datetime.now(timezone.utc).isoformat()}
-        vm_result = await self._deploy_to_vm()
-        if vm_result:
-            site = settings.demo_vm_site_url or vm_result.get("site_url", "")
-            self._last_deploy = {
-                **self._last_deploy,
-                "vm_url": site,
-                "vm_live": vm_result.get("live_ok", False),
-            }
+        result: dict[str, Any] = dict(self._last_deploy or {})
+        if not skip_github:
+            if not auth:
+                raise ValueError("GitHub token not configured — set DEMO_GITHUB_TOKEN or pass token")
+            if not target_repo:
+                raise ValueError("GitHub repo not configured — set DEMO_GITHUB_REPO or pass repo")
+
+            result = await deploy_files(
+                github_pages_files(self._artifacts),
+                token=auth,
+                repo=target_repo,
+                branch=target_branch,
+                commit_message=commit_message
+                or "Autonomous publish — Erebor open intelligence graph (ACME demo squad)",
+                bootstrap_repo=True,
+                enable_pages=True,
+            )
+            self._last_deploy = {**result, "deployed_at": datetime.now(timezone.utc).isoformat()}
+
+        if not skip_vm:
+            vm_result = await self._deploy_to_vm()
+            if vm_result:
+                site = settings.demo_vm_site_url or vm_result.get("site_url", "")
+                self._last_deploy = {
+                    **(self._last_deploy or result),
+                    "vm_url": site,
+                    "vm_live": vm_result.get("live_ok", False),
+                }
+
         state = await self.get_state()
         await self._notify({"type": "deploy", "deploy": self._last_deploy, "state": state.model_dump()})
         return result
@@ -1037,6 +1215,11 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._beat_index = 0
         self._turn_index = 0
         self._improvement_turn = 0
+        self._deploy_paused = False
+        self._deploy_paused_reason = None
+        self._consecutive_deploy_failures = 0
+        self._consecutive_vm_probe_failures = 0
+        self._deploy_blocked_until = None
         self.tick = 0
         self._phase = "bootstrap"
         self._paused = False

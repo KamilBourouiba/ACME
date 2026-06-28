@@ -89,14 +89,31 @@ class DemoSkills:
                 detail={},
             )
         health = await self.http_get(f"{self._site_url}/api/health")
+        if not health.ok:
+            health = await self.http_get(f"{self._site_url}/healthz")
         catalog = await self.http_get(f"{self._site_url}/api/catalog")
-        ok = health.ok and catalog.ok
+        pages_ok = self.last_deploy.get("pages_verified") is True
+        ok = health.ok and (catalog.ok or pages_ok)
         return SkillResult(
             skill="http_probe",
             ok=ok,
-            summary=f"health={health.detail.get('status')} catalog={catalog.detail.get('status')}",
-            detail={"health": health.detail, "catalog": catalog.detail},
+            summary=(
+                f"health={health.detail.get('status')} catalog={catalog.detail.get('status')}"
+                + (" (Pages-only mode OK)" if pages_ok and not health.ok else "")
+            ),
+            detail={"health": health.detail, "catalog": catalog.detail, "pages_ok": pages_ok},
         )
+
+    async def probe_receiver(self) -> SkillResult:
+        base = self._vm_base()
+        if not base:
+            return SkillResult(
+                skill="receiver_probe",
+                ok=False,
+                summary="VM receiver URL not configured",
+                detail={},
+            )
+        return await self.http_get(f"{base}/health", timeout=8.0)
 
     async def probe_search(self, query: str = "graph intelligence") -> SkillResult:
         if not self._site_url:
@@ -190,6 +207,7 @@ class DemoSkills:
 
     async def gather_observations(self, *, include_logs: bool = True) -> tuple[str, list[SkillResult]]:
         results: list[SkillResult] = [self.list_artifacts()]
+        results.append(await self.probe_receiver())
         results.append(await self.probe_site_health())
         results.append(await self.probe_search())
         results.append(await self.read_deploy_status())

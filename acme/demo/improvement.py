@@ -72,11 +72,36 @@ def _parse_plan(raw: str) -> dict[str, Any]:
     return json.loads(text)
 
 
-def _fallback_plan(*, turn: int, observations: str, artifacts: dict[str, str]) -> ImprovementPlan:
+def _fallback_plan(
+    *,
+    turn: int,
+    observations: str,
+    artifacts: dict[str, str],
+    deploy_allowed: bool = True,
+) -> ImprovementPlan:
     agents_cycle = ["jordan", "marco", "chen", "priya", "nina", "sam"]
     agent_id = agents_cycle[turn % len(agents_cycle)]
     has_index = "static/index.html" in artifacts
+    vm_failing = "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
+    pages_ok = "Pages-only mode OK" in observations
 
+    if vm_failing:
+        if "server.py" in artifacts or turn % 2 == 0:
+            return ImprovementPlan(
+                agent_id="chen",
+                channel="engineering",
+                action="edit",
+                file="server.py",
+                lang="python",
+                message="VM API unreachable — patch server diagnostics (/healthz, /deploy/status, /logs) instead of redeploying.",
+            )
+        return ImprovementPlan(
+            agent_id="jordan",
+            channel="engineering",
+            action="probe",
+            skill="deploy_status",
+            message="VM down — probing receiver + deploy status before any publish attempt.",
+        )
     if "FAIL" in observations and "http_probe" in observations:
         return ImprovementPlan(
             agent_id="jordan",
@@ -94,7 +119,7 @@ def _fallback_plan(*, turn: int, observations: str, artifacts: dict[str, str]) -
             lang="html",
             message="Bootstrap the Erebor product shell with Three.js canvas and omnibar.",
         )
-    if turn % 5 == 0:
+    if deploy_allowed and not pages_ok and turn % 8 == 0:
         return ImprovementPlan(
             agent_id="nina",
             channel="deploy",
@@ -133,9 +158,17 @@ async def plan_improvement(
     observations: str,
     artifacts: dict[str, str],
     recent_thread: str,
+    deploy_allowed: bool = True,
+    deploy_block_reason: str | None = None,
 ) -> ImprovementPlan:
     agent_ids = [a.id for a in DEMO_AGENTS]
     artifact_list = ", ".join(sorted(artifacts.keys())[:35]) or "(empty)"
+    deploy_rule = (
+        "- Deploy is ALLOWED when probes are green or after a code fix"
+        if deploy_allowed
+        else f"- Deploy is BLOCKED ({deploy_block_reason or 'cooldown/failures'}). "
+        "NEVER set action=deploy or deploy=true. Edit code or run probes instead."
+    )
 
     prompt = f"""{SKILL_CATALOG}
 
@@ -163,9 +196,11 @@ Pick the next highest-impact action. Respond with JSON only:
 }}
 
 Rules:
-- Prefer edit/deploy when probes show failures or missing features
-- Jordan uses probe/query; Nina deploys; Marco/Priya/Chen edit files
+- Prefer edit/probe when VM API or receiver probes fail — do NOT redeploy the same broken artifact set
+- If GitHub Pages is healthy but VM API is down, fix server.py/receiver code first; VM-only deploy later
+- Jordan uses probe/query; Nina deploys only when allowed; Marco/Priya/Chen edit files
 - One concrete improvement per turn — no vague planning
+{deploy_rule}
 """
 
     llm = get_llm_client()
@@ -196,4 +231,9 @@ Rules:
         )
     except Exception:
         logger.exception("Improvement plan LLM failed — using heuristic")
-        return _fallback_plan(turn=turn, observations=observations, artifacts=artifacts)
+        return _fallback_plan(
+            turn=turn,
+            observations=observations,
+            artifacts=artifacts,
+            deploy_allowed=deploy_allowed,
+        )

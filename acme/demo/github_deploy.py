@@ -173,7 +173,7 @@ async def deploy_files(
         if enable_pages:
             await ensure_pages(client, token=token, repo=repo, branch=branch)
 
-        for path, content in files.items():
+        for path, content in sorted(files.items()):
             sha = await _get_file_sha(client, token=token, repo=repo, path=path, branch=branch)
             body: dict[str, Any] = {
                 "message": commit_message if len(updated) == 0 else f"{commit_message} ({path})",
@@ -184,6 +184,13 @@ async def deploy_files(
                 body["sha"] = sha
             url = f"{GITHUB_API}/repos/{repo}/contents/{path}"
             resp = await client.put(url, headers=_headers(token), json=body)
+            if resp.status_code == 409:
+                fresh_sha = await _get_file_sha(
+                    client, token=token, repo=repo, path=path, branch=branch
+                )
+                if fresh_sha and fresh_sha != sha:
+                    body["sha"] = fresh_sha
+                    resp = await client.put(url, headers=_headers(token), json=body)
             if resp.status_code >= 400:
                 logger.error("GitHub deploy failed for %s: %s", path, resp.text)
                 resp.raise_for_status()

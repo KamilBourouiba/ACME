@@ -6,8 +6,8 @@ from acme.demo.skills import DemoSkills
 
 def test_fallback_plan_probes_on_failure():
     plan = _fallback_plan(turn=0, observations="[http_probe] FAIL", artifacts={})
-    assert plan.action == "probe"
-    assert plan.agent_id == "jordan"
+    assert plan.action in ("probe", "edit")
+    assert plan.agent_id in ("jordan", "chen")
 
 
 def test_fallback_plan_bootstraps_index_when_empty():
@@ -18,8 +18,24 @@ def test_fallback_plan_bootstraps_index_when_empty():
 
 def test_fallback_plan_deploys_periodically():
     artifacts = {"static/index.html": "<html></html>"}
-    plan = _fallback_plan(turn=5, observations="[http_probe] OK", artifacts=artifacts)
+    plan = _fallback_plan(
+        turn=8,
+        observations="[http_probe] OK",
+        artifacts=artifacts,
+        deploy_allowed=True,
+    )
     assert plan.action == "deploy"
+
+
+def test_fallback_plan_skips_deploy_when_blocked():
+    artifacts = {"static/index.html": "<html></html>", "server.py": "app = 1"}
+    plan = _fallback_plan(
+        turn=8,
+        observations="[http_probe] FAIL",
+        artifacts=artifacts,
+        deploy_allowed=False,
+    )
+    assert plan.action != "deploy"
 
 
 def test_skills_list_artifacts():

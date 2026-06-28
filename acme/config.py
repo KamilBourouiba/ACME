@@ -94,6 +94,9 @@ class Settings(BaseSettings):
     demo_clean_repo_on_reset: bool = True
     demo_auto_recycle: bool = False
     demo_continuous_improvement: bool = True
+    demo_deploy_failure_cap: int = 3
+    demo_deploy_cooldown_after_fail_sec: int = 120
+    demo_improvement_deploy_interval: int = 8
     demo_belief_refresh_ticks: int = 3
     demo_vector_search_limit: int = 50
     demo_message_cap: int = 400
