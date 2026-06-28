@@ -43,6 +43,17 @@ SQUAD_LESSONS: tuple[tuple[str, str], ...] = (
         "watchdog auto-reconciles the full pinned stack; agents must not edit backend files.",
     ),
     (
+        "github-pages-publish",
+        "GitHub Pages (erebor-site-demo) is NOT the VM. On publish, index.html is PINNED from "
+        "acme/demo/site/static/index.html — agents must not ship a custom index that references "
+        "css/layout.css, css/components.css, or other files that do not exist. Valid CSS names only: "
+        "tokens, base, shell, omnibar, panels, canvas, inspector, timeline. "
+        "Pages has no /api backend; publish injects EREBOR_DIRECT_OSS and search runs via js/oss.js "
+        "(GitHub, OpenAlex, Nominatim from the browser). Do not wire Pages to VM HTTPS — self-signed "
+        "TLS is blocked by browsers. Improve Pages by editing static/css/ and static/js/ only; "
+        "leave index.html structure to the reference shell.",
+    ),
+    (
         "hire-and-channels",
         "Kai can hire specialists or open channels when the squad needs capacity. "
         "Keep improvement turns concrete: one edit, one probe, or one deploy — not endless planning messages.",

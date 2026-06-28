@@ -1,13 +1,13 @@
 /** App bootstrap — wires scene, search, panels, timeline. */
-import { EreborScene } from "./scene.js";
-import { api, debounce } from "./api.js";
+import { EreborScene } from "./scene.js?v=pages2";
+import { api, debounce } from "./api.js?v=pages2";
 import {
   renderSourceChips,
   renderEntityList,
   renderInspector,
   renderSearchResults,
-} from "./panels.js";
-import { pushEvent, render as renderTimeline } from "./timeline.js";
+} from "./panels.js?v=pages2";
+import { pushEvent, render as renderTimeline } from "./timeline.js?v=pages2";
 
 const state = {
   nodes: [],

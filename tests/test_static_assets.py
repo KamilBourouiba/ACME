@@ -8,6 +8,18 @@ def test_normalize_strips_static_prefix():
     assert "/static/" not in fixed
 
 
+def test_github_pages_pins_index_and_injects_api():
+    broken = {
+        "static/index.html": '<link rel="stylesheet" href="css/layout.css"><script src="js/app.js">',
+        "static/js/app.js": "console.log('agent')",
+    }
+    pages = github_pages_bundle(broken)
+    assert "layout.css" not in pages.get("index.html", "")
+    assert "css/shell.css" in pages["index.html"]
+    assert "EREBOR_DIRECT_OSS" in pages["index.html"]
+    assert pages["js/app.js"] == "console.log('agent')"
+
+
 def test_github_pages_bundle_has_css_at_root():
     artifacts = {
         "static/index.html": '<link rel="stylesheet" href="/static/css/base.css">',
