@@ -86,21 +86,12 @@ def _fallback_plan(
     pages_ok = "Pages-only mode OK" in observations
 
     if vm_failing:
-        if "server.py" in artifacts or turn % 2 == 0:
-            return ImprovementPlan(
-                agent_id="chen",
-                channel="engineering",
-                action="edit",
-                file="server.py",
-                lang="python",
-                message="VM API unreachable — patch server diagnostics (/healthz, /deploy/status, /logs) instead of redeploying.",
-            )
         return ImprovementPlan(
-            agent_id="jordan",
-            channel="engineering",
-            action="probe",
+            agent_id="vera",
+            channel="ops",
+            action="triage",
             skill="deploy_status",
-            message="VM down — probing receiver + deploy status before any publish attempt.",
+            message="VM/receiver probes failing — posting deduped incident triage before any redeploy.",
         )
     if "FAIL" in observations and "http_probe" in observations:
         return ImprovementPlan(
@@ -185,8 +176,8 @@ Artifacts in repo: {artifact_list}
 Pick the next highest-impact action. Respond with JSON only:
 {{
   "agent_id": one of {agent_ids},
-  "channel": "general"|"engineering"|"design"|"product"|"deploy",
-  "action": "probe"|"edit"|"deploy"|"query"|"announce",
+  "channel": "general"|"engineering"|"design"|"product"|"deploy"|"ops",
+  "action": "probe"|"edit"|"deploy"|"query"|"announce"|"triage",
   "message": "Slack message explaining what you did or will do",
   "file": "path/for/edit action or null",
   "lang": "css|javascript|html|python|markdown or null",
@@ -199,6 +190,7 @@ Rules:
 - Prefer edit/probe when VM API or receiver probes fail — do NOT redeploy the same broken artifact set
 - If GitHub Pages is healthy but VM API is down, fix server.py/receiver code first; VM-only deploy later
 - Jordan uses probe/query; Nina deploys only when allowed; Marco/Priya/Chen edit files
+- Vera owns triage in #ops — one consolidated incident report, never repeat the same alert
 - One concrete improvement per turn — no vague planning
 {deploy_rule}
 """

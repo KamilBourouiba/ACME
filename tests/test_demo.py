@@ -9,9 +9,9 @@ from acme.main import app
 
 
 def test_demo_agents_config():
-    assert len(DEMO_AGENTS) == 10
+    assert len(DEMO_AGENTS) == 11
     tenants = {a.tenant_id for a in DEMO_AGENTS}
-    assert len(tenants) == 10
+    assert len(tenants) == 11
 
 
 def test_demo_routes_disabled_by_default():
@@ -56,7 +56,7 @@ async def test_demo_routes_when_enabled(monkeypatch):
     assert r.status_code == 200
     data = r.json()
     assert data["running"] is True
-    assert len(data["agents"]) == 10
+    assert len(data["agents"]) == 11
 
     reset = client.post("/api/v1/demo/reset")
     assert reset.status_code == 200

@@ -25,6 +25,7 @@ Available skills (agents use these every improvement turn):
 - acme_query: ask ACME memory graph a technical question
 - edit_file: patch or create a repo file (frontend/backend/css/js/python)
 - deploy: push artifacts to VM (+ GitHub Pages when configured)
+- triage: Vera consolidates failing probes into one incident report (dedupes spam)
 """
 
 

@@ -21,6 +21,13 @@ from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, plan_improvement
 from acme.demo.reset import cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
+from acme.demo.triage import (
+    failure_signature,
+    format_triage_report,
+    is_spam_duplicate,
+    normalize_message,
+    should_dedup_agent,
+)
 from acme.demo.vm_deploy import deploy_to_vm
 from acme.demo.schemas import (
     DemoAgentOut,
@@ -124,6 +131,9 @@ class DemoService:
         self._consecutive_deploy_failures: int = 0
         self._consecutive_vm_probe_failures: int = 0
         self._deploy_blocked_until: datetime | None = None
+        self._recent_message_norms: list[str] = []
+        self._last_triage_signature: str | None = None
+        self._last_triage_tick: int = -999
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:
@@ -223,12 +233,11 @@ class DemoService:
 
         if vm_down and "server.py" in self._artifacts:
             return ImprovementPlan(
-                agent_id="chen",
-                channel="engineering",
-                action="edit",
-                file="server.py",
-                lang="python",
-                message=f"Deploy blocked ({reason}). Patching server diagnostics instead of blind VM redeploy.",
+                agent_id="vera",
+                channel="ops",
+                action="triage",
+                skill="deploy_status",
+                message=f"Deploy blocked ({reason}). Triage VM/API failure before redeploy.",
             )
         if pages_ok:
             return ImprovementPlan(
@@ -414,20 +423,21 @@ class DemoService:
             content=(
                 "Bootstrap script complete — switching to *continuous improvement*. "
                 "Squad will probe the live site, read console logs, patch files, and redeploy "
-                "until a human calls POST /api/v1/demo/pause."
+                "until a human calls POST /api/v1/demo/pause. Vera triages incidents in #ops."
             ),
         )
         async with self._lock:
             self._phase = "improve"
             state = await self.get_state()
-            await self._notify(
-                {
-                    "type": "phase",
-                    "phase": "improve",
-                    "message": msg.to_out().model_dump(),
-                    "state": state.model_dump(),
-                }
-            )
+            if msg:
+                await self._notify(
+                    {
+                        "type": "phase",
+                        "phase": "improve",
+                        "message": msg.to_out().model_dump(),
+                        "state": state.model_dump(),
+                    }
+                )
 
     async def _run_improvement_turn(self) -> None:
         async with self._lock:
@@ -494,6 +504,14 @@ class DemoService:
                 content = f"Pushed `{beat.code_file}` — {plan.message}"
         elif plan.action == "deploy":
             kind = "deploy"
+        elif plan.action == "triage":
+            kind = "triage"
+            content = format_triage_report(
+                observations=observations,
+                skill_results=skill_results,
+                deploy_block_reason=deploy_block_reason,
+                signature=failure_signature(observations, skill_results),
+            )
         elif plan.action == "query" and beat:
             kind = "query"
         else:
@@ -548,6 +566,18 @@ class DemoService:
             task = asyncio.create_task(self._process_acme(beat, msg, agent))
             self._bg_tasks.add(task)
             task.add_done_callback(self._bg_tasks.discard)
+
+        if plan.action == "triage":
+            async with self._lock:
+                self._last_triage_signature = failure_signature(observations, skill_results)
+                self._last_triage_tick = tick
+        elif any(not r.ok for r in skill_results) or deploy_block_reason:
+            await self._maybe_post_vera_triage(
+                observations=observations,
+                skill_results=skill_results,
+                deploy_block_reason=deploy_block_reason,
+                tick=tick,
+            )
 
         should_deploy = plan.deploy or plan.action == "deploy"
         if should_deploy and settings.demo_auto_publish and self._artifacts:
@@ -629,6 +659,55 @@ class DemoService:
         elapsed = (datetime.now(timezone.utc) - self._last_publish_at).total_seconds()
         return elapsed < settings.demo_publish_cooldown_sec
 
+    def _remember_message_norm(self, content: str) -> None:
+        norm = normalize_message(content)
+        if not norm:
+            return
+        self._recent_message_norms.append(norm)
+        cap = 24
+        if len(self._recent_message_norms) > cap:
+            self._recent_message_norms = self._recent_message_norms[-cap:]
+
+    def _is_duplicate_spam(self, *, agent_id: str, content: str) -> bool:
+        if not should_dedup_agent(agent_id):
+            return False
+        return is_spam_duplicate(content, self._recent_message_norms)
+
+    async def _maybe_post_vera_triage(
+        self,
+        *,
+        observations: str,
+        skill_results: list,
+        deploy_block_reason: str | None,
+        tick: int,
+    ) -> None:
+        signature = failure_signature(observations, skill_results)
+        if signature == "ok" and not deploy_block_reason:
+            self._last_triage_signature = None
+            return
+        if (
+            signature == self._last_triage_signature
+            and (tick - self._last_triage_tick) < settings.demo_triage_interval_ticks
+        ):
+            return
+        self._last_triage_signature = signature
+        self._last_triage_tick = tick
+        report = format_triage_report(
+            observations=observations,
+            skill_results=skill_results,
+            deploy_block_reason=deploy_block_reason,
+            signature=signature,
+        )
+        await self._append_agent_message(
+            channel="ops",
+            agent_id="vera",
+            kind="triage",
+            content=report,
+            skip_dedup=True,
+        )
+        state = await self.get_state()
+        await self._notify({"type": "update", "state": state.model_dump()})
+
     async def _append_agent_message(
         self,
         *,
@@ -638,7 +717,11 @@ class DemoService:
         content: str,
         reply_to_name: str | None = None,
         answer: str | None = None,
-    ) -> _DemoMessage:
+        skip_dedup: bool = False,
+    ) -> _DemoMessage | None:
+        if not skip_dedup and self._is_duplicate_spam(agent_id=agent_id, content=content):
+            logger.debug("suppressed duplicate demo message from %s", agent_id)
+            return None
         agent = AGENT_BY_ID[agent_id]
         msg = _DemoMessage(
             id=str(uuid.uuid4()),
@@ -654,6 +737,7 @@ class DemoService:
         )
         self._messages.append(msg)
         self._messages = _trim_messages(self._messages)
+        self._remember_message_norm(content)
         return msg
 
     def _check_visitor_secret(self, secret: str) -> None:
@@ -754,7 +838,8 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                     content=body,
                     reply_to_name="You",
                 )
-                replies.append(reply)
+                if reply:
+                    replies.append(reply)
 
             self._messages = _trim_messages(self._messages)
             self.tick += 1
@@ -914,14 +999,15 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                         content=f"VM stack live — API + Postgres on secure host. Site: {site}",
                     )
                 state = await self.get_state()
-                await self._notify(
-                    {
-                        "type": "turn",
-                        "tick": self.tick,
-                        "message": follow.to_out().model_dump(),
-                        "state": state.model_dump(),
-                    }
-                )
+                if follow:
+                    await self._notify(
+                        {
+                            "type": "turn",
+                            "tick": self.tick,
+                            "message": follow.to_out().model_dump(),
+                            "state": state.model_dump(),
+                        }
+                    )
             except Exception as exc:
                 logger.exception("Autonomous publish failed")
                 self._record_deploy_failure()
@@ -933,14 +1019,15 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                     content=f"Publish blocked — check repo permissions and DEMO_GITHUB_TOKEN. ({exc})",
                 )
                 state = await self.get_state()
-                await self._notify(
-                    {
-                        "type": "turn",
-                        "tick": self.tick,
-                        "message": fail.to_out().model_dump(),
-                        "state": state.model_dump(),
-                    }
-                )
+                if fail:
+                    await self._notify(
+                        {
+                            "type": "turn",
+                            "tick": self.tick,
+                            "message": fail.to_out().model_dump(),
+                            "state": state.model_dump(),
+                        }
+                    )
                 if pages_already_ok and self._vm_configured():
                     try:
                         vm_result = await self._deploy_to_vm()
@@ -1220,6 +1307,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._consecutive_deploy_failures = 0
         self._consecutive_vm_probe_failures = 0
         self._deploy_blocked_until = None
+        self._recent_message_norms = []
+        self._last_triage_signature = None
+        self._last_triage_tick = -999
         self.tick = 0
         self._phase = "bootstrap"
         self._paused = False

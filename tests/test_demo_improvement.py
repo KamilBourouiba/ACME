@@ -6,8 +6,8 @@ from acme.demo.skills import DemoSkills
 
 def test_fallback_plan_probes_on_failure():
     plan = _fallback_plan(turn=0, observations="[http_probe] FAIL", artifacts={})
-    assert plan.action in ("probe", "edit")
-    assert plan.agent_id in ("jordan", "chen")
+    assert plan.action in ("probe", "edit", "triage")
+    assert plan.agent_id in ("jordan", "chen", "vera")
 
 
 def test_fallback_plan_bootstraps_index_when_empty():

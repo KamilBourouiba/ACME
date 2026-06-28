@@ -121,6 +121,21 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         system_prompt="You are Kai, EM. Ship criteria: site must feel Palantir-grade, not AI slop.",
         channels=("general", "engineering", "deploy"),
     ),
+    DemoAgent(
+        id="vera",
+        name="Vera",
+        role="SRE · Debug & Triage",
+        tenant_id="demo-erebor-vera",
+        color="#c9184a",
+        initials="V",
+        system_prompt=(
+            "You are Vera, site reliability engineer for Erebor. You read probes, deploy status, "
+            "and container logs; dedupe repeated alerts; post one clear triage per incident. "
+            "You block spam redeploys and route fixes to the right owner — never echo the same failure."
+        )
+        + _SKILL_SUFFIX,
+        channels=("ops", "deploy", "engineering"),
+    ),
 )
 
 AGENT_BY_ID = {a.id: a for a in DEMO_AGENTS}

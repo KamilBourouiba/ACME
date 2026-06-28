@@ -97,6 +97,8 @@ class Settings(BaseSettings):
     demo_deploy_failure_cap: int = 3
     demo_deploy_cooldown_after_fail_sec: int = 120
     demo_improvement_deploy_interval: int = 8
+    demo_message_dedup_ticks: int = 10
+    demo_triage_interval_ticks: int = 12
     demo_belief_refresh_ticks: int = 3
     demo_vector_search_limit: int = 50
     demo_message_cap: int = 400
