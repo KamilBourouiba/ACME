@@ -169,7 +169,10 @@
       </button>`
       )
       .join("");
-    if (els.mobileChannels) els.mobileChannels.innerHTML = chipHtml;
+    if (els.mobileChannels) {
+      els.mobileChannels.innerHTML = chipHtml || `
+        <button type="button" class="mobile-channel-chip active" data-channel="general">#general</button>`;
+    }
 
     function onChannelPick(btn) {
       selectedChannel = btn.dataset.channel;
