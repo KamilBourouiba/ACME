@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/demo.css">
+  <link rel="stylesheet" href="assets/demo.css?v=2">
 </head>
-<body class="slack-demo">
+<body class="slack-demo panel-chat">
   <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
   <div class="workspace">
     <aside class="sidebar" id="sidebar">
@@ -35,6 +35,10 @@
           <a class="live-site-link" id="live-site-link" href="#" target="_blank" rel="noopener" hidden>View live site</a>
         </div>
       </header>
+
+      <div class="mobile-channels-wrap">
+        <nav class="mobile-channels" id="mobile-channels" aria-label="Channels"></nav>
+      </div>
 
       <div id="demo-error" class="demo-error" hidden></div>
       <div id="deploy-banner" class="deploy-banner" hidden></div>
@@ -88,6 +92,6 @@
   <script>
     window.ACME_DEMO_API = window.ACME_DEMO_API || "https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io";
   </script>
-  <script src="assets/demo.js"></script>
+  <script src="assets/demo.js?v=2"></script>
 </body>
 </html>

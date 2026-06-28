@@ -31,8 +31,7 @@
     sidebar: document.getElementById("sidebar"),
     sidebarBackdrop: document.getElementById("sidebar-backdrop"),
     membersPanel: document.getElementById("members-panel"),
-    mainPanel: document.getElementById("main-panel"),
-  };
+    mobileChannels: document.getElementById("mobile-channels"),
 
   function isMobileLayout() {
     return window.matchMedia("(max-width: 960px)").matches;
@@ -60,7 +59,10 @@
     if (panel !== "team") {
       els.membersPanel?.classList.remove("is-open");
     }
-    if (panel === "preview" && state) renderPreview(state);
+    if (panel === "preview" && state) {
+      renderPreview(state);
+      requestAnimationFrame(() => els.messages?.scrollTo?.(0, 0));
+    }
   }
 
   function initMobileNav() {
@@ -146,7 +148,7 @@
   }
 
   function renderChannels(channels) {
-    els.channelList.innerHTML = (channels || [])
+    const html = (channels || [])
       .map(
         (c) => `
       <button type="button" class="channel-btn ${c.id === selectedChannel ? "active" : ""}" data-channel="${c.id}">
@@ -155,14 +157,33 @@
       )
       .join("");
 
+    els.channelList.innerHTML = html;
+
+    const chipHtml = (channels || [])
+      .map(
+        (c) => `
+      <button type="button" class="mobile-channel-chip ${c.id === selectedChannel ? "active" : ""}" data-channel="${c.id}">
+        #${escapeHtml(c.name)}
+      </button>`
+      )
+      .join("");
+    if (els.mobileChannels) els.mobileChannels.innerHTML = chipHtml;
+
+    function onChannelPick(btn) {
+      selectedChannel = btn.dataset.channel;
+      const ch = (state?.channels || channels || []).find((x) => x.id === selectedChannel);
+      els.channelTitle.textContent = `#${ch?.name || selectedChannel}`;
+      els.channelTopic.textContent = ch?.topic || "";
+      render(state);
+      closeSidebar();
+    }
+
     els.channelList.querySelectorAll(".channel-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        selectedChannel = btn.dataset.channel;
-        const ch = (state.channels || []).find((x) => x.id === selectedChannel);
-        els.channelTitle.textContent = `#${ch?.name || selectedChannel}`;
-        els.channelTopic.textContent = ch?.topic || "";
-        render(state);
-      });
+      btn.addEventListener("click", () => onChannelPick(btn));
+    });
+
+    els.mobileChannels?.querySelectorAll(".mobile-channel-chip").forEach((btn) => {
+      btn.addEventListener("click", () => onChannelPick(btn));
     });
   }
 
