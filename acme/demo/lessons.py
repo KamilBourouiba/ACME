@@ -53,20 +53,20 @@ async def seed_squad_lessons(
     llm: BaseLLMClient,
     registry: SquadRegistry,
 ) -> int:
-    """Ingest lessons into every agent tenant so acme_query remembers after reclean."""
+    """Ingest one combined lesson doc per agent tenant (queryable via acme_query)."""
+    combined = "\n\n".join(f"[{key}] {text}" for key, text in SQUAD_LESSONS)
     count = 0
     for agent in registry.list_agents():
         orch = ACMEOrchestrator(session, neo4j, llm, tenant_id=agent.tenant_id)
-        for key, text in SQUAD_LESSONS:
-            await orch.ingest_experience(
-                ExperienceCreate(
-                    content=f"[squad-lesson:{key}] {text}",
-                    source_type=SourceType.HUMAN_EXPERT,
-                    source_id="erebor-reclean",
-                    tags=["demo", "erebor", "lesson", key],
-                    tenant_id=agent.tenant_id,
-                )
+        await orch.ingest_experience(
+            ExperienceCreate(
+                content=f"[squad-lessons] Erebor operational playbook after reclean:\n\n{combined}",
+                source_type=SourceType.HUMAN_EXPERT,
+                source_id="erebor-reclean",
+                tags=["demo", "erebor", "lesson", "playbook"],
+                tenant_id=agent.tenant_id,
             )
-            count += 1
-    logger.info("Seeded %s squad lessons across %s agents", len(SQUAD_LESSONS), len(registry.list_agents()))
+        )
+        count += 1
+    logger.info("Seeded squad playbook into %s agent tenants", count)
     return count

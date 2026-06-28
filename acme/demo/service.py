@@ -1629,6 +1629,20 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         except Exception:
             logger.exception("VM product wipe failed")
 
+    async def _seed_lessons_background(self, registry: SquadRegistry) -> None:
+        try:
+            llm = get_llm_client()
+            async with SessionLocal() as session:
+                await seed_squad_lessons(
+                    session=session,
+                    neo4j=neo4j_client,
+                    llm=llm,
+                    registry=registry,
+                )
+                await session.commit()
+        except Exception:
+            logger.exception("Squad lesson seed failed")
+
     async def reset(self) -> tuple[bool, str, list[dict[str, int | str]]]:
         async with self._lock:
             now = datetime.now(timezone.utc)
@@ -1639,19 +1653,11 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
 
             stats = await self._clean_state(force=False, wipe_external=True, force_wipe=True)
             self._last_reset_at = now
+            registry_snapshot = self._registry.clone()
 
-        try:
-            llm = get_llm_client()
-            async with SessionLocal() as session:
-                await seed_squad_lessons(
-                    session=session,
-                    neo4j=neo4j_client,
-                    llm=llm,
-                    registry=self._registry,
-                )
-                await session.commit()
-        except Exception:
-            logger.exception("Squad lesson seed failed")
+        task = asyncio.create_task(self._seed_lessons_background(registry_snapshot))
+        self._bg_tasks.add(task)
+        task.add_done_callback(self._bg_tasks.discard)
 
         state = await self.get_state()
         await self._notify({"type": "reset", "state": state.model_dump()})
