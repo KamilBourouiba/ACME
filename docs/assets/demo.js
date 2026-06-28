@@ -7,7 +7,6 @@
   let lastBeliefFetch = 0;
   let eventSource = null;
 
-  const VISITOR_SECRET_CODE = "42069";
   const STORAGE_KEY = "acme_demo_visitor_secret";
   let visitorSecret = sessionStorage.getItem(STORAGE_KEY) || "";
   let visitorUnlocked = Boolean(visitorSecret);
@@ -48,11 +47,13 @@
     if (!els.visitorInput || !els.visitorCompose) return;
     if (visitorUnlocked) {
       els.visitorCompose.classList.add("is-unlocked");
+      els.visitorInput.type = "text";
       const ch = selectedChannel || "general";
       els.visitorInput.placeholder = `Message #${ch}…`;
     } else {
       els.visitorCompose.classList.remove("is-unlocked");
-      els.visitorInput.placeholder = "Type 42069 to join the squad…";
+      els.visitorInput.type = "password";
+      els.visitorInput.placeholder = "Enter access code to chat…";
     }
     syncVisitorSendButton();
   }
@@ -64,11 +65,7 @@
       els.visitorSend.disabled = true;
       return;
     }
-    if (visitorUnlocked) {
-      els.visitorSend.disabled = text.length === 0;
-      return;
-    }
-    els.visitorSend.disabled = text !== VISITOR_SECRET_CODE;
+    els.visitorSend.disabled = text.length === 0;
   }
 
   async function unlockVisitor(secret) {
@@ -106,7 +103,7 @@
         visitorSecret = "";
         sessionStorage.removeItem(STORAGE_KEY);
         updateVisitorComposeUi();
-        throw new Error(data.detail || "Session expired — enter 42069 again.");
+        throw new Error(data.detail || "Session expired — enter your access code again.");
       }
       if (!res.ok) throw new Error(data.detail || `Send failed (${res.status})`);
       if (data.state) render(data.state);
@@ -127,7 +124,6 @@
       clearError();
       try {
         if (!visitorUnlocked) {
-          if (text !== VISITOR_SECRET_CODE) return;
           await unlockVisitor(text);
           return;
         }

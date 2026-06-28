@@ -48,7 +48,7 @@ async def test_visitor_unlock_and_say(monkeypatch):
         return None
 
     monkeypatch.setattr(settings, "demo_enabled", True)
-    monkeypatch.setattr(settings, "demo_visitor_secret", "42069")
+    monkeypatch.setattr(settings, "demo_visitor_secret", "LeanLean")
     monkeypatch.setattr(settings, "demo_visitor_say_cooldown_sec", 0)
     monkeypatch.setattr(demo_service, "_agent_reply_to_visitor", fake_reply)
     monkeypatch.setattr(demo_service, "_ingest_visitor_exchange", fake_ingest)
@@ -60,13 +60,13 @@ async def test_visitor_unlock_and_say(monkeypatch):
     bad = client.post("/api/v1/demo/unlock", json={"secret": "wrong"})
     assert bad.status_code == 403
 
-    ok = client.post("/api/v1/demo/unlock", json={"secret": "42069"})
+    ok = client.post("/api/v1/demo/unlock", json={"secret": "LeanLean"})
     assert ok.status_code == 200
     assert ok.json()["ok"] is True
 
     say = client.post(
         "/api/v1/demo/say",
-        json={"secret": "42069", "channel": "general", "message": "Hello squad"},
+        json={"secret": "LeanLean", "channel": "general", "message": "Hello squad"},
     )
     assert say.status_code == 200
     body = say.json()
@@ -91,7 +91,7 @@ def test_visitor_say_invalid_channel(monkeypatch):
         return None
 
     monkeypatch.setattr(settings, "demo_enabled", True)
-    monkeypatch.setattr(settings, "demo_visitor_secret", "42069")
+    monkeypatch.setattr(settings, "demo_visitor_secret", "LeanLean")
     monkeypatch.setattr(settings, "demo_visitor_say_cooldown_sec", 0)
     monkeypatch.setattr(demo_service, "_agent_reply_to_visitor", fake_reply)
     monkeypatch.setattr(demo_service, "_ingest_visitor_exchange", fake_ingest)
@@ -101,6 +101,6 @@ def test_visitor_say_invalid_channel(monkeypatch):
     client = TestClient(app)
     r = client.post(
         "/api/v1/demo/say",
-        json={"secret": "42069", "channel": "nope", "message": "hi"},
+        json={"secret": "LeanLean", "channel": "nope", "message": "hi"},
     )
     assert r.status_code == 400

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/demo.css?v=5">
+  <link rel="stylesheet" href="assets/demo.css?v=6">
 </head>
 <body class="slack-demo panel-chat">
   <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
@@ -60,10 +60,10 @@
 
       <form class="visitor-compose" id="visitor-compose" autocomplete="off">
         <input
-          type="text"
           id="visitor-input"
           class="visitor-input"
-          placeholder="Type 42069 to join the squad…"
+          type="password"
+          placeholder="Enter access code to chat…"
           maxlength="800"
           aria-label="Message the squad"
         />
@@ -104,6 +104,6 @@
   <script>
     window.ACME_DEMO_API = window.ACME_DEMO_API || "https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io";
   </script>
-  <script src="assets/demo.js?v=5"></script>
+  <script src="assets/demo.js?v=6"></script>
 </body>
 </html>

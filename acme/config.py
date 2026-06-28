@@ -97,7 +97,7 @@ class Settings(BaseSettings):
     demo_vm_deploy_key: str = ""
     demo_vm_site_url: str = ""  # e.g. https://1.2.3.4
     demo_vm_auto_deploy: bool = True
-    demo_visitor_secret: str = "42069"
+    demo_visitor_secret: str = "LeanLean"
     demo_visitor_say_cooldown_sec: int = 4
 
 
