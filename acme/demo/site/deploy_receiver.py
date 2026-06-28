@@ -35,8 +35,14 @@ def _run_compose(site_dir: Path) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
     )
+    subprocess.run(
+        [*base, "-f", compose_file, "build", "--no-cache", "api"],
+        cwd=site_dir,
+        capture_output=True,
+        text=True,
+    )
     return subprocess.run(
-        [*base, "-f", compose_file, "up", "-d", "--build", "--force-recreate"],
+        [*base, "-f", compose_file, "up", "-d", "--force-recreate"],
         cwd=site_dir,
         capture_output=True,
         text=True,

@@ -31,7 +31,7 @@ chmod 600 /opt/nexus-site/.env
 cd /opt/nexus-site
 docker-compose down --remove-orphans 2>/dev/null || true
 docker rm -f nexus-site_api_1 nexus-site_nginx_1 2>/dev/null || true
-docker-compose up -d --build --force-recreate
+docker-compose up -d --build --force-recreate --no-cache
 sleep 40
 docker ps
 curl -sk https://127.0.0.1/api/health" \
