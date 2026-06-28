@@ -3,98 +3,97 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lumen — Revenue Intelligence for Modern GTM</title>
-  <meta name="description" content="AI-powered revenue intelligence. Forecast pipeline, detect churn risk, and align GTM in one platform.">
+  <title>Erebor — Open Intelligence Graph</title>
+  <meta name="description" content="Palantir-grade investigation workspace built entirely on open data. Repos, papers, geography — one graph.">
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/hero.css">
-  <link rel="stylesheet" href="css/features.css">
-  <link rel="stylesheet" href="css/pricing.css">
-  <link rel="stylesheet" href="css/dashboard-mock.css">
-  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/omnibar.css">
+  <link rel="stylesheet" href="css/panels.css">
+  <link rel="stylesheet" href="css/canvas.css">
+  <link rel="stylesheet" href="css/inspector.css">
+  <link rel="stylesheet" href="css/timeline.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.170.0",
+      "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
-  <div class="container">
-    <header class="nav">
-      <div class="logo">Lumen</div>
-      <nav class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#waitlist">Early access</a>
-      </nav>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <span class="brand-name">EREBOR</span>
+      </div>
+      <div class="header-sources" id="source-chips"></div>
+      <div class="header-actions">
+        <span class="badge live">Live OSS feeds</span>
+        <button class="btn-ghost" id="btn-reset-view" type="button">Reset view</button>
+      </div>
     </header>
+
+    <main class="workspace">
+      <aside class="panel panel-left">
+        <div class="panel-head">Investigate</div>
+        <div class="omnibar-wrap">
+          <form class="omnibar" id="search-form">
+            <span class="omnibar-icon" aria-hidden="true">⌕</span>
+            <input id="search-input" type="search" placeholder="Search repos, papers, places…" autocomplete="off" spellcheck="false">
+            <kbd>↵</kbd>
+          </form>
+        </div>
+        <div class="panel-body">
+          <div id="search-results" class="search-results"></div>
+          <div class="panel-head" style="border:none;padding-left:0;margin-top:8px">Graph entities</div>
+          <div id="entity-list" class="entity-list"></div>
+        </div>
+      </aside>
+
+      <section class="canvas-wrap">
+        <canvas id="erebor-canvas"></canvas>
+        <div class="canvas-overlay">
+          <div class="canvas-hud">
+            <div class="hud-card">
+              <div class="hud-label">Nodes linked</div>
+              <div class="hud-value" id="hud-nodes">—</div>
+            </div>
+            <div class="hud-card">
+              <div class="hud-label">Active source</div>
+              <div class="hud-value" id="hud-source" style="font-size:13px">multi</div>
+            </div>
+          </div>
+          <div class="canvas-controls">
+            <button class="ctrl-btn active" id="btn-rotate" type="button" title="Auto rotate">↻</button>
+            <button class="ctrl-btn" id="btn-arcs" type="button" title="Toggle arcs">⌇</button>
+          </div>
+        </div>
+        <div class="loading-veil" id="loading-veil"><div class="spinner"></div></div>
+      </section>
+
+      <aside class="panel panel-right">
+        <div class="panel-head">Entity inspector</div>
+        <div class="panel-body" id="inspector">
+          <div class="inspector-empty">
+            <p>Select a node or search result to inspect open-source intelligence.</p>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="timeline-bar">
+      <div class="timeline-head">
+        <span class="mono dim">Investigation trail</span>
+        <span class="badge" id="trail-count">0 events</span>
+      </div>
+      <div class="timeline-track" id="timeline-track"></div>
+    </footer>
   </div>
 
-  <section class="hero">
-    <div class="hero-bg"></div>
-    <div class="container hero-grid">
-      <div>
-        <span class="hero-badge">Now in private beta</span>
-        <h1>Revenue clarity for <span>modern GTM</span> teams</h1>
-        <p class="hero-lead">Lumen unifies pipeline signals, churn risk, and forecast accuracy — so RevOps stops guessing and starts leading.</p>
-        <div class="hero-cta">
-          <button class="btn btn-primary" id="cta-primary">Join waitlist</button>
-          <a class="btn btn-ghost" href="#features">See platform</a>
-        </div>
-        <div class="hero-stats">
-          <div><div class="stat-num" data-target="94">0</div><div class="stat-label">Forecast accuracy</div></div>
-          <div><div class="stat-num" data-target="2.4">0</div><div class="stat-label">× faster insights</div></div>
-          <div><div class="stat-num" data-target="500">0</div><div class="stat-label">Enterprise seats</div></div>
-        </div>
-      </div>
-      <div class="dashboard-mock" id="dashboard-mock">
-        <div class="mock-chrome"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span></div>
-        <div class="mock-body">
-          <div class="mock-kpis">
-            <div class="mock-kpi"><label>Pipeline</label><strong>$12.4M</strong></div>
-            <div class="mock-kpi"><label>At risk</label><strong>$840K</strong></div>
-            <div class="mock-kpi"><label>Win rate</label><strong>32%</strong></div>
-          </div>
-          <div class="mock-chart" aria-hidden="true"></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="features">
-    <div class="container">
-      <h2 class="section-title">Built for revenue teams</h2>
-      <p class="section-sub">Six core capabilities — from signal ingestion to board-ready forecasts.</p>
-      <div class="feature-grid" id="feature-grid"></div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container logos-row">
-      <span>TRUSTED BY GTM TEAMS AT</span>
-      <span>NOVA</span><span>HELIX</span><span>ORBIT</span><span>STRIDE</span><span>PULSE</span>
-    </div>
-  </section>
-
-  <section class="section" id="pricing">
-    <div class="container">
-      <h2 class="section-title">Simple, transparent pricing</h2>
-      <p class="section-sub">Start free. Scale when your pipeline does.</p>
-      <div class="pricing-toggle" id="pricing-toggle">
-        <button type="button" class="active" data-period="monthly">Monthly</button>
-        <button type="button" data-period="annual">Annual · save 20%</button>
-      </div>
-      <div class="pricing-grid" id="pricing-grid"></div>
-    </div>
-  </section>
-
-  <section class="section" id="waitlist">
-    <div class="container">
-      <h2 class="section-title">Get early access</h2>
-      <p class="section-sub">Join 2,000+ RevOps leaders on the Lumen waitlist.</p>
-      <form class="waitlist-form" id="waitlist-form">
-        <input type="email" name="email" placeholder="Work email" required>
-        <button type="submit" class="btn btn-primary">Request access</button>
-      </form>
-    </div>
-  </section>
-
-  <footer class="footer container"><small>© 2026 Lumen Analytics, Inc.</small></footer>
+  <script type="module" src="js/scene.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

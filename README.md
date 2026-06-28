@@ -484,16 +484,16 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 **Website:** [kamilbourouiba.github.io/ACME/demo.html](https://kamilbourouiba.github.io/ACME/demo.html)
 
-Slack-style UI: **10 teammates** build **Lumen** — a premium revenue intelligence platform site (dark UI, dashboard mock, pricing toggle, waitlist API) across channels (`#general`, `#product`, `#design`, `#engineering`, `#deploy`). Each role has an isolated ACME tenant; messages post every **5 s**.
+Slack-style UI: **10 teammates** build **Erebor** — an open Palantir-grade intelligence graph (Three.js globe, OSS API search, entity inspector) across channels (`#general`, `#product`, `#design`, `#engineering`, `#deploy`). The site *is* the product. Messages post every **5 s**.
 
 **Nina (DevOps) autonomously publishes** to GitHub Pages + secure VM when the script reaches `#deploy`.
 
 Visitors can:
 
-- Switch **rooms** and read **29+ source files** (CSS modules, JS, API routes)
+- Switch **rooms** and read **30+ source files** (Three.js scene, OSS proxies, CSS shell)
 - Click a teammate to inspect **full belief graphs**
 - Watch the **staging preview** and live VM deploy
-- See autonomous publish to `KamilBourouiba/lumen-site-demo`
+- See autonomous publish to `KamilBourouiba/erebor-site-demo`
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -501,7 +501,7 @@ Visitors can:
 | `DEMO_INTERVAL_SEC` | `5` | Pause between scripted Slack turns |
 | `DEMO_AUTO_PUBLISH` | `true` | Nina publishes on deploy beats |
 | `DEMO_GITHUB_TOKEN` | — | **Required** PAT (`repo` scope) for autonomous publish |
-| `DEMO_GITHUB_REPO` | `KamilBourouiba/lumen-site-demo` | Target repo (created if missing) |
+| `DEMO_GITHUB_REPO` | `KamilBourouiba/erebor-site-demo` | Target repo (created if missing) |
 | `DEMO_GITHUB_BRANCH` | `main` | Branch + GitHub Pages root |
 | `DEMO_PUBLISH_COOLDOWN_SEC` | `30` | Min seconds between auto-publishes |
 | `DEMO_RESET_COOLDOWN_SEC` | `5` | Min seconds between public resets |

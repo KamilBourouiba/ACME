@@ -22,7 +22,7 @@ fi
 
 echo "==> Postgres host: ${DEMO_PG_HOST}"
 echo "==> Fix .env + redeploy docker on $VM_NAME"
-az vm run-command invoke -g "$RG" -n "$VM_NAME" --command-id RunShellScript \
+if ! timeout 600 az vm run-command invoke -g "$RG" -n "$VM_NAME" --command-id RunShellScript \
   --scripts "cat > /opt/nexus-site/.env <<EOF
 DATABASE_URL=${DATABASE_URL_NEXUS}
 DEPLOY_KEY=${DEMO_VM_DEPLOY_KEY}
@@ -35,9 +35,16 @@ docker-compose up -d --build --force-recreate
 sleep 40
 docker ps
 curl -sk https://127.0.0.1/api/health" \
-  -o json | python3 -c "import sys,json; print(json.load(sys.stdin)['value'][0]['message'])"
+  -o json | python3 -c "import sys,json; print(json.load(sys.stdin)['value'][0]['message'])"; then
+  echo "Repair run-command failed or timed out" >&2
+  exit 1
+fi
 
-"${ROOT}/azure/install-nexus-vm.sh"
+if curl -sf "${DEMO_VM_URL}/health" &>/dev/null; then
+  echo "==> Deploy receiver OK — skip reinstall"
+else
+  "${ROOT}/azure/install-nexus-vm.sh"
+fi
 
 echo "==> External check"
 curl -sk "${DEMO_VM_SITE_URL}/api/health"

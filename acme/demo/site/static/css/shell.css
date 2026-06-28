@@ -1,0 +1,88 @@
+.app-shell {
+  display: grid;
+  grid-template-rows: var(--header-h) 1fr var(--timeline-h);
+  height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(61, 214, 198, 0.08), transparent),
+    linear-gradient(180deg, var(--bg-0), var(--bg-1));
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(3, 5, 8, 0.85);
+  backdrop-filter: blur(12px);
+  z-index: 10;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 24px var(--glow);
+}
+
+.brand-name {
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-size: 13px;
+}
+
+.header-sources {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.source-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.source-chip.active {
+  color: var(--text);
+  border-color: rgba(61, 214, 198, 0.4);
+  background: rgba(61, 214, 198, 0.08);
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-ghost {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 12px;
+}
+
+.btn-ghost:hover {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: var(--panel-w) 1fr var(--panel-w);
+  min-height: 0;
+  position: relative;
+}

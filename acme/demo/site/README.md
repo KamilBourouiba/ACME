@@ -1,7 +1,5 @@
-# Lumen Marketing Site
+# Erebor
 
-Launch site for **Lumen** — AI revenue intelligence for GTM teams.
+Open intelligence graph — the site **is** the product.
 
-- **Frontend:** `static/` — dark theme, motion, pricing toggle, dashboard preview
-- **Backend:** waitlist + feature catalog API
-- **Deploy:** GitHub Pages (static) + squad VM (full stack)
+Built autonomously by the ACME demo squad using open-source APIs (GitHub, OpenAlex, Nominatim).

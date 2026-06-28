@@ -10,8 +10,9 @@ from acme.demo.agents import DEMO_AGENTS
 from acme.graph.neo4j_client import Neo4jClient
 
 DEMO_TENANT_IDS = tuple(a.tenant_id for a in DEMO_AGENTS)
-# Legacy Nexus demo tenants — wiped on reset so prod stays clean after scenario change
 LEGACY_DEMO_TENANT_IDS: tuple[str, ...] = tuple(
+    f"demo-lumen-{a.id}" for a in DEMO_AGENTS
+) + tuple(
     f"demo-nexus-{a.id}" for a in DEMO_AGENTS
 )
 ALL_DEMO_TENANT_IDS = DEMO_TENANT_IDS + LEGACY_DEMO_TENANT_IDS

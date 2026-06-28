@@ -11,21 +11,26 @@ fi
 # shellcheck disable=SC1090
 source "$SECRETS_FILE"
 
-"${ROOT}/azure/install-nexus-vm.sh"
-
-echo "==> Wait for deploy receiver"
-for i in $(seq 1 30); do
-  if curl -sf "${DEMO_VM_URL}/health" &>/dev/null; then
-    break
-  fi
-  sleep 10
-done
+if curl -sf "${DEMO_VM_URL}/health" &>/dev/null; then
+  echo "==> Deploy receiver already healthy at ${DEMO_VM_URL} — skipping install"
+else
+  echo "==> Install deploy receiver (may take a few minutes)"
+  "${ROOT}/azure/install-nexus-vm.sh"
+  echo "==> Wait for deploy receiver"
+  for i in $(seq 1 30); do
+    if curl -sf "${DEMO_VM_URL}/health" &>/dev/null; then
+      break
+    fi
+    [[ "$i" -eq 30 ]] && { echo "Deploy receiver never came up" >&2; exit 1; }
+    sleep 10
+  done
+fi
 
 echo "==> Push baseline stack"
 cd "$ROOT"
 python3 - <<PY
 import asyncio
-from acme.demo.agents import SITE_ARTIFACTS
+from acme.demo.artifacts import SITE_ARTIFACTS
 from acme.demo.vm_deploy import deploy_to_vm
 
 async def main():

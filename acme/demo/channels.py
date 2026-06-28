@@ -1,4 +1,4 @@
-"""Slack-style rooms for the Lumen product launch demo."""
+"""Slack-style rooms for the Erebor open intelligence demo."""
 
 from dataclasses import dataclass
 
@@ -12,10 +12,10 @@ class DemoChannel:
 
 
 DEMO_CHANNELS: tuple[DemoChannel, ...] = (
-    DemoChannel("general", "general", "Lumen launch — revenue intelligence platform", "💬"),
-    DemoChannel("product", "product", "Positioning, pricing, enterprise narrative", "📋"),
-    DemoChannel("design", "design", "Motion, dark UI, dashboard mock", "🎨"),
-    DemoChannel("engineering", "engineering", "Frontend modules, API, Postgres", "⚙️"),
+    DemoChannel("general", "general", "Erebor — open intelligence graph (site = product)", "💬"),
+    DemoChannel("product", "product", "Palantir-adjacent UX, OSS-only data policy", "📋"),
+    DemoChannel("design", "design", "Three.js globe, obsidian shell, no AI slop", "🎨"),
+    DemoChannel("engineering", "engineering", "OSS API proxies, graph model, ES modules", "⚙️"),
     DemoChannel("deploy", "deploy", "GitHub Pages + secure VM stack", "🚀"),
 )
 

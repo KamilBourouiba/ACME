@@ -46,7 +46,7 @@ async def test_demo_routes_when_enabled(monkeypatch):
         )
 
     async def fake_reset():
-        return True, "Demo reset complete.", [{"tenant_id": "demo-lumen-alex"}]
+        return True, "Demo reset complete.", [{"tenant_id": "demo-erebor-alex"}]
 
     monkeypatch.setattr(settings, "demo_enabled", True)
     monkeypatch.setattr(demo_service, "get_state", fake_state)

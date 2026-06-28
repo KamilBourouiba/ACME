@@ -1,22 +1,28 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
-class WaitlistIn(BaseModel):
-    email: EmailStr
-    company: str = Field(default="", max_length=200)
-    role: str = Field(default="", max_length=100)
+class CatalogOut(BaseModel):
+    sources: list[dict]
 
 
-class WaitlistOut(BaseModel):
-    id: int
-    status: str = "accepted"
+class GraphOut(BaseModel):
+    nodes: list[dict]
+    edges: list[dict]
 
 
-class FeatureItem(BaseModel):
-    icon: str
-    title: str
-    desc: str
+class SearchOut(BaseModel):
+    query: str
+    groups: list[dict]
 
 
-class FeaturesOut(BaseModel):
-    items: list[FeatureItem]
+class TrailIn(BaseModel):
+    type: str
+    query: str | None = None
+    entity_id: str | None = None
+    kind: str | None = None
+
+
+class TrailOut(BaseModel):
+    ok: bool
+    persisted: bool = False
+    id: int | None = None

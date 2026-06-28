@@ -1,0 +1,75 @@
+.omnibar-wrap {
+  padding: 0 12px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.omnibar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.omnibar:focus-within {
+  border-color: rgba(61, 214, 198, 0.45);
+  box-shadow: 0 0 0 3px rgba(61, 214, 198, 0.08);
+}
+
+.omnibar-icon {
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.omnibar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+}
+
+.omnibar kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.search-results {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.search-group {
+  margin-top: 12px;
+}
+
+.search-group-title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+
+.search-hit {
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.search-hit:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+}
+
+.search-hit-title { font-size: 12px; font-weight: 500; }
+.search-hit-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }

@@ -21,11 +21,10 @@ async def init_db() -> asyncpg.Pool | None:
     async with _pool.acquire() as conn:
         await conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS waitlist (
+            CREATE TABLE IF NOT EXISTS investigation_trail (
                 id BIGSERIAL PRIMARY KEY,
-                email TEXT NOT NULL UNIQUE,
-                company TEXT NOT NULL DEFAULT '',
-                role TEXT NOT NULL DEFAULT '',
+                event_type TEXT NOT NULL,
+                payload JSONB NOT NULL DEFAULT '{}',
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """

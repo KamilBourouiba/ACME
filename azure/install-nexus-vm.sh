@@ -56,9 +56,13 @@ print("sleep 3")
 print("systemctl is-active nexus-deploy")
 PY
 
-echo "==> Install stack files + deploy receiver on $VM_NAME"
-az vm run-command invoke -g "$RG" -n "$VM_NAME" \
+echo "==> Install stack files + deploy receiver on $VM_NAME (timeout 10m)"
+if ! timeout 600 az vm run-command invoke -g "$RG" -n "$VM_NAME" \
   --command-id RunShellScript \
   --scripts @"$TMP" \
-  -o json | python3 -c "import sys,json; print(json.load(sys.stdin)['value'][0]['message'])"
+  -o json | python3 -c "import sys,json; print(json.load(sys.stdin)['value'][0]['message'])"; then
+  rm -f "$TMP"
+  echo "az run-command failed or timed out after 10m" >&2
+  exit 1
+fi
 rm -f "$TMP"
