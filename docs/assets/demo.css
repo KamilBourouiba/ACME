@@ -23,6 +23,7 @@ body.slack-demo {
   background: var(--slack-bg);
   color: var(--slack-text);
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -30,11 +31,209 @@ body.slack-demo {
   display: grid;
   grid-template-columns: 220px 1fr 280px;
   height: 100vh;
+  height: 100dvh;
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 @media (max-width: 960px) {
-  .workspace { grid-template-columns: 180px 1fr; }
-  .members-panel { display: none; }
+  .workspace {
+    grid-template-columns: 1fr;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    width: min(85vw, 280px);
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar.is-open { transform: translateX(0); }
+
+  .sidebar-backdrop:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 45;
+  }
+
+  .members-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: none;
+    z-index: 40;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+  }
+
+  .members-panel.is-open,
+  body.panel-team .members-panel { transform: translateX(0); }
+
+  .mobile-menu-btn { display: flex; }
+  .mobile-bottom-nav { display: flex; }
+
+  .main {
+    border-right: none;
+    min-height: 0;
+  }
+
+  body.panel-preview .messages { display: none; }
+  body.panel-preview .preview-panel {
+    display: flex !important;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  body.panel-preview .preview-panel[hidden] { display: flex !important; }
+  body.panel-preview #site-preview { flex: 1; height: auto; min-height: 200px; }
+
+  body.panel-team .main .messages,
+  body.panel-team .main .preview-panel,
+  body.panel-team .main .deploy-banner,
+  body.panel-team .main .demo-error { display: none !important; }
+
+  body.panel-team .members-panel {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 0;
+    transform: none;
+    box-shadow: none;
+  }
+
+  body.panel-chat .members-panel:not(.is-open) { transform: translateX(100%); }
+
+  .channel-header {
+    padding: 0.65rem 0.85rem;
+    gap: 0.65rem;
+    align-items: center;
+  }
+
+  .channel-header-text { min-width: 0; flex: 1; }
+  .channel-header h1 { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .channel-header p {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .live-site-link { font-size: 0.75rem; padding: 0.35rem 0.5rem; }
+
+  .messages { padding: 0.75rem 0.85rem 1.5rem; }
+
+  .msg-row.is-reply { margin-left: 0.5rem; }
+
+  .preview-head {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem;
+  }
+
+  #site-preview {
+    height: min(42vh, 280px);
+    min-height: 180px;
+  }
+
+  body.panel-preview #site-preview {
+    height: auto;
+    min-height: min(55vh, 420px);
+  }
+
+  .code-block pre {
+    max-height: 160px;
+    font-size: 0.6875rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .belief-list { max-height: none; flex: 1; }
+  #member-list { max-height: none; flex-shrink: 0; }
+
+  .members-panel > h2 { padding: 0.65rem 0.85rem 0.35rem; }
+
+  body:not(.panel-preview) .preview-panel[hidden] { display: none !important; }
+}
+
+@media (max-width: 480px) {
+  .avatar { width: 32px; height: 32px; font-size: 0.6875rem; }
+  .msg-meta { flex-wrap: wrap; gap: 0.25rem 0.5rem; }
+  .msg-text { font-size: 0.875rem; }
+  .deploy-banner { margin: 0 0.85rem 0.5rem; font-size: 0.75rem; word-break: break-word; }
+  .demo-error { margin: 0.5rem 0.85rem; }
+}
+
+/* Mobile chrome */
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--slack-border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 1.125rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  background: #fff;
+  border-top: 1px solid var(--slack-border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.mobile-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.45rem 0.25rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--slack-muted);
+  cursor: pointer;
+  min-height: 52px;
+}
+
+.mobile-nav-btn .mobile-nav-icon { font-size: 1.125rem; line-height: 1; }
+
+.mobile-nav-btn.active {
+  color: var(--slack-active);
+}
+
+.mobile-nav-btn.active .mobile-nav-icon { transform: scale(1.05); }
+
+@media (min-width: 961px) {
+  .mobile-bottom-nav { display: none !important; }
+  .sidebar-backdrop { display: none !important; }
 }
 
 /* Sidebar */
@@ -313,6 +512,12 @@ body.slack-demo {
   border-bottom: 1px solid var(--slack-border);
   background: #fafafa;
   flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+  body:not(.panel-preview) .preview-panel:not([hidden]) {
+    /* compact inline preview while scrolling chat */
+  }
 }
 
 .preview-head {

@@ -22,12 +22,13 @@ Requirements:
 - Entity inspector + investigation timeline
 - FastAPI backend proxies open APIs via httpx (no proprietary data)
 - Site must feel premium, polished, production-grade
+- Must work on mobile: responsive shell, touch-friendly controls, collapsible panels below 768px
 
 You are building from ZERO — no reference implementation exists. Invent clean, cohesive code.
 """
 
 LANG_HINTS = {
-    "css": "Use CSS custom properties from tokens.css when present. No Tailwind.",
+    "css": "Use CSS custom properties from tokens.css when present. Mobile-first; @media (max-width: 768px) for stacked layout. No Tailwind.",
     "javascript": "ES modules. Import Three.js via 'three' and 'three/addons/'. No React.",
     "html": "Link css/*.css and js/*.js modules. Include Three.js importmap.",
     "python": "FastAPI + httpx + asyncpg. Type hints. Match existing api/ package layout.",

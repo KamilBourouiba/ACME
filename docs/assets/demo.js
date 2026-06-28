@@ -26,9 +26,76 @@
     previewPanel: document.getElementById("preview-panel"),
     sitePreview: document.getElementById("site-preview"),
     livePreviewTab: document.getElementById("live-preview-tab"),
+    mobileMenuBtn: document.getElementById("mobile-menu-btn"),
+    mobileBottomNav: document.getElementById("mobile-bottom-nav"),
+    sidebar: document.getElementById("sidebar"),
+    sidebarBackdrop: document.getElementById("sidebar-backdrop"),
+    membersPanel: document.getElementById("members-panel"),
+    mainPanel: document.getElementById("main-panel"),
   };
 
+  function isMobileLayout() {
+    return window.matchMedia("(max-width: 960px)").matches;
+  }
+
+  function closeSidebar() {
+    els.sidebar?.classList.remove("is-open");
+    if (els.sidebarBackdrop) els.sidebarBackdrop.hidden = true;
+  }
+
+  function openSidebar() {
+    els.sidebar?.classList.add("is-open");
+    if (els.sidebarBackdrop) els.sidebarBackdrop.hidden = false;
+  }
+
+  function setMobilePanel(panel) {
+    mobilePanel = panel;
+    document.body.classList.remove("panel-chat", "panel-preview", "panel-team");
+    document.body.classList.add(`panel-${panel}`);
+    els.mobileBottomNav?.querySelectorAll(".mobile-nav-btn").forEach((btn) => {
+      const active = btn.dataset.panel === panel;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-current", active ? "page" : "false");
+    });
+    if (panel !== "team") {
+      els.membersPanel?.classList.remove("is-open");
+    }
+    if (panel === "preview" && state) renderPreview(state);
+  }
+
+  function initMobileNav() {
+    els.mobileMenuBtn?.addEventListener("click", () => {
+      if (els.sidebar?.classList.contains("is-open")) closeSidebar();
+      else openSidebar();
+    });
+
+    els.sidebarBackdrop?.addEventListener("click", closeSidebar);
+
+    els.mobileBottomNav?.querySelectorAll(".mobile-nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setMobilePanel(btn.dataset.panel || "chat");
+        closeSidebar();
+      });
+    });
+
+    els.channelList?.addEventListener("click", (ev) => {
+      if (isMobileLayout() && ev.target.closest(".channel-btn")) closeSidebar();
+    });
+
+    window.addEventListener("resize", () => {
+      if (!isMobileLayout()) {
+        document.body.classList.remove("panel-chat", "panel-preview", "panel-team");
+        closeSidebar();
+      } else {
+        setMobilePanel(mobilePanel);
+      }
+    });
+
+    if (isMobileLayout()) setMobilePanel("chat");
+  }
+
   let previewMode = "staging";
+  let mobilePanel = "chat";
 
   function escapeHtml(s) {
     return String(s)
@@ -181,19 +248,33 @@
       next.artifacts && (next.artifacts["static/index.html"] || next.artifacts["index.html"])
     );
     const show = next.preview_ready || next.live_preview_url || artifactsReady;
-    els.previewPanel.hidden = !show;
-    if (!show) return;
+    const mobilePreviewTab = isMobileLayout() && mobilePanel === "preview";
+
+    if (mobilePreviewTab) {
+      els.previewPanel.hidden = false;
+      if (!show) {
+        els.sitePreview.removeAttribute("src");
+        els.sitePreview.srcdoc =
+          '<!DOCTYPE html><html><body style="font-family:system-ui;display:grid;place-items:center;height:100%;margin:0;color:#616061;background:#fafafa"><p>Squad is still coding — check back soon.</p></body></html>';
+      }
+    } else {
+      els.previewPanel.hidden = !show;
+    }
+
+    if (!show && !mobilePreviewTab) return;
 
     if (els.livePreviewTab) {
       els.livePreviewTab.disabled = !next.live_preview_url;
     }
 
-    if (previewMode === "live" && next.live_preview_url) {
-      els.sitePreview.src = next.live_preview_url;
-      els.sitePreview.removeAttribute("srcdoc");
-    } else {
-      els.sitePreview.src = `${API}/api/v1/demo/preview?t=${next.tick || 0}`;
-      els.sitePreview.removeAttribute("srcdoc");
+    if (show) {
+      if (previewMode === "live" && next.live_preview_url) {
+        els.sitePreview.src = next.live_preview_url;
+        els.sitePreview.removeAttribute("srcdoc");
+      } else {
+        els.sitePreview.src = `${API}/api/v1/demo/preview?t=${next.tick || 0}`;
+        els.sitePreview.removeAttribute("srcdoc");
+      }
     }
   }
 
@@ -311,6 +392,7 @@
   }
 
   async function bootstrap() {
+    initMobileNav();
     try {
       const res = await fetch(`${API}/api/v1/demo/state`);
       if (res.status === 503) {

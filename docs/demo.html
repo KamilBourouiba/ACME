@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="assets/demo.css">
 </head>
 <body class="slack-demo">
+  <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
   <div class="workspace">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="workspace-header">
         <strong>Erebor</strong>
         <span class="live-pill" id="live-pill">Connecting</span>
@@ -23,9 +24,10 @@
       </div>
     </aside>
 
-    <section class="main">
+    <section class="main" id="main-panel">
       <header class="channel-header">
-        <div>
+        <button type="button" class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open channels">☰</button>
+        <div class="channel-header-text">
           <h1 id="channel-title">#general</h1>
           <p id="channel-topic">Erebor open intelligence graph</p>
         </div>
@@ -53,7 +55,7 @@
       </div>
     </section>
 
-    <aside class="members-panel">
+    <aside class="members-panel" id="members-panel">
       <h2>Team · ACME memory</h2>
       <div id="member-list"></div>
       <div class="beliefs-panel" id="beliefs-panel">
@@ -67,6 +69,21 @@
       </div>
     </aside>
   </div>
+
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Mobile navigation">
+    <button type="button" class="mobile-nav-btn active" data-panel="chat" aria-current="page">
+      <span class="mobile-nav-icon">💬</span>
+      <span>Chat</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" data-panel="preview">
+      <span class="mobile-nav-icon">◫</span>
+      <span>Preview</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" data-panel="team">
+      <span class="mobile-nav-icon">👥</span>
+      <span>Team</span>
+    </button>
+  </nav>
 
   <script>
     window.ACME_DEMO_API = window.ACME_DEMO_API || "https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io";
