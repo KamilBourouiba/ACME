@@ -23,7 +23,6 @@
     error: document.getElementById("demo-error"),
     deployBanner: document.getElementById("deploy-banner"),
     liveSiteLink: document.getElementById("live-site-link"),
-    resetBtn: document.getElementById("reset-btn"),
     previewPanel: document.getElementById("preview-panel"),
     sitePreview: document.getElementById("site-preview"),
     livePreviewTab: document.getElementById("live-preview-tab"),
@@ -327,30 +326,6 @@
       showError(`Could not reach demo API: ${err.message}`);
     }
   }
-
-  async function resetDemo() {
-    els.resetBtn.disabled = true;
-    try {
-      const res = await fetch(`${API}/api/v1/demo/reset`, { method: "POST" });
-      if (res.status === 429) {
-        const body = await res.json().catch(() => ({}));
-        showError(body.detail || "Reset cooldown active.");
-        return;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      clearError();
-      agentBeliefs = null;
-      const stateRes = await fetch(`${API}/api/v1/demo/state`);
-      if (stateRes.ok) render(await stateRes.json());
-      if (selectedAgent) loadAgentBeliefs(selectedAgent);
-    } catch (err) {
-      showError(`Reset failed: ${err.message}`);
-    } finally {
-      els.resetBtn.disabled = false;
-    }
-  }
-
-  els.resetBtn?.addEventListener("click", resetDemo);
 
   bootstrap();
 })();
