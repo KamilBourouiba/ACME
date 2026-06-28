@@ -178,7 +178,8 @@
 
   function renderPreview(next) {
     if (!els.previewPanel || !els.sitePreview) return;
-    const show = next.preview_ready || next.live_preview_url;
+    const artifactsReady = Boolean(next.artifacts && next.artifacts["index.html"]);
+    const show = next.preview_ready || next.live_preview_url || artifactsReady;
     els.previewPanel.hidden = !show;
     if (!show) return;
 

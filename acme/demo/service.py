@@ -173,6 +173,8 @@ class DemoService:
 
         if beat.kind == "code" and beat.code_file and beat.code_body:
             self._artifacts[beat.code_file] = beat.code_body
+            if beat.code_file == "index.html":
+                self._preview_ready = True
 
         if beat.kind == "preview":
             self._preview_ready = bool(self._artifacts.get("index.html"))
@@ -514,8 +516,10 @@ class DemoService:
             messages=[m.to_out() for m in self._messages[-80:]],
             artifacts=dict(self._artifacts),
             last_deploy=self._last_deploy,
-            preview_ready=self._preview_ready,
-            preview_url=self.preview_api_url() if self._preview_ready else None,
+            preview_ready=self._preview_ready or bool(self._artifacts.get("index.html")),
+            preview_url=self.preview_api_url()
+            if (self._preview_ready or self._artifacts.get("index.html"))
+            else None,
             live_preview_url=(
                 self._last_deploy.get("pages_url")
                 if self._last_deploy and self._last_deploy.get("pages_verified")
