@@ -9,6 +9,19 @@ SKIP_NAMES = frozenset({"deploy_receiver.py", "Dockerfile.deploy"})
 SKIP_DIRS = frozenset({"certs", "__pycache__"})
 TEXT_SUFFIXES = frozenset({".py", ".md", ".html", ".css", ".js", ".txt", ".yml", ".conf", ".example", ".json"})
 
+# Infra pre-loaded on reset — agents code the product files live
+BASELINE_NAMES = frozenset(
+    {
+        "Dockerfile",
+        "docker-compose.yml",
+        "nginx.conf",
+        "requirements.txt",
+        "deploy_receiver.py",
+        "api/__init__.py",
+        "api/routes/__init__.py",
+    }
+)
+
 
 def load_site_artifacts() -> dict[str, str]:
     artifacts: dict[str, str] = {}
@@ -28,11 +41,18 @@ def load_site_artifacts() -> dict[str, str]:
     return artifacts
 
 
+def baseline_artifacts() -> dict[str, str]:
+    """Docker/nginx/requirements only — product files are written by agents."""
+    full = load_site_artifacts()
+    return {k: v for k, v in full.items() if k in BASELINE_NAMES}
+
+
 def artifact(name: str, store: dict[str, str] | None = None) -> str:
-    data = store if store is not None else SITE_ARTIFACTS
+    data = store if store is not None else REFERENCE_ARTIFACTS
     if name not in data:
         raise KeyError(f"Missing demo artifact: {name}")
     return data[name]
 
 
-SITE_ARTIFACTS: dict[str, str] = load_site_artifacts()
+REFERENCE_ARTIFACTS: dict[str, str] = load_site_artifacts()
+SITE_ARTIFACTS = REFERENCE_ARTIFACTS  # backwards compat

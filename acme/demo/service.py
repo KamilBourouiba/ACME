@@ -12,7 +12,8 @@ from typing import Any
 from acme.config import settings
 from acme.db.session import SessionLocal
 from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, DemoAgent
-from acme.demo.artifacts import SITE_ARTIFACTS
+from acme.demo.artifacts import REFERENCE_ARTIFACTS, baseline_artifacts
+from acme.demo.coding import generate_agent_code
 from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
 from acme.demo.github_deploy import deploy_files
 from acme.demo.github_pages import github_pages_files
@@ -94,7 +95,7 @@ class DemoService:
         self._beat_index = 0
         self._turn_index = 0
         self._messages: list[_DemoMessage] = []
-        self._artifacts: dict[str, str] = dict(SITE_ARTIFACTS)
+        self._artifacts: dict[str, str] = baseline_artifacts()
         self._last_deploy: dict[str, Any] | None = None
         self._last_sessions: dict[str, str] = {}
         self._subscribers: set[asyncio.Queue] = set()
@@ -173,6 +174,14 @@ class DemoService:
         if settings.demo_llm_paraphrase and beat.kind not in ("code", "preview"):
             content = await self._maybe_paraphrase(agent, beat.kind, beat.content)
 
+        code_body = beat.code_body
+        if beat.kind == "code" and beat.code_file:
+            if code_body is None and settings.demo_llm_code:
+                code_body = await generate_agent_code(agent, beat, artifacts=self._artifacts)
+                content = f"Pushed `{beat.code_file}` — {beat.content}"
+            elif code_body is None and settings.demo_code_fallback:
+                code_body = REFERENCE_ARTIFACTS.get(beat.code_file, "")
+
         msg = _DemoMessage(
             id=str(uuid.uuid4()),
             channel=beat.channel,
@@ -185,12 +194,12 @@ class DemoService:
             reply_to_name=reply_name,
             code_file=beat.code_file,
             code_lang=beat.code_lang,
-            code_body=beat.code_body,
+            code_body=code_body,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
-        if beat.kind == "code" and beat.code_file and beat.code_body:
-            self._artifacts[beat.code_file] = beat.code_body
+        if beat.kind == "code" and beat.code_file and code_body:
+            self._artifacts[beat.code_file] = code_body
             if _index_key(self._artifacts):
                 self._preview_ready = True
 
@@ -433,7 +442,9 @@ class DemoService:
 
                 if beat.kind in ("message", "code", "deploy", "reply", "preview"):
                     body = beat.content
-                    if beat.code_file:
+                    if beat.code_file and msg.code_body:
+                        body = f"{beat.content} File: {beat.code_file}\n{msg.code_body[:500]}"
+                    elif beat.code_file:
                         body = f"{beat.content} File: {beat.code_file}"
                     await orch.ingest_experience(
                         ExperienceCreate(
@@ -646,7 +657,7 @@ class DemoService:
 
         self._messages.clear()
         self._last_sessions.clear()
-        self._artifacts = dict(SITE_ARTIFACTS)
+        self._artifacts = baseline_artifacts()
         self._last_deploy = None
         self._last_publish_at = None
         self._preview_ready = False

@@ -43,7 +43,7 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         tenant_id="demo-erebor-marco",
         color="#1264a3",
         initials="M",
-        system_prompt="You are Marco, frontend dev. Three.js globe, instanced nodes, arc links, ES modules.",
+        system_prompt="You are Marco, frontend dev. You write Three.js scenes, CSS modules, ES modules — polished, not generic.",
         channels=("engineering", "general"),
     ),
     DemoAgent(
@@ -53,7 +53,7 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         tenant_id="demo-erebor-chen",
         color="#0b4f6c",
         initials="C",
-        system_prompt="You are Chen, backend dev. httpx proxies to GitHub, OpenAlex, Nominatim — real OSS APIs only.",
+        system_prompt="You are Chen, backend dev. You write httpx OSS proxies (GitHub, OpenAlex, Nominatim) and FastAPI routes.",
         channels=("engineering",),
     ),
     DemoAgent(

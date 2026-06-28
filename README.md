@@ -484,7 +484,7 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 **Website:** [kamilbourouiba.github.io/ACME/demo.html](https://kamilbourouiba.github.io/ACME/demo.html)
 
-Slack-style UI: **10 teammates** build **Erebor** — an open Palantir-grade intelligence graph (Three.js globe, OSS API search, entity inspector) across channels (`#general`, `#product`, `#design`, `#engineering`, `#deploy`). The site *is* the product. Messages post every **5 s**.
+Slack-style UI: **10 teammates** build **Erebor** live — each `code` beat calls the LLM (`DEMO_LLM_CODE=true`) so agents **write** files into the repo (CSS, Three.js, OSS API routes). The site starts empty except Docker/nginx infra; preview fills as they commit.
 
 **Nina (DevOps) autonomously publishes** to GitHub Pages + secure VM when the script reaches `#deploy`.
 
@@ -498,7 +498,10 @@ Visitors can:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `DEMO_ENABLED` | `false` | Start the background loop at API startup |
-| `DEMO_INTERVAL_SEC` | `5` | Pause between scripted Slack turns |
+| `DEMO_LLM_CODE` | `true` | Agents generate file contents via LLM on code beats |
+| `DEMO_CODE_FALLBACK` | `true` | Use reference `site/` file if LLM fails |
+| `DEMO_CODE_TIMEOUT_SEC` | `90` | Max seconds per file generation |
+| `DEMO_INTERVAL_SEC` | `5` | Pause between turns (code beats may take longer) |
 | `DEMO_AUTO_PUBLISH` | `true` | Nina publishes on deploy beats |
 | `DEMO_GITHUB_TOKEN` | — | **Required** PAT (`repo` scope) for autonomous publish |
 | `DEMO_GITHUB_REPO` | `KamilBourouiba/erebor-site-demo` | Target repo (created if missing) |

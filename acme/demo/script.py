@@ -1,8 +1,6 @@
-"""Scripted Slack beats — Erebor open intelligence platform."""
+"""Scripted Slack beats — Erebor open intelligence platform (agents write code via LLM)."""
 
 from dataclasses import dataclass
-
-from acme.demo.artifacts import artifact as A
 
 
 @dataclass(frozen=True)
@@ -14,11 +12,11 @@ class DemoBeat:
     reply_to: str | None = None
     code_file: str | None = None
     code_lang: str | None = None
-    code_body: str | None = None
+    code_body: str | None = None  # None = agent generates at runtime
 
 
 def _code(agent: str, path: str, lang: str, msg: str) -> DemoBeat:
-    return DemoBeat("engineering", agent, "code", msg, code_file=path, code_lang=lang, code_body=A(path))
+    return DemoBeat("engineering", agent, "code", msg, code_file=path, code_lang=lang)
 
 
 SCRIPT_BEATS: tuple[DemoBeat, ...] = (

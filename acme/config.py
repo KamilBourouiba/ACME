@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     demo_reset_cooldown_sec: int = 5
     demo_azure_deployment: str = ""  # e.g. gpt-5.4; empty = use AZURE_OPENAI_DEPLOYMENT
     demo_llm_paraphrase: bool = False
+    demo_llm_code: bool = True  # agents write files via LLM on code beats
+    demo_code_fallback: bool = True  # use reference site/ file if LLM fails
+    demo_code_timeout_sec: int = 90
     demo_channel_hearsay: bool = True
     demo_github_token: str = ""
     demo_github_repo: str = "KamilBourouiba/erebor-site-demo"
