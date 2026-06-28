@@ -138,6 +138,21 @@ def _fix_tasks_for_issues(issues: list[str]) -> list[UiFixTask]:
     return tasks
 
 
+def _benign_console(text: str) -> bool:
+    t = text.lower()
+    return any(
+        token in t
+        for token in (
+            "favicon",
+            "webgl",
+            "gl_driver",
+            "gpu stall",
+            "readpixels",
+            "gl_close_path",
+        )
+    )
+
+
 async def _httpx_audit(url: str, *, label: str) -> UiAuditReport:
     issues: list[str] = []
     async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
@@ -191,7 +206,7 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
         def _on_console(msg):
             if msg.type in ("error", "warning"):
                 text = msg.text or ""
-                if text and "favicon" not in text.lower():
+                if text and not _benign_console(text):
                     console_errors.append(text[:200])
 
         page.on("console", _on_console)

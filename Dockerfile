@@ -13,7 +13,8 @@ COPY acme ./acme
 COPY data/longmemeval ./data/longmemeval
 COPY pyproject.toml .
 
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[demo-ui]" \
+    && playwright install --with-deps chromium
 
 EXPOSE 8000
 
