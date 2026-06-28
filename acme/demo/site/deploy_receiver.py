@@ -4,14 +4,113 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 SITE_DIR = Path("/opt/nexus-site")
 DEPLOY_KEY = os.environ.get("DEPLOY_KEY", "")
 PORT = int(os.environ.get("DEPLOY_PORT", "9090"))
+EXEC_TIMEOUT_DEFAULT = 45
+EXEC_TIMEOUT_MAX = 180
+
+FORBIDDEN_SHELL = re.compile(r"[;&|`$><\n\r]|\$\(|\${")
+
+ALLOWED_BINARIES = frozenset(
+    {
+        "curl",
+        "docker",
+        "docker-compose",
+        "systemctl",
+        "ls",
+        "cat",
+        "test",
+        "python3",
+        "head",
+        "tail",
+        "grep",
+        "wc",
+    }
+)
+
+DOCKER_SUBCOMMANDS = frozenset(
+    {"ps", "logs", "inspect", "compose", "rm", "restart", "start", "stop", "images"}
+)
+
+SYSTEMCTL_SUBCOMMANDS = frozenset({"status", "is-active", "restart", "start", "stop"})
+
+
+def _validate_command(command: str) -> tuple[bool, str]:
+    cmd = command.strip()
+    if not cmd:
+        return False, "empty command"
+    if FORBIDDEN_SHELL.search(cmd):
+        return False, "shell metacharacters not allowed"
+    try:
+        parts = shlex.split(cmd)
+    except ValueError as exc:
+        return False, str(exc)
+    if not parts:
+        return False, "empty command"
+    binary = parts[0]
+    if binary not in ALLOWED_BINARIES:
+        return False, f"binary not allowed: {binary}"
+    if binary == "docker" and len(parts) > 1 and parts[1] not in DOCKER_SUBCOMMANDS:
+        return False, f"docker subcommand not allowed: {parts[1]}"
+    if binary == "systemctl" and len(parts) > 1 and parts[1] not in SYSTEMCTL_SUBCOMMANDS:
+        return False, f"systemctl subcommand not allowed: {parts[1]}"
+    if binary == "curl":
+        joined = " ".join(parts)
+        if not re.search(r"https?://(127\.0\.0\.1|localhost)", joined):
+            return False, "curl only allowed to localhost"
+    if binary in {"cat", "ls", "head", "tail", "grep", "test"}:
+        for arg in parts[1:]:
+            if arg.startswith("-") and binary != "grep":
+                continue
+            if not arg.startswith("/opt/nexus-site"):
+                return False, f"path must stay under /opt/nexus-site: {arg}"
+    return True, ""
+
+
+def _run_shell(command: str, *, cwd: Path, timeout: float) -> dict:
+    ok, reason = _validate_command(command)
+    if not ok:
+        return {"ok": False, "error": reason, "returncode": None, "stdout": "", "stderr": ""}
+    try:
+        proc = subprocess.run(
+            command,
+            shell=True,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        return {
+            "ok": proc.returncode == 0,
+            "returncode": proc.returncode,
+            "stdout": (proc.stdout or "")[-12000:],
+            "stderr": (proc.stderr or "")[-4000:],
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "ok": False,
+            "error": f"timed out after {timeout}s",
+            "returncode": None,
+            "stdout": "",
+            "stderr": "",
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+            "returncode": None,
+            "stdout": "",
+            "stderr": "",
+        }
 
 
 def _compose_cmd() -> list[str]:
@@ -78,9 +177,6 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 self._json(200, json.loads(status_path.read_text(encoding="utf-8")))
                 return
-            # /logs
-            from urllib.parse import parse_qs, urlparse
-
             qs = parse_qs(urlparse(self.path).query)
             service = (qs.get("service") or ["api"])[0]
             tail = int((qs.get("tail") or ["80"])[0])
@@ -101,7 +197,27 @@ class Handler(BaseHTTPRequestHandler):
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
-        if self.path.rstrip("/") != "/deploy":
+        path = self.path.split("?", 1)[0].rstrip("/")
+        if path == "/exec":
+            if not self._authorized():
+                self._json(401, {"error": "unauthorized"})
+                return
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length).decode())
+            command = str(payload.get("command", "")).strip()
+            cwd = Path(str(payload.get("cwd", SITE_DIR)))
+            if not str(cwd).startswith(str(SITE_DIR)):
+                self._json(400, {"error": "cwd must be under /opt/nexus-site"})
+                return
+            timeout = min(
+                float(payload.get("timeout", EXEC_TIMEOUT_DEFAULT)),
+                EXEC_TIMEOUT_MAX,
+            )
+            result = _run_shell(command, cwd=cwd, timeout=timeout)
+            code = 200 if result.get("ok") or result.get("returncode") is not None else 500
+            self._json(code, result)
+            return
+        if path != "/deploy":
             self._json(404, {"error": "not found"})
             return
         auth = self.headers.get("Authorization", "")

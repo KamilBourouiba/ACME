@@ -36,6 +36,8 @@ class ImprovementPlan:
     query: str | None = None
     skill: str | None = None
     deploy: bool = False
+    recipe: str | None = None
+    command: str | None = None
 
     def to_beat(self) -> DemoBeat | None:
         if self.action == "edit" and self.file:
@@ -78,20 +80,29 @@ def _fallback_plan(
     observations: str,
     artifacts: dict[str, str],
     deploy_allowed: bool = True,
+    failure_sig: str = "ok",
 ) -> ImprovementPlan:
     agents_cycle = ["jordan", "marco", "chen", "priya", "nina", "sam"]
     agent_id = agents_cycle[turn % len(agents_cycle)]
     has_index = "static/index.html" in artifacts
-    vm_failing = "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
+    vm_failing = failure_sig != "ok" or "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
     pages_ok = "Pages-only mode OK" in observations
 
     if vm_failing:
+        if turn % 5 == 0:
+            return ImprovementPlan(
+                agent_id="vera",
+                channel="ops",
+                action="triage",
+                skill="deploy_status",
+                message="Consolidated incident triage — then VM exec fixes on next turns.",
+            )
         return ImprovementPlan(
             agent_id="vera",
             channel="ops",
-            action="triage",
-            skill="deploy_status",
-            message="VM/receiver probes failing — posting deduped incident triage before any redeploy.",
+            action="remediate",
+            skill="vm_remediate",
+            message="Running allowlisted curl/docker fix on the VM via receiver /exec.",
         )
     if "FAIL" in observations and "http_probe" in observations:
         return ImprovementPlan(
@@ -151,6 +162,7 @@ async def plan_improvement(
     recent_thread: str,
     deploy_allowed: bool = True,
     deploy_block_reason: str | None = None,
+    failure_sig: str = "ok",
 ) -> ImprovementPlan:
     agent_ids = [a.id for a in DEMO_AGENTS]
     artifact_list = ", ".join(sorted(artifacts.keys())[:35]) or "(empty)"
@@ -177,20 +189,24 @@ Pick the next highest-impact action. Respond with JSON only:
 {{
   "agent_id": one of {agent_ids},
   "channel": "general"|"engineering"|"design"|"product"|"deploy"|"ops",
-  "action": "probe"|"edit"|"deploy"|"query"|"announce"|"triage",
+  "action": "probe"|"edit"|"deploy"|"query"|"announce"|"triage"|"remediate",
   "message": "Slack message explaining what you did or will do",
   "file": "path/for/edit action or null",
   "lang": "css|javascript|html|python|markdown or null",
   "query": "question for acme_query or null",
   "skill": "which skill you used or null",
+  "recipe": "vm recipe name (compose_restart, probe_site_health, etc.) or null",
+  "command": "allowlisted shell on VM (curl localhost, docker compose) or null",
   "deploy": false
 }}
 
 Rules:
+- When probes fail: Vera runs remediate (vm_exec) BEFORE redeploy — curl/docker on VM host
+- Never repeat triage every turn — alternate remediate → edit → deploy
 - Prefer edit/probe when VM API or receiver probes fail — do NOT redeploy the same broken artifact set
-- If GitHub Pages is healthy but VM API is down, fix server.py/receiver code first; VM-only deploy later
+- If GitHub Pages is healthy but VM API is down, run compose_restart / probe_site_health first
 - Jordan uses probe/query; Nina deploys only when allowed; Marco/Priya/Chen edit files
-- Vera owns triage in #ops — one consolidated incident report, never repeat the same alert
+- Vera owns #ops — triage once per incident, then remediate with real commands
 - One concrete improvement per turn — no vague planning
 {deploy_rule}
 """
@@ -220,6 +236,8 @@ Rules:
             query=data.get("query"),
             skill=data.get("skill"),
             deploy=bool(data.get("deploy")),
+            recipe=data.get("recipe"),
+            command=data.get("command"),
         )
     except Exception:
         logger.exception("Improvement plan LLM failed — using heuristic")
@@ -228,4 +246,5 @@ Rules:
             observations=observations,
             artifacts=artifacts,
             deploy_allowed=deploy_allowed,
+            failure_sig=failure_sig,
         )

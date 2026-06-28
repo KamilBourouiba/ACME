@@ -21,6 +21,7 @@ from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, plan_improvement
 from acme.demo.reset import cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
+from acme.demo.remediation import RemediationState, execute_remediation, format_remediation_message
 from acme.demo.triage import (
     failure_signature,
     format_triage_report,
@@ -134,6 +135,7 @@ class DemoService:
         self._recent_message_norms: list[str] = []
         self._last_triage_signature: str | None = None
         self._last_triage_tick: int = -999
+        self._remediation = RemediationState()
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:
@@ -235,9 +237,9 @@ class DemoService:
             return ImprovementPlan(
                 agent_id="vera",
                 channel="ops",
-                action="triage",
-                skill="deploy_status",
-                message=f"Deploy blocked ({reason}). Triage VM/API failure before redeploy.",
+                action="remediate",
+                skill="vm_remediate",
+                message=f"Deploy blocked ({reason}). Running VM curl/docker fix before code edits.",
             )
         if pages_ok:
             return ImprovementPlan(
@@ -457,6 +459,7 @@ class DemoService:
 
         skills = DemoSkills(artifacts=artifacts_snapshot, last_deploy=last_deploy)
         observations, skill_results = await skills.gather_observations()
+        failure_sig = failure_signature(observations, skill_results)
 
         async with self._lock:
             probe_results = [
@@ -478,6 +481,7 @@ class DemoService:
             recent_thread=recent,
             deploy_allowed=deploy_allowed,
             deploy_block_reason=deploy_block_reason,
+            failure_sig=failure_sig,
         )
         plan = self._sanitize_improvement_plan(
             plan, observations=observations, imp_turn=imp_turn
@@ -510,8 +514,44 @@ class DemoService:
                 observations=observations,
                 skill_results=skill_results,
                 deploy_block_reason=deploy_block_reason,
-                signature=failure_signature(observations, skill_results),
+                signature=failure_sig,
             )
+        elif plan.action == "remediate":
+            kind = "remediate"
+            skill_result, recipe, cmd = await execute_remediation(
+                signature=failure_sig,
+                state=self._remediation,
+                attempt_cap=settings.demo_remediation_attempt_cap,
+                recipe=plan.recipe,
+                command=plan.command,
+            )
+            if skill_result.summary.startswith("recipe") and "exhausted" in skill_result.summary:
+                plan = ImprovementPlan(
+                    agent_id="chen",
+                    channel="engineering",
+                    action="edit",
+                    file="server.py",
+                    lang="python",
+                    message="VM recipes exhausted — patching API/receiver code instead of looping.",
+                )
+                agent = AGENT_BY_ID["chen"]
+                beat = plan.to_beat()
+                kind = "code"
+                content = plan.message
+                if settings.demo_llm_code and beat and beat.code_file:
+                    code_body = await generate_agent_code(agent, beat, artifacts=artifacts_snapshot)
+                    content = f"Pushed `{beat.code_file}` — {plan.message}"
+            else:
+                content = format_remediation_message(
+                    recipe=recipe,
+                    command=cmd,
+                    result=skill_result.detail,
+                    signature=failure_sig,
+                )
+                if skill_result.ok:
+                    async with self._lock:
+                        self._remediation.reset_signature(failure_sig)
+                        self._consecutive_vm_probe_failures = 0
         elif plan.action == "query" and beat:
             kind = "query"
         else:
@@ -1310,6 +1350,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._recent_message_norms = []
         self._last_triage_signature = None
         self._last_triage_tick = -999
+        self._remediation = RemediationState()
         self.tick = 0
         self._phase = "bootstrap"
         self._paused = False

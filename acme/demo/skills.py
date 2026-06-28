@@ -11,6 +11,7 @@ import httpx
 
 from acme.config import settings
 from acme.demo.vm_deploy import settings_site_url
+from acme.demo.vm_exec import REMEDIATION_RECIPES, exec_on_vm, run_recipe
 
 logger = logging.getLogger("acme.demo.skills")
 
@@ -26,6 +27,8 @@ Available skills (agents use these every improvement turn):
 - edit_file: patch or create a repo file (frontend/backend/css/js/python)
 - deploy: push artifacts to VM (+ GitHub Pages when configured)
 - triage: Vera consolidates failing probes into one incident report (dedupes spam)
+- vm_exec: run allowlisted curl/docker/systemctl on the VM via receiver POST /exec
+- vm_remediate: Vera runs a fix recipe (compose restart, health curls, receiver restart)
 """
 
 
@@ -204,6 +207,37 @@ class DemoSkills:
             ok=bool(paths),
             summary=f"{len(paths)} files in squad repo",
             detail={"paths": paths, "sizes": preview},
+        )
+
+    async def vm_exec(self, command: str, *, timeout: float = 45.0) -> SkillResult:
+        result = await exec_on_vm(command, timeout=timeout)
+        ok = bool(result.get("ok")) and result.get("returncode", 1) == 0
+        err = result.get("error")
+        return SkillResult(
+            skill="vm_exec",
+            ok=ok and not err,
+            summary=(
+                f"exec exit={result.get('returncode')} "
+                + (err or (result.get("stdout") or "")[:80].replace("\n", " "))
+            )[:160],
+            detail=result,
+        )
+
+    async def vm_remediate(self, recipe: str) -> SkillResult:
+        if recipe not in REMEDIATION_RECIPES:
+            return SkillResult(
+                skill="vm_remediate",
+                ok=False,
+                summary=f"unknown recipe: {recipe}",
+                detail={"recipe": recipe, "available": list(REMEDIATION_RECIPES.keys())},
+            )
+        result = await run_recipe(recipe)
+        ok = bool(result.get("ok")) and result.get("returncode", 1) == 0
+        return SkillResult(
+            skill="vm_remediate",
+            ok=ok,
+            summary=f"{recipe} exit={result.get('returncode')}",
+            detail=result,
         )
 
     async def gather_observations(self, *, include_logs: bool = True) -> tuple[str, list[SkillResult]]:

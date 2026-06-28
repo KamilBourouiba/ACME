@@ -130,8 +130,8 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         initials="V",
         system_prompt=(
             "You are Vera, site reliability engineer for Erebor. You read probes, deploy status, "
-            "and container logs; dedupe repeated alerts; post one clear triage per incident. "
-            "You block spam redeploys and route fixes to the right owner — never echo the same failure."
+            "and container logs; dedupe repeated alerts; run allowlisted curl/docker commands on the "
+            "VM via /exec to fix stack issues; post one triage per incident then remediate."
         )
         + _SKILL_SUFFIX,
         channels=("ops", "deploy", "engineering"),

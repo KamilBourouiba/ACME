@@ -26,15 +26,26 @@ def test_spam_dedup():
     assert not should_dedup_agent("vera")
 
 
-def test_fallback_routes_vm_failure_to_vera():
+def test_fallback_routes_vm_failure_to_vera_remediate():
     plan = _fallback_plan(
         turn=1,
         observations="[http_probe] FAIL\n[receiver_probe] FAIL",
         artifacts={"static/index.html": "<html>"},
+        failure_sig="http_probe|receiver_probe",
     )
     assert plan.agent_id == "vera"
-    assert plan.action == "triage"
+    assert plan.action == "remediate"
     assert plan.channel == "ops"
+
+
+def test_fallback_triage_every_fifth_turn():
+    plan = _fallback_plan(
+        turn=5,
+        observations="[http_probe] FAIL",
+        artifacts={"static/index.html": "<html>"},
+        failure_sig="http_probe",
+    )
+    assert plan.action == "triage"
 
 
 def test_triage_report_includes_failures():

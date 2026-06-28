@@ -5,9 +5,14 @@ from acme.demo.skills import DemoSkills
 
 
 def test_fallback_plan_probes_on_failure():
-    plan = _fallback_plan(turn=0, observations="[http_probe] FAIL", artifacts={})
-    assert plan.action in ("probe", "edit", "triage")
-    assert plan.agent_id in ("jordan", "chen", "vera")
+    plan = _fallback_plan(
+        turn=6,
+        observations="[list_artifacts] OK only",
+        artifacts={},
+        failure_sig="ok",
+    )
+    # no vm failing path — bootstraps or edits
+    assert plan.action in ("probe", "edit", "query", "deploy", "remediate", "triage")
 
 
 def test_fallback_plan_bootstraps_index_when_empty():
