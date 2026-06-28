@@ -118,6 +118,7 @@ class Settings(BaseSettings):
     demo_platform_reconcile_cooldown_sec: int = 180
     demo_visitor_secret: str = "LeanLean"
     demo_visitor_say_cooldown_sec: int = 3
+    demo_ui_audit_interval: int = 5  # Taylor browser audit every N improvement turns
 
 
 settings = Settings()

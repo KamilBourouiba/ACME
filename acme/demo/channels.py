@@ -18,6 +18,7 @@ DEMO_CHANNELS: tuple[DemoChannel, ...] = (
     DemoChannel("engineering", "engineering", "OSS API proxies, graph model, ES modules", "⚙️"),
     DemoChannel("deploy", "deploy", "GitHub Pages + secure VM stack", "🚀"),
     DemoChannel("ops", "ops", "Incidents, probes, deduped debug triage", "🩺"),
+    DemoChannel("qa", "qa", "Taylor — browser UI audit, screenshots, UX handoff", "🖱️"),
 )
 
 CHANNEL_BY_ID = {c.id: c for c in DEMO_CHANNELS}

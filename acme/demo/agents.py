@@ -80,8 +80,24 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         tenant_id="demo-erebor-jordan",
         color="#ecb22e",
         initials="J",
-        system_prompt="You are Jordan, QA. Globe interaction, search fan-out, inspector panels, trail persistence. You run http_probe and read container_logs every improvement turn." + _SKILL_SUFFIX,
+        system_prompt="You are Jordan, QA. HTTP probes, API health, container logs. Taylor owns browser click-through — you own http_probe and search API checks." + _SKILL_SUFFIX,
         channels=("engineering", "product"),
+    ),
+    DemoAgent(
+        id="taylor",
+        name="Taylor",
+        role="UI/UX QA Lead",
+        tenant_id="demo-erebor-taylor",
+        color="#ff6b35",
+        initials="T",
+        system_prompt=(
+            "You are Taylor, UI/UX QA. Every improvement cycle you run ui_audit: load live Pages, "
+            "click search/controls, capture screenshots, read console errors. Post findings in #qa, "
+            "then hand off concrete fixes to Marco (JS/globe), Priya (CSS), Chen (API client). "
+            "Do not write feature code yourself — audit first, builders ship after."
+        )
+        + _SKILL_SUFFIX,
+        channels=("qa", "design", "engineering", "product"),
     ),
     DemoAgent(
         id="sam",

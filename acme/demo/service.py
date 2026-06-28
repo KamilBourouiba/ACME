@@ -26,6 +26,7 @@ from acme.demo.site_guard import is_pinned_on_deploy, is_protected_site_file, re
 from acme.demo.static_assets import normalize_static_asset_paths
 from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
+from acme.demo.ui_probe import format_ui_audit_message, run_ui_audit
 from acme.demo.remediation import RemediationState, execute_remediation, format_remediation_message
 from acme.demo.triage import (
     failure_signature,
@@ -155,6 +156,24 @@ class DemoService:
         self._platform_watchdog_task: asyncio.Task | None = None
         self._last_platform_reconcile_at: datetime | None = None
         self._platform_reconcile_lock = asyncio.Lock()
+        self._ui_fix_queue: list[dict[str, str]] = []
+        self._ui_screenshots: dict[str, bytes] = {}
+
+    def get_ui_screenshot(self, shot_id: str) -> bytes | None:
+        return self._ui_screenshots.get(shot_id)
+
+    def _pop_ui_fix_plan(self) -> ImprovementPlan | None:
+        if not self._ui_fix_queue:
+            return None
+        task = self._ui_fix_queue.pop(0)
+        return ImprovementPlan(
+            agent_id=task["agent_id"],
+            channel="engineering",
+            action="edit",
+            file=task["file"],
+            lang=task["lang"],
+            message=task["message"],
+        )
 
     def _pin_code_artifact(self, path: str, body: str) -> str:
         """Boot-critical files use canonical copies; improve phase is static/ only."""
@@ -688,18 +707,23 @@ class DemoService:
             deploy_allowed, deploy_block_reason = self._deploy_allowed(
                 observations=observations, imp_turn=imp_turn
             )
+            queued_fix = self._pop_ui_fix_plan()
 
-        plan = await plan_improvement(
-            turn=imp_turn,
-            observations=observations,
-            artifacts=artifacts_snapshot,
-            recent_thread=recent,
-            deploy_allowed=deploy_allowed,
-            deploy_block_reason=deploy_block_reason,
-            failure_sig=failure_sig,
-            agents=self._registry.list_agents(),
-            channels=self._registry.list_channels(),
-        )
+        if queued_fix:
+            plan = queued_fix
+        else:
+            plan = await plan_improvement(
+                turn=imp_turn,
+                observations=observations,
+                artifacts=artifacts_snapshot,
+                recent_thread=recent,
+                deploy_allowed=deploy_allowed,
+                deploy_block_reason=deploy_block_reason,
+                failure_sig=failure_sig,
+                agents=self._registry.list_agents(),
+                channels=self._registry.list_channels(),
+                ui_fix_pending=bool(self._ui_fix_queue),
+            )
         plan = self._sanitize_improvement_plan(
             plan,
             observations=observations,
@@ -806,6 +830,26 @@ class DemoService:
                 content = f"Channel create blocked: {exc}"
         elif plan.action == "query" and beat:
             kind = "query"
+        elif plan.action == "ui_audit":
+            kind = "ui_audit"
+            pages = (last_deploy or {}).get("pages_url")
+            report = await run_ui_audit(
+                pages_url=pages,
+                vm_site_url=skills._site_url or None,
+            )
+            async with self._lock:
+                self._ui_screenshots.update(report.screenshots)
+                for task in report.fix_tasks:
+                    self._ui_fix_queue.append(task.to_dict())
+                audit_line = f"[ui_audit] {'OK' if report.ok else 'FAIL'}: {report.summary}"
+                self._observations_text = f"{self._observations_text}\n{audit_line}".strip()[-8000:]
+            content = format_ui_audit_message(report)
+            if report.fix_tasks:
+                content += (
+                    f"\n\n_Queued {len(report.fix_tasks)} builder task(s) — "
+                    "Marco/Priya/Chen ship on upcoming turns._"
+                )
+            agent = self._registry.get_agent("taylor") or agent
         else:
             kind = "skill" if plan.action == "probe" else "message"
 
@@ -1658,6 +1702,8 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._observations_text = ""
         self._observations_results = []
         self._observations_at = None
+        self._ui_fix_queue = []
+        self._ui_screenshots = {}
         self.tick = 0
         self._phase = "bootstrap"
         self._paused = False

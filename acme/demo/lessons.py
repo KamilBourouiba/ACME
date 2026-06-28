@@ -54,6 +54,14 @@ SQUAD_LESSONS: tuple[tuple[str, str], ...] = (
         "leave index.html structure to the reference shell.",
     ),
     (
+        "ui-audit-workflow",
+        "Taylor (UI/UX QA) runs ui_audit every few improvement turns: loads live GitHub Pages, "
+        "clicks search + controls, captures screenshots at /api/v1/demo/ui-screenshot/{id}.png, "
+        "reads console errors. Taylor does NOT ship code — findings queue builder tasks for "
+        "Marco (JS/globe), Priya (CSS), Chen (api.js). Jordan keeps http_probe/API checks. "
+        "After Taylor posts in #qa, builders edit on subsequent turns automatically.",
+    ),
+    (
         "hire-and-channels",
         "Kai can hire specialists or open channels when the squad needs capacity. "
         "Keep improvement turns concrete: one edit, one probe, or one deploy — not endless planning messages.",

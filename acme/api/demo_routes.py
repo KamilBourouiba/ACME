@@ -4,7 +4,7 @@ import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from acme.config import settings
 from acme.demo.schemas import (
@@ -96,6 +96,17 @@ async def demo_preview() -> HTMLResponse:
             "Content-Security-Policy": "frame-ancestors *",
         },
     )
+
+
+@router.get("/ui-screenshot/{shot_id}.png")
+async def demo_ui_screenshot(shot_id: str) -> Response:
+    _demo_disabled()
+    if not shot_id.replace("-", "").replace("_", "").isalnum():
+        raise HTTPException(status_code=400, detail="Invalid screenshot id")
+    data = demo_service.get_ui_screenshot(shot_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Screenshot not found")
+    return Response(content=data, media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
 @router.post("/unlock", response_model=DemoVisitorUnlockOut)

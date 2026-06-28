@@ -83,6 +83,7 @@ class SquadRegistry:
             "nina",
             "sam",
             "jordan",
+            "taylor",
             "chen",
             "kai",
         }

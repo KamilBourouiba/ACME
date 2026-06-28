@@ -6,6 +6,7 @@ def test_squad_lessons_cover_static_paths():
     assert "static-asset-paths" in keys
     assert "pinned-boot-files" in keys
     assert "github-pages-publish" in keys
+    assert "ui-audit-workflow" in keys
     assert "/static/" in SQUAD_LESSONS_PROMPT
     assert "css/" in SQUAD_LESSONS_PROMPT
     assert "EREBOR_DIRECT_OSS" in SQUAD_LESSONS_PROMPT

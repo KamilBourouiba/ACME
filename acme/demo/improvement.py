@@ -89,12 +89,14 @@ def _fallback_plan(
     artifacts: dict[str, str],
     deploy_allowed: bool = True,
     failure_sig: str = "ok",
+    ui_fix_pending: bool = False,
 ) -> ImprovementPlan:
     agents_cycle = ["jordan", "marco", "chen", "priya", "nina", "sam"]
     agent_id = agents_cycle[turn % len(agents_cycle)]
     has_index = "static/index.html" in artifacts
     vm_failing = failure_sig != "ok" or "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
     pages_ok = "Pages-only mode OK" in observations
+    ui_failed = "[ui_audit] FAIL" in observations or ui_fix_pending
 
     if vm_failing:
         if turn % 5 == 0:
@@ -119,6 +121,15 @@ def _fallback_plan(
             action="probe",
             skill="http_probe",
             message="Running live health + search probes — something looks off on the VM.",
+        )
+    interval = max(2, settings.demo_ui_audit_interval)
+    if not vm_failing and turn % interval == 1:
+        return ImprovementPlan(
+            agent_id="taylor",
+            channel="qa",
+            action="ui_audit",
+            skill="ui_audit",
+            message="Running browser UI audit — click search, controls, capture screenshots for the squad.",
         )
     if not has_index:
         return ImprovementPlan(
@@ -193,6 +204,7 @@ async def plan_improvement(
     failure_sig: str = "ok",
     agents: list[DemoAgent] | None = None,
     channels: list[DemoChannel] | None = None,
+    ui_fix_pending: bool = False,
 ) -> ImprovementPlan:
     squad_agents = agents or list(DEMO_AGENTS)
     squad_channels = channels or []
@@ -230,7 +242,7 @@ Pick the next highest-impact action. Respond with JSON only:
 {{
   "agent_id": one of {agent_ids},
   "channel": one of {channel_ids},
-  "action": "probe"|"edit"|"deploy"|"query"|"announce"|"triage"|"remediate"|"hire"|"create_channel",
+  "action": "probe"|"edit"|"deploy"|"query"|"announce"|"triage"|"remediate"|"hire"|"create_channel"|"ui_audit",
   "message": "Slack message explaining what you did or will do",
   "file": "path/for/edit action or null",
   "lang": "css|javascript|html|python|markdown or null",
@@ -255,7 +267,7 @@ Rules:
 - Never repeat triage every turn — alternate remediate → edit → deploy → hire if stuck
 - Prefer edit/probe when VM API or receiver probes fail — do NOT redeploy the same broken artifact set
 - If GitHub Pages is healthy but VM API is down, run compose_restart / probe_site_health first
-- Jordan uses probe/query; Nina deploys only when allowed; Marco/Priya/Chen edit files
+- Jordan uses probe/query; Taylor runs ui_audit on #qa then builders fix; Nina deploys only when allowed
 - Vera owns #ops — triage once per incident, then remediate with real commands
 - One concrete improvement per turn — no vague planning
 {deploy_rule}
@@ -303,4 +315,5 @@ Rules:
             artifacts=artifacts,
             deploy_allowed=deploy_allowed,
             failure_sig=failure_sig,
+            ui_fix_pending=ui_fix_pending,
         )

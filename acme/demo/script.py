@@ -58,6 +58,8 @@ SCRIPT_BEATS: tuple[DemoBeat, ...] = (
     DemoBeat("engineering", "priya", "preview", "Staging preview — globe nodes, omnibar, inspector panel."),
     DemoBeat("engineering", "jordan", "query", "Acceptance criteria for Erebor v1?"),
     DemoBeat("engineering", "jordan", "reply", "Search fans out to 3 OSS APIs, nodes appear on globe, inspector shows stats + source link.", reply_to="jordan"),
+    DemoBeat("qa", "taylor", "message", "I'm on *UI audit* duty — click-through on live Pages, screenshots, console errors. Builders ship after my handoff."),
+    DemoBeat("qa", "kai", "reply", "@Taylor perfect — you audit, Marco/Priya/Chen fix. Jordan keeps HTTP probes.", reply_to="taylor"),
     DemoBeat("deploy", "nina", "query", "Publish targets for Erebor?"),
     DemoBeat("deploy", "nina", "deploy", "Autonomous publish: static/ → GitHub Pages, full stack + OSS proxies → secure VM…"),
     DemoBeat("deploy", "chen", "message", "VM live — `/api/search` proxying GitHub + OpenAlex + Nominatim, trail persisting to Postgres."),

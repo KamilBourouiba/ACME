@@ -29,6 +29,7 @@ Available skills (agents use these every improvement turn):
 - deploy: push artifacts to VM (+ GitHub Pages when configured)
 - deploy_static: static/ files publish at site root — HTML uses css/ and js/ paths, NOT /static/
 - triage: Vera consolidates failing probes into one incident report (dedupes spam)
+- ui_audit: Taylor clicks through live Pages/VM — screenshots, console errors, hands fixes to Marco/Priya/Chen
 - vm_exec: run allowlisted curl/docker/systemctl on the VM via receiver POST /exec
 - vm_remediate: Vera runs a fix recipe (compose restart, health curls, receiver restart)
 """
@@ -284,3 +285,23 @@ class DemoSkills:
                 lines.append(f"--- deploy stderr ---\n{r.detail['stderr'][:800]}")
 
         return "\n".join(lines), results
+
+    async def ui_audit(self) -> SkillResult:
+        from acme.demo.ui_probe import run_ui_audit
+
+        pages = (self.last_deploy or {}).get("pages_url")
+        report = await run_ui_audit(
+            pages_url=pages,
+            vm_site_url=self._site_url or None,
+        )
+        return SkillResult(
+            skill="ui_audit",
+            ok=report.ok,
+            summary=report.summary,
+            detail={
+                **report.detail,
+                "issues": report.issues,
+                "fix_tasks": [t.to_dict() for t in report.fix_tasks],
+                "screenshot_ids": list(report.screenshots.keys()),
+            },
+        )
