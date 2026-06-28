@@ -17,6 +17,7 @@ fi
 
 echo "==> 1/5 Delete GitHub repo ${GITHUB_REPO} (if exists)"
 if [[ -n "${DEMO_GITHUB_TOKEN:-}" ]]; then
+  export DEMO_GITHUB_TOKEN
   PYTHONPATH="${ROOT}" python3 - <<PY || true
 import asyncio
 from acme.demo.github_deploy import delete_repo
