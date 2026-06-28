@@ -72,8 +72,11 @@ def validate_command(command: str) -> tuple[bool, str]:
     binary = parts[0]
     if binary not in ALLOWED_BINARIES:
         return False, f"binary not allowed: {binary}"
-    if binary == "docker" and len(parts) > 1 and parts[1] not in DOCKER_SUBCOMMANDS:
-        return False, f"docker subcommand not allowed: {parts[1]}"
+    if binary == "docker" and len(parts) > 1:
+        if parts[1] == "system" and len(parts) > 2 and parts[2] == "prune":
+            return True, ""
+        if parts[1] not in DOCKER_SUBCOMMANDS:
+            return False, f"docker subcommand not allowed: {parts[1]}"
     if binary == "systemctl" and len(parts) > 1 and parts[1] not in SYSTEMCTL_SUBCOMMANDS:
         return False, f"systemctl subcommand not allowed: {parts[1]}"
     if binary == "curl":

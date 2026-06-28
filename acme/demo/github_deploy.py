@@ -270,3 +270,18 @@ async def wipe_repo(
 
     logger.info("Wiped %d files from %s", len(deleted), repo)
     return deleted
+
+
+async def delete_repo(*, token: str, repo: str) -> bool:
+    """Delete the GitHub repo entirely (for full demo reclean)."""
+    if "/" not in repo or repo.count("/") != 1:
+        raise ValueError("repo must be owner/name")
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.delete(f"{GITHUB_API}/repos/{repo}", headers=_headers(token))
+        if resp.status_code == 404:
+            return False
+        if resp.status_code >= 400:
+            logger.error("GitHub delete repo failed: %s", resp.text)
+            resp.raise_for_status()
+        logger.info("Deleted GitHub repo %s", repo)
+        return True

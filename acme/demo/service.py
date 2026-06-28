@@ -11,15 +11,16 @@ from typing import Any
 
 from acme.config import settings
 from acme.db.session import SessionLocal
-from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, DemoAgent
+from acme.demo.agents import DemoAgent
 from acme.demo.artifacts import baseline_artifacts, empty_artifacts
 from acme.demo.coding import generate_agent_code
-from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
-from acme.demo.github_deploy import deploy_files, wipe_repo
+from acme.demo.channels import DemoChannel
+from acme.demo.github_deploy import delete_repo, deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, plan_improvement
-from acme.demo.reset import cleanup_all_demo_tenants
+from acme.demo.registry import SquadRegistry
+from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
 from acme.demo.remediation import RemediationState, execute_remediation, format_remediation_message
 from acme.demo.triage import (
@@ -27,7 +28,6 @@ from acme.demo.triage import (
     format_triage_report,
     is_spam_duplicate,
     normalize_message,
-    should_dedup_agent,
 )
 from acme.demo.vm_deploy import deploy_to_vm
 from acme.demo.schemas import (
@@ -120,7 +120,10 @@ class DemoService:
         self._bg_tasks: set[asyncio.Task] = set()
         self._last_visitor_say_at: datetime | None = None
         self._visitor_turn: int = 0
-        self._belief_counts: dict[str, int] = {a.id: 0 for a in DEMO_AGENTS}
+        self._registry = SquadRegistry.default()
+        self._belief_counts: dict[str, int] = {
+            a.id: 0 for a in self._registry.list_agents()
+        }
         self._belief_fetch_tick: int = -999
         self._recycling: bool = False
         self._paused: bool = False
@@ -419,9 +422,13 @@ class DemoService:
             self._phase = "bootstrap"
             if self._beat_index >= len(SCRIPT_BEATS):
                 self._phase = "improve"
-            agent = AGENT_BY_ID[beat.agent_id]
+            agent = self._registry.get_agent(beat.agent_id)
+            if agent is None:
+                return
             reply_name = (
-                AGENT_BY_ID[beat.reply_to].name if beat.reply_to and beat.reply_to in AGENT_BY_ID else None
+                self._registry.get_agent(beat.reply_to).name
+                if beat.reply_to and self._registry.get_agent(beat.reply_to)
+                else None
             )
             artifacts_snapshot = dict(self._artifacts)
 
@@ -554,11 +561,15 @@ class DemoService:
             deploy_allowed=deploy_allowed,
             deploy_block_reason=deploy_block_reason,
             failure_sig=failure_sig,
+            agents=self._registry.list_agents(),
+            channels=self._registry.list_channels(),
         )
         plan = self._sanitize_improvement_plan(
             plan, observations=observations, imp_turn=imp_turn
         )
-        agent = AGENT_BY_ID[plan.agent_id]
+        agent = self._registry.get_agent(plan.agent_id)
+        if agent is None:
+            agent = self._registry.get_agent("marco") or self._registry.list_agents()[0]
 
         skill_note = ""
         if plan.action == "probe" or plan.skill:
@@ -606,7 +617,11 @@ class DemoService:
                     lang="python",
                     message="VM recipes exhausted — patching API/receiver code instead of looping.",
                 )
-                agent = AGENT_BY_ID["chen"]
+                chen = self._registry.get_agent("chen")
+                if chen:
+                    agent = chen
+                else:
+                    agent = self._registry.list_agents()[0]
                 beat = plan.to_beat()
                 kind = "code"
                 content = plan.message
@@ -624,6 +639,35 @@ class DemoService:
                     async with self._lock:
                         self._remediation.reset_signature(failure_sig)
                         self._consecutive_vm_probe_failures = 0
+        elif plan.action == "hire":
+            kind = "hire"
+            try:
+                chans = plan.new_agent_channels or ["engineering"]
+                hired = self._registry.hire_agent(
+                    name=plan.new_agent_name or "Riley II",
+                    role=plan.new_agent_role or "Specialist",
+                    channels=chans,
+                )
+                async with self._lock:
+                    self._belief_counts[hired.id] = 0
+                content = (
+                    f"Hired *{hired.name}* (`{hired.id}`) as {hired.role} "
+                    f"— channels: {', '.join('#' + c for c in hired.channels)}."
+                )
+                agent = hired
+            except Exception as exc:
+                content = f"Hire blocked: {exc}"
+        elif plan.action == "create_channel":
+            kind = "channel"
+            try:
+                ch = self._registry.create_channel(
+                    name=plan.new_channel_name or "war-room",
+                    topic=plan.new_channel_topic or "Ad-hoc squad coordination",
+                    emoji=plan.new_channel_emoji or "📌",
+                )
+                content = f"Opened #{ch.name} (`{ch.id}`) — {ch.topic}"
+            except Exception as exc:
+                content = f"Channel create blocked: {exc}"
         elif plan.action == "query" and beat:
             kind = "query"
         else:
@@ -720,7 +764,7 @@ class DemoService:
                 )
                 if settings.demo_channel_hearsay:
                     hearsay = f"[#{beat.channel}] {agent.name} asked: {msg.content} ACME answered: {qr.answer[:200]}"
-                    for peer in DEMO_AGENTS:
+                    for peer in self._registry.list_agents():
                         if peer.id == agent.id or beat.channel not in peer.channels:
                             continue
                         peer_orch = ACMEOrchestrator(
@@ -781,7 +825,7 @@ class DemoService:
             self._recent_message_norms = self._recent_message_norms[-cap:]
 
     def _is_duplicate_spam(self, *, agent_id: str, content: str) -> bool:
-        if not should_dedup_agent(agent_id):
+        if not self._registry.agent_dedup_messages(agent_id):
             return False
         return is_spam_duplicate(content, self._recent_message_norms)
 
@@ -834,7 +878,10 @@ class DemoService:
         if not skip_dedup and self._is_duplicate_spam(agent_id=agent_id, content=content):
             logger.debug("suppressed duplicate demo message from %s", agent_id)
             return None
-        agent = AGENT_BY_ID[agent_id]
+        agent = self._registry.get_agent(agent_id)
+        if agent is None:
+            logger.warning("unknown agent_id %s for message", agent_id)
+            return None
         msg = _DemoMessage(
             id=str(uuid.uuid4()),
             channel=channel,
@@ -890,7 +937,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
     ) -> DemoVisitorSayOut:
         self._check_visitor_secret(secret)
         channel = channel.strip().lower()
-        if channel not in CHANNEL_BY_ID:
+        if not self._registry.get_channel(channel):
             raise ValueError(f"Unknown channel: {channel}")
         text = message.strip()
         if not text:
@@ -927,7 +974,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             )
             self._messages.append(visitor_msg)
 
-            pool = [a for a in DEMO_AGENTS if channel in a.channels] or list(DEMO_AGENTS[:3])
+            pool = self._registry.agents_for_channel(channel) or self._registry.list_agents()[:3]
             self._visitor_turn += 1
             primary = pool[self._visitor_turn % len(pool)]
             responders = [primary]
@@ -993,7 +1040,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             llm = get_llm_client()
             async with SessionLocal() as session:
                 for reply in replies:
-                    agent = AGENT_BY_ID[reply.agent_id]
+                    agent = self._registry.get_agent(reply.agent_id)
+                    if agent is None:
+                        continue
                     orch = ACMEOrchestrator(
                         session, neo4j_client, llm, tenant_id=agent.tenant_id
                     )
@@ -1201,7 +1250,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
 
     async def _channel_hearsay(self, session, llm, beat: DemoBeat, *, speaker: DemoAgent, content: str) -> None:
         hearsay = f"[#{beat.channel}] {speaker.name} ({speaker.role}): {content}"
-        for agent in DEMO_AGENTS:
+        for agent in self._registry.list_agents():
             if agent.id == speaker.id or beat.channel not in agent.channels:
                 continue
             orch = ACMEOrchestrator(session, neo4j_client, llm, tenant_id=agent.tenant_id)
@@ -1237,7 +1286,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             f"at {pages_url}"
         )
         for agent_id in ("nina", "jordan", "sam"):
-            agent = AGENT_BY_ID[agent_id]
+            agent = self._registry.get_agent(agent_id)
+            if agent is None:
+                continue
             try:
                 llm = get_llm_client()
                 async with SessionLocal() as session:
@@ -1273,13 +1324,13 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         )
         if refresh_beliefs:
             async with SessionLocal() as session:
-                for agent in DEMO_AGENTS:
+                for agent in self._registry.list_agents():
                     beliefs = await self._list_beliefs_for_tenant(session, agent.tenant_id)
                     self._belief_counts[agent.id] = len(beliefs)
             self._belief_fetch_tick = self.tick
 
         agents_out: list[DemoAgentOut] = []
-        for agent in DEMO_AGENTS:
+        for agent in self._registry.list_agents():
             agents_out.append(
                 DemoAgentOut(
                     id=agent.id,
@@ -1294,10 +1345,11 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 )
             )
 
-        sel_agent = selected_agent if selected_agent in AGENT_BY_ID else None
-        sel_channel = selected_channel if selected_channel in CHANNEL_BY_ID else None
+        sel_agent = selected_agent if self._registry.get_agent(selected_agent or "") else None
+        sel_channel = selected_channel if self._registry.get_channel(selected_channel or "") else None
         channels_out = [
-            DemoChannelOut(id=c.id, name=c.name, topic=c.topic, emoji=c.emoji) for c in DEMO_CHANNELS
+            DemoChannelOut(id=c.id, name=c.name, topic=c.topic, emoji=c.emoji)
+            for c in self._registry.list_channels()
         ]
 
         msgs = self._messages
@@ -1335,7 +1387,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         )
 
     async def get_agent_detail(self, agent_id: str) -> DemoAgentOut | None:
-        agent = AGENT_BY_ID.get(agent_id)
+        agent = self._registry.get_agent(agent_id)
         if not agent:
             return None
         async with SessionLocal() as session:
@@ -1403,7 +1455,10 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self, *, force: bool = False, wipe_external: bool = True, force_wipe: bool = False
     ) -> list[dict[str, int | str]]:
         async with SessionLocal() as session:
-            stats = await cleanup_all_demo_tenants(session, neo4j_client)
+            tenant_ids = tuple(dict.fromkeys(ALL_DEMO_TENANT_IDS + self._registry.tenant_ids()))
+            stats = await cleanup_all_demo_tenants(
+                session, neo4j_client, tenant_ids=tenant_ids
+            )
 
         self._messages.clear()
         self._last_sessions.clear()
@@ -1431,7 +1486,8 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._paused = False
         self._last_visitor_say_at = None
         self._visitor_turn = 0
-        self._belief_counts = {a.id: 0 for a in DEMO_AGENTS}
+        self._registry = SquadRegistry.default()
+        self._belief_counts = {a.id: 0 for a in self._registry.list_agents()}
         self._belief_fetch_tick = -999
         if force:
             self._last_reset_at = None
@@ -1440,14 +1496,21 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             if self._vm_configured():
                 await self._wipe_vm_product()
             if self._publish_configured() and settings.demo_clean_repo_on_reset:
-                await self._wipe_github_repo()
+                await self._wipe_github_repo(nuclear=force_wipe)
 
         return stats
 
-    async def _wipe_github_repo(self) -> None:
+    async def _wipe_github_repo(self, *, nuclear: bool = False) -> None:
         if not self._publish_configured():
             return
         try:
+            if nuclear:
+                deleted = await delete_repo(
+                    token=settings.demo_github_token,
+                    repo=settings.demo_github_repo,
+                )
+                if deleted:
+                    return
             await wipe_repo(
                 token=settings.demo_github_token,
                 repo=settings.demo_github_repo,

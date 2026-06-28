@@ -488,8 +488,11 @@
       els.livePill.classList.add("on");
     }
 
+    const chIds = (next.channels || []).map((c) => c.id);
+    if (!chIds.includes(selectedChannel)) {
+      selectedChannel = next.channels?.[0]?.id || "general";
+    }
     const ch = (next.channels || []).find((c) => c.id === selectedChannel) || next.channels?.[0];
-    if (ch && !selectedChannel) selectedChannel = ch.id;
     if (ch) {
       els.channelTitle.textContent = `#${ch.name}`;
       els.channelTopic.textContent = ch.topic;

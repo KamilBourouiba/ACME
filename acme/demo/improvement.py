@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from acme.config import settings
-from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS
+from acme.demo.agents import DEMO_AGENTS, DemoAgent
+from acme.demo.channels import DemoChannel
 from acme.demo.script import DemoBeat
 from acme.demo.skills import SKILL_CATALOG
 from acme.llm.factory import get_llm_client
@@ -38,6 +39,12 @@ class ImprovementPlan:
     deploy: bool = False
     recipe: str | None = None
     command: str | None = None
+    new_agent_name: str | None = None
+    new_agent_role: str | None = None
+    new_agent_channels: list[str] | None = None
+    new_channel_name: str | None = None
+    new_channel_topic: str | None = None
+    new_channel_emoji: str | None = None
 
     def to_beat(self) -> DemoBeat | None:
         if self.action == "edit" and self.file:
@@ -129,6 +136,26 @@ def _fallback_plan(
             deploy=True,
             message="Shipping latest squad artifacts to VM + Pages.",
         )
+    if turn % 18 == 0:
+        return ImprovementPlan(
+            agent_id="kai",
+            channel="general",
+            action="create_channel",
+            new_channel_name="war-room",
+            new_channel_topic="Fast coordination for incidents and launches",
+            new_channel_emoji="🎯",
+            message="Opening a war-room channel so the squad can coordinate without spamming #engineering.",
+        )
+    if turn % 22 == 0:
+        return ImprovementPlan(
+            agent_id="kai",
+            channel="general",
+            action="hire",
+            new_agent_name="Quinn",
+            new_agent_role="Platform Engineer",
+            new_agent_channels=["engineering", "ops"],
+            message="Hiring Quinn to help with VM/platform work alongside Vera.",
+        )
     if turn % 3 == 0:
         return ImprovementPlan(
             agent_id="jordan",
@@ -163,8 +190,18 @@ async def plan_improvement(
     deploy_allowed: bool = True,
     deploy_block_reason: str | None = None,
     failure_sig: str = "ok",
+    agents: list[DemoAgent] | None = None,
+    channels: list[DemoChannel] | None = None,
 ) -> ImprovementPlan:
-    agent_ids = [a.id for a in DEMO_AGENTS]
+    squad_agents = agents or list(DEMO_AGENTS)
+    squad_channels = channels or []
+    agent_ids = [a.id for a in squad_agents]
+    channel_ids = [c.id for c in squad_channels] or [
+        "general",
+        "engineering",
+        "deploy",
+        "ops",
+    ]
     artifact_list = ", ".join(sorted(artifacts.keys())[:35]) or "(empty)"
     deploy_rule = (
         "- Deploy is ALLOWED when probes are green or after a code fix"
@@ -188,21 +225,28 @@ Artifacts in repo: {artifact_list}
 Pick the next highest-impact action. Respond with JSON only:
 {{
   "agent_id": one of {agent_ids},
-  "channel": "general"|"engineering"|"design"|"product"|"deploy"|"ops",
-  "action": "probe"|"edit"|"deploy"|"query"|"announce"|"triage"|"remediate",
+  "channel": one of {channel_ids},
+  "action": "probe"|"edit"|"deploy"|"query"|"announce"|"triage"|"remediate"|"hire"|"create_channel",
   "message": "Slack message explaining what you did or will do",
   "file": "path/for/edit action or null",
   "lang": "css|javascript|html|python|markdown or null",
   "query": "question for acme_query or null",
   "skill": "which skill you used or null",
-  "recipe": "vm recipe name (compose_restart, probe_site_health, etc.) or null",
-  "command": "allowlisted shell on VM (curl localhost, docker compose) or null",
+  "recipe": "vm recipe name or null",
+  "command": "allowlisted shell on VM or null",
+  "new_agent_name": "for hire action or null",
+  "new_agent_role": "for hire action or null",
+  "new_agent_channels": ["channel_ids"] or null,
+  "new_channel_name": "for create_channel or null",
+  "new_channel_topic": "for create_channel or null",
+  "new_channel_emoji": "single emoji or null",
   "deploy": false
 }}
 
 Rules:
-- When probes fail: Vera runs remediate (vm_exec) BEFORE redeploy — curl/docker on VM host
-- Never repeat triage every turn — alternate remediate → edit → deploy
+- Kai/Alex can hire specialists (hire) or open channels (create_channel) when the squad lacks skills
+- When probes fail: Vera runs remediate (vm_exec) BEFORE redeploy
+- Never repeat triage every turn — alternate remediate → edit → deploy → hire if stuck
 - Prefer edit/probe when VM API or receiver probes fail — do NOT redeploy the same broken artifact set
 - If GitHub Pages is healthy but VM API is down, run compose_restart / probe_site_health first
 - Jordan uses probe/query; Nina deploys only when allowed; Marco/Priya/Chen edit files
@@ -224,8 +268,8 @@ Rules:
         )
         data = _parse_plan(raw)
         agent_id = data.get("agent_id", "marco")
-        if agent_id not in AGENT_BY_ID:
-            agent_id = "marco"
+        if agent_id not in agent_ids:
+            agent_id = agent_ids[0] if agent_ids else "marco"
         return ImprovementPlan(
             agent_id=agent_id,
             channel=data.get("channel", "engineering"),
@@ -238,6 +282,12 @@ Rules:
             deploy=bool(data.get("deploy")),
             recipe=data.get("recipe"),
             command=data.get("command"),
+            new_agent_name=data.get("new_agent_name"),
+            new_agent_role=data.get("new_agent_role"),
+            new_agent_channels=data.get("new_agent_channels"),
+            new_channel_name=data.get("new_channel_name"),
+            new_channel_topic=data.get("new_channel_topic"),
+            new_channel_emoji=data.get("new_channel_emoji"),
         )
     except Exception:
         logger.exception("Improvement plan LLM failed — using heuristic")

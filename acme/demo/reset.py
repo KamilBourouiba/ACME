@@ -58,9 +58,16 @@ async def cleanup_demo_tenant(
 async def cleanup_all_demo_tenants(
     session: AsyncSession,
     graph: Neo4jClient,
+    *,
+    tenant_ids: tuple[str, ...] | None = None,
 ) -> list[dict[str, int | str]]:
     results: list[dict[str, int | str]] = []
-    for tenant_id in ALL_DEMO_TENANT_IDS:
+    seen: set[str] = set()
+    targets = tenant_ids or ALL_DEMO_TENANT_IDS
+    for tenant_id in targets:
+        if tenant_id in seen:
+            continue
+        seen.add(tenant_id)
         results.append(await cleanup_demo_tenant(session, graph, tenant_id=tenant_id))
     await session.commit()
     return results
