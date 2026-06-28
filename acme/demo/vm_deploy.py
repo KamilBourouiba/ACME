@@ -11,10 +11,10 @@ import httpx
 
 logger = logging.getLogger("acme.demo.vm")
 
-from acme.demo.site_guard import PROTECTED_SITE_FILES
+from acme.demo.site_guard import DEPLOY_PINNED_FILES, safe_site_artifact
 
 SITE_DIR = Path(__file__).resolve().parent / "site"
-INFRA_NAMES = PROTECTED_SITE_FILES
+INFRA_NAMES = DEPLOY_PINNED_FILES
 
 
 def _stack_files(artifacts: dict[str, str]) -> dict[str, str]:

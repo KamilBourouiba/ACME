@@ -19,7 +19,7 @@ from acme.demo.github_deploy import delete_repo, deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, _fallback_plan, plan_improvement
-from acme.demo.site_guard import is_protected_site_file, reference_site_files
+from acme.demo.site_guard import is_pinned_on_deploy, is_protected_site_file, reference_site_files, safe_site_artifact
 from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
 from acme.demo.remediation import RemediationState, execute_remediation, format_remediation_message
@@ -149,13 +149,8 @@ class DemoService:
         self._turn_busy = asyncio.Lock()
 
     def _pin_code_artifact(self, path: str, body: str) -> str:
-        """Boot-critical files always use the canonical site/ copy."""
-        norm = path.replace("\\", "/")
-        if is_protected_site_file(norm):
-            pinned = reference_site_files().get(norm)
-            if pinned:
-                return pinned
-        return body
+        """Boot-critical files always use the canonical site/ copy; reject syntax errors."""
+        return safe_site_artifact(path, body, previous=self._artifacts.get(path.replace("\\", "/")))
 
     async def pause(self) -> DemoPauseOut:
         async with self._lock:
@@ -245,6 +240,24 @@ class DemoService:
         deploy_allowed: bool,
         failure_sig: str,
     ) -> ImprovementPlan:
+        if plan.action == "triage" and failure_sig == self._last_triage_signature:
+            plan = ImprovementPlan(
+                agent_id="vera",
+                channel="ops",
+                action="remediate",
+                skill="vm_remediate",
+                message="Incident already triaged — running VM fix instead of another report.",
+            )
+        if plan.action == "edit" and plan.file and is_pinned_on_deploy(plan.file):
+            plan = ImprovementPlan(
+                agent_id="marco",
+                channel="engineering",
+                action="edit",
+                file="static/js/scene.js",
+                lang="javascript",
+                message=f"`{plan.file}` is pinned — polishing Three.js globe instead.",
+            )
+
         sig = self._plan_signature(plan)
         if sig == self._last_plan_signature:
             self._repeat_plan_count += 1
@@ -768,12 +781,13 @@ class DemoService:
                 self._last_triage_signature = failure_signature(observations, skill_results)
                 self._last_triage_tick = tick
         elif any(not r.ok for r in skill_results) or deploy_block_reason:
-            await self._maybe_post_vera_triage(
-                observations=observations,
-                skill_results=skill_results,
-                deploy_block_reason=deploy_block_reason,
-                tick=tick,
-            )
+            if plan.action not in ("triage", "remediate", "deploy"):
+                await self._maybe_post_vera_triage(
+                    observations=observations,
+                    skill_results=skill_results,
+                    deploy_block_reason=deploy_block_reason,
+                    tick=tick,
+                )
 
         should_deploy = plan.deploy or plan.action == "deploy"
         if should_deploy and settings.demo_auto_publish and self._artifacts:
