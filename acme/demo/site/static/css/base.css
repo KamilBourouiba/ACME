@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+a { color: var(--accent); text-decoration: none; }
+.container { width: min(1120px, 92vw); margin: 0 auto; }
+.section { padding: 5rem 0; }
+.section-title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+.section-sub {
+  text-align: center;
+  color: var(--muted);
+  max-width: 540px;
+  margin: 0 auto 3rem;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 0;
+}
+.nav-links { display: flex; gap: 2rem; align-items: center; }
+.nav-links a { color: var(--muted); font-size: 0.95rem; }
+.nav-links a:hover { color: var(--text); }
+.logo {
+  font-weight: 700;
+  font-size: 1.25rem;
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.footer {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 2rem 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.875rem;
+}

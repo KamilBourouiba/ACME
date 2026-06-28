@@ -3,24 +3,98 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nexus Advisory — Strategy &amp; Digital Transformation</title>
+  <title>Lumen — Revenue Intelligence for Modern GTM</title>
+  <meta name="description" content="AI-powered revenue intelligence. Forecast pipeline, detect churn risk, and align GTM in one platform.">
   <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/layout.css">
-  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/hero.css">
+  <link rel="stylesheet" href="css/features.css">
+  <link rel="stylesheet" href="css/pricing.css">
+  <link rel="stylesheet" href="css/dashboard-mock.css">
+  <link rel="stylesheet" href="css/animations.css">
 </head>
 <body>
-  <header class="hero">
-    <nav class="nav">
-      <strong class="logo">Nexus Advisory</strong>
-      <a href="#services">Services</a>
-      <a href="#contact">Contact</a>
-    </nav>
-    <h1>Clarity for complex transformations</h1>
-    <p class="subline">Boutique consulting for SaaS, ops, and go-to-market.</p>
-    <button id="cta" class="btn btn-primary">Book a discovery call</button>
-  </header>
-  <section id="services" class="grid" aria-label="Services"></section>
-  <footer class="footer"><small>© Nexus Advisory</small></footer>
+  <div class="container">
+    <header class="nav">
+      <div class="logo">Lumen</div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#waitlist">Early access</a>
+      </nav>
+    </header>
+  </div>
+
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="container hero-grid">
+      <div>
+        <span class="hero-badge">Now in private beta</span>
+        <h1>Revenue clarity for <span>modern GTM</span> teams</h1>
+        <p class="hero-lead">Lumen unifies pipeline signals, churn risk, and forecast accuracy — so RevOps stops guessing and starts leading.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" id="cta-primary">Join waitlist</button>
+          <a class="btn btn-ghost" href="#features">See platform</a>
+        </div>
+        <div class="hero-stats">
+          <div><div class="stat-num" data-target="94">0</div><div class="stat-label">Forecast accuracy</div></div>
+          <div><div class="stat-num" data-target="2.4">0</div><div class="stat-label">× faster insights</div></div>
+          <div><div class="stat-num" data-target="500">0</div><div class="stat-label">Enterprise seats</div></div>
+        </div>
+      </div>
+      <div class="dashboard-mock" id="dashboard-mock">
+        <div class="mock-chrome"><span class="mock-dot"></span><span class="mock-dot"></span><span class="mock-dot"></span></div>
+        <div class="mock-body">
+          <div class="mock-kpis">
+            <div class="mock-kpi"><label>Pipeline</label><strong>$12.4M</strong></div>
+            <div class="mock-kpi"><label>At risk</label><strong>$840K</strong></div>
+            <div class="mock-kpi"><label>Win rate</label><strong>32%</strong></div>
+          </div>
+          <div class="mock-chart" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="features">
+    <div class="container">
+      <h2 class="section-title">Built for revenue teams</h2>
+      <p class="section-sub">Six core capabilities — from signal ingestion to board-ready forecasts.</p>
+      <div class="feature-grid" id="feature-grid"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container logos-row">
+      <span>TRUSTED BY GTM TEAMS AT</span>
+      <span>NOVA</span><span>HELIX</span><span>ORBIT</span><span>STRIDE</span><span>PULSE</span>
+    </div>
+  </section>
+
+  <section class="section" id="pricing">
+    <div class="container">
+      <h2 class="section-title">Simple, transparent pricing</h2>
+      <p class="section-sub">Start free. Scale when your pipeline does.</p>
+      <div class="pricing-toggle" id="pricing-toggle">
+        <button type="button" class="active" data-period="monthly">Monthly</button>
+        <button type="button" data-period="annual">Annual · save 20%</button>
+      </div>
+      <div class="pricing-grid" id="pricing-grid"></div>
+    </div>
+  </section>
+
+  <section class="section" id="waitlist">
+    <div class="container">
+      <h2 class="section-title">Get early access</h2>
+      <p class="section-sub">Join 2,000+ RevOps leaders on the Lumen waitlist.</p>
+      <form class="waitlist-form" id="waitlist-form">
+        <input type="email" name="email" placeholder="Work email" required>
+        <button type="submit" class="btn btn-primary">Request access</button>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer container"><small>© 2026 Lumen Analytics, Inc.</small></footer>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

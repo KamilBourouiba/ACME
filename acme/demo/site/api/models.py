@@ -1,21 +1,22 @@
 from pydantic import BaseModel, EmailStr, Field
 
 
-class LeadIn(BaseModel):
+class WaitlistIn(BaseModel):
     email: EmailStr
-    company: str = Field(min_length=1, max_length=200)
-    message: str = Field(default="", max_length=2000)
+    company: str = Field(default="", max_length=200)
+    role: str = Field(default="", max_length=100)
 
 
-class LeadOut(BaseModel):
+class WaitlistOut(BaseModel):
     id: int
     status: str = "accepted"
 
 
-class ServiceItem(BaseModel):
+class FeatureItem(BaseModel):
+    icon: str
     title: str
     desc: str
 
 
-class ServicesOut(BaseModel):
-    items: list[ServiceItem]
+class FeaturesOut(BaseModel):
+    items: list[FeatureItem]

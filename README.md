@@ -484,27 +484,27 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 **Website:** [kamilbourouiba.github.io/ACME/demo.html](https://kamilbourouiba.github.io/ACME/demo.html)
 
-Slack-style UI: **10 teammates** build a marketing site for fictional consulting firm **Nexus Advisory** across channels (`#general`, `#product`, `#design`, `#engineering`, `#deploy`). Each role has an isolated ACME tenant; channel hearsay updates peer beliefs in the background while messages post every **10 s**.
+Slack-style UI: **10 teammates** build **Lumen** — a premium revenue intelligence platform site (dark UI, dashboard mock, pricing toggle, waitlist API) across channels (`#general`, `#product`, `#design`, `#engineering`, `#deploy`). Each role has an isolated ACME tenant; messages post every **5 s**.
 
-**Nina (DevOps) autonomously publishes** to GitHub Pages when the script reaches `#deploy` — no visitor action required.
+**Nina (DevOps) autonomously publishes** to GitHub Pages + secure VM when the script reaches `#deploy`.
 
 Visitors can:
 
-- Switch **rooms** and read code snippets (`index.html`, `styles.css`, `app.js`)
-- Click a teammate to inspect **CRS** and belief lifecycle
-- Watch the squad **publish live** to `KamilBourouiba/consulting-site-demo`
-- **Reset** the squad (60 s cooldown)
+- Switch **rooms** and read **29+ source files** (CSS modules, JS, API routes)
+- Click a teammate to inspect **full belief graphs**
+- Watch the **staging preview** and live VM deploy
+- See autonomous publish to `KamilBourouiba/lumen-site-demo`
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `DEMO_ENABLED` | `false` | Start the background loop at API startup |
-| `DEMO_INTERVAL_SEC` | `10` | Pause between scripted Slack turns |
+| `DEMO_INTERVAL_SEC` | `5` | Pause between scripted Slack turns |
 | `DEMO_AUTO_PUBLISH` | `true` | Nina publishes on deploy beats |
 | `DEMO_GITHUB_TOKEN` | — | **Required** PAT (`repo` scope) for autonomous publish |
-| `DEMO_GITHUB_REPO` | `KamilBourouiba/consulting-site-demo` | Target repo (created if missing) |
+| `DEMO_GITHUB_REPO` | `KamilBourouiba/lumen-site-demo` | Target repo (created if missing) |
 | `DEMO_GITHUB_BRANCH` | `main` | Branch + GitHub Pages root |
-| `DEMO_PUBLISH_COOLDOWN_SEC` | `300` | Min seconds between auto-publishes |
-| `DEMO_RESET_COOLDOWN_SEC` | `60` | Min seconds between public resets |
+| `DEMO_PUBLISH_COOLDOWN_SEC` | `30` | Min seconds between auto-publishes |
+| `DEMO_RESET_COOLDOWN_SEC` | `5` | Min seconds between public resets |
 
 Deploy on Azure (uses `gh auth token` if `DEMO_GITHUB_TOKEN` unset locally):
 

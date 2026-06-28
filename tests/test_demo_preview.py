@@ -2,16 +2,17 @@ from acme.demo.artifacts import SITE_ARTIFACTS, load_site_artifacts
 from acme.demo.preview import build_staging_preview
 
 
-def test_staging_preview_inlines_assets():
+def test_staging_preview_lumen():
     arts = load_site_artifacts()
     html = build_staging_preview(arts)
-    assert "Nexus Advisory" in html
+    assert "Lumen" in html
+    assert "Revenue clarity" in html
     assert "<style>" in html
-    assert "Clarity for complex transformations" in html
 
 
-def test_artifacts_include_architecture():
+def test_artifacts_impressive_stack():
     assert "static/index.html" in SITE_ARTIFACTS
-    assert "api/routes/leads.py" in SITE_ARTIFACTS
-    assert "ARCHITECTURE.md" in SITE_ARTIFACTS
-    assert len(SITE_ARTIFACTS) >= 15
+    assert "static/css/dashboard-mock.css" in SITE_ARTIFACTS
+    assert "static/js/pricing.js" in SITE_ARTIFACTS
+    assert "api/routes/platform.py" in SITE_ARTIFACTS
+    assert len(SITE_ARTIFACTS) >= 20

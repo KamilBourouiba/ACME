@@ -1,4 +1,4 @@
-"""Nexus Advisory ASGI entrypoint."""
+"""Lumen revenue intelligence platform — ASGI entrypoint."""
 
 from contextlib import asynccontextmanager
 
@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import API_TITLE, API_VERSION
 from api.db import close_db, init_db
-from api.routes import health, leads
+from api.routes import health, platform
 
 
 @asynccontextmanager
@@ -25,4 +25,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(health.router, prefix="/api")
-app.include_router(leads.router, prefix="/api")
+app.include_router(platform.router, prefix="/api")

@@ -239,7 +239,7 @@ class DemoService:
                         content=f"Q: {msg.content} A: {qr.answer}",
                         source_type=SourceType.HUMAN_EXPERT,
                         source_id=f"demo-{agent.id}",
-                        tags=["demo", "nexus", beat.channel, "query"],
+                        tags=["demo", "lumen", beat.channel, "query"],
                         tenant_id=agent.tenant_id,
                     )
                 )
@@ -360,7 +360,7 @@ class DemoService:
             if verified:
                 nina_msg = f"GitHub Pages reachable — site live at {pages_url} (HTTP {status})."
                 jordan_msg = (
-                    f"Fetched {pages_url} — found Nexus Advisory hero + CTA. Pages build OK."
+                    f"Fetched {pages_url} — found Lumen hero + dashboard mock. Pages build OK."
                 )
             else:
                 nina_msg = (
@@ -429,7 +429,7 @@ class DemoService:
             llm = get_llm_client()
             async with SessionLocal() as session:
                 orch = ACMEOrchestrator(session, neo4j_client, llm, tenant_id=agent.tenant_id)
-                tags = ["demo", "nexus", beat.channel]
+                tags = ["demo", "lumen", beat.channel]
 
                 if beat.kind in ("message", "code", "deploy", "reply", "preview"):
                     body = beat.content
@@ -623,7 +623,7 @@ class DemoService:
             repo=target_repo,
             branch=target_branch,
             commit_message=commit_message
-            or "Autonomous publish — Nexus Advisory site (ACME demo squad)",
+            or "Autonomous publish — Lumen revenue platform (ACME demo squad)",
             bootstrap_repo=True,
             enable_pages=True,
         )
@@ -671,7 +671,7 @@ class DemoService:
             if settings.demo_clean_repo_on_reset and self._publish_configured():
                 try:
                     await self.deploy(
-                        commit_message="Reset Nexus Advisory demo site to baseline (ACME squad clean)",
+                        commit_message="Reset Lumen demo site to baseline (ACME squad clean)",
                     )
                 except Exception:
                     logger.exception("Repo baseline reset failed during demo reset")

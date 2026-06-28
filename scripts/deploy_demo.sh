@@ -9,7 +9,7 @@ TAG="${TAG:-membench-v3-fidelity}"
 SUFFIX="${SUFFIX:-demo-live-$(date +%Y%m%d%H%M)}"
 DEMO_MODEL="${DEMO_AZURE_DEPLOYMENT:-gpt-5.4}"
 INTERVAL="${DEMO_INTERVAL_SEC:-5}"
-GITHUB_REPO="${DEMO_GITHUB_REPO:-KamilBourouiba/consulting-site-demo}"
+GITHUB_REPO="${DEMO_GITHUB_REPO:-KamilBourouiba/lumen-site-demo}"
 
 if [[ -z "${DEMO_GITHUB_TOKEN:-}" ]] && command -v gh &>/dev/null; then
   DEMO_GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"

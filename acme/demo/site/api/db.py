@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import asyncpg
 
 from api.config import DATABASE_URL
@@ -19,11 +21,11 @@ async def init_db() -> asyncpg.Pool | None:
     async with _pool.acquire() as conn:
         await conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS leads (
+            CREATE TABLE IF NOT EXISTS waitlist (
                 id BIGSERIAL PRIMARY KEY,
-                email TEXT NOT NULL,
-                company TEXT NOT NULL,
-                message TEXT NOT NULL DEFAULT '',
+                email TEXT NOT NULL UNIQUE,
+                company TEXT NOT NULL DEFAULT '',
+                role TEXT NOT NULL DEFAULT '',
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
             """

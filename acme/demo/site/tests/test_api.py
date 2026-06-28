@@ -1,7 +1,7 @@
-"""Smoke tests for Nexus API (run on VM or CI)."""
+"""Smoke tests for Lumen API."""
 
-def test_services_shape():
-    from api.config import SERVICES
+def test_features_configured():
+    from api.config import FEATURES
 
-    assert len(SERVICES) >= 3
-    assert "title" in SERVICES[0]
+    assert len(FEATURES) >= 6
+    assert FEATURES[0]["title"]

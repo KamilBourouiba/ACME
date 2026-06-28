@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     demo_llm_paraphrase: bool = False
     demo_channel_hearsay: bool = True
     demo_github_token: str = ""
-    demo_github_repo: str = "KamilBourouiba/consulting-site-demo"
+    demo_github_repo: str = "KamilBourouiba/lumen-site-demo"
     demo_github_branch: str = "main"
     demo_auto_publish: bool = True
     demo_publish_cooldown_sec: int = 30

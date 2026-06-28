@@ -1,9 +1,7 @@
-# Nexus Advisory Marketing Site
+# Lumen Marketing Site
 
-Consulting landing page with lead capture API.
+Launch site for **Lumen** — AI revenue intelligence for GTM teams.
 
-- **Frontend:** vanilla HTML/CSS/JS in `static/`
-- **Backend:** FastAPI + asyncpg in `api/`
-- **Infra:** Docker Compose on squad VM, Postgres Flexible Server (private)
-
-Run locally: `docker compose up --build`
+- **Frontend:** `static/` — dark theme, motion, pricing toggle, dashboard preview
+- **Backend:** waitlist + feature catalog API
+- **Deploy:** GitHub Pages (static) + squad VM (full stack)

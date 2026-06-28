@@ -12,4 +12,4 @@ async def health() -> dict[str, str]:
         return {"status": "degraded", "database": "not_configured"}
     async with pool.acquire() as conn:
         await conn.fetchval("SELECT 1")
-    return {"status": "ok", "database": "connected"}
+    return {"status": "ok", "database": "connected", "product": "lumen"}

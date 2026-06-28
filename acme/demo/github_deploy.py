@@ -65,7 +65,7 @@ async def ensure_repo(
             "name": name,
             "private": False,
             "auto_init": True,
-            "description": "Nexus Advisory marketing site — published autonomously by ACME demo squad",
+            "description": "Lumen revenue intelligence platform — published autonomously by ACME demo squad",
         },
     )
     if create.status_code >= 400:
@@ -104,7 +104,7 @@ async def wait_for_pages_live(
     *,
     attempts: int = 18,
     pause_sec: float = 5.0,
-    expected_snippet: str = "Nexus Advisory",
+    expected_snippet: str = "Lumen",
 ) -> dict[str, Any]:
     """Poll the public GitHub Pages URL until the site responds."""
     last_status: int | None = None
@@ -156,7 +156,7 @@ async def deploy_files(
     token: str,
     repo: str,
     branch: str = "main",
-    commit_message: str = "Deploy Nexus Advisory site from ACME demo",
+    commit_message: str = "Deploy Lumen site from ACME demo",
     bootstrap_repo: bool = True,
     enable_pages: bool = True,
 ) -> dict[str, Any]:

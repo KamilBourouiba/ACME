@@ -1,21 +1,17 @@
-# Nexus Advisory — Site Architecture
+# Lumen — Revenue Intelligence Platform
 
 ```
-static/          # Frontend (GitHub Pages + nginx)
+static/                 Marketing site (GitHub Pages + nginx)
   index.html
-  css/           # Design tokens, layout, components
-  js/            # API client, UI components, app bootstrap
-api/             # FastAPI backend (VM)
-  config.py      # Settings from env
-  db.py          # Postgres pool + migrations
-  models.py      # Pydantic schemas
-  routes/        # HTTP handlers (health, leads, services)
-server.py        # ASGI entrypoint
-tests/           # Smoke tests
-docker-compose.yml
-nginx.conf       # TLS termination + /api proxy
+  css/                  tokens, hero, features, pricing, dashboard-mock, animations
+  js/                   api, hero, pricing, features, app
+api/                    FastAPI on secure VM
+  config.py             Features, pricing tiers, metrics
+  db.py                 Postgres pool
+  models.py
+  routes/               health, waitlist, features, metrics
+server.py
+tests/
 ```
 
-**Data flow:** Browser → nginx → static assets | `/api/*` → FastAPI → Postgres (private VNet).
-
-**Deploy targets:** GitHub Pages (static/) + secure squad VM (full stack).
+**Stack:** Dark premium UI · animated hero · CSS dashboard mock · interactive pricing · waitlist API → private Postgres.

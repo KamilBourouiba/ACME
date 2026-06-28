@@ -10,6 +10,11 @@ from acme.demo.agents import DEMO_AGENTS
 from acme.graph.neo4j_client import Neo4jClient
 
 DEMO_TENANT_IDS = tuple(a.tenant_id for a in DEMO_AGENTS)
+# Legacy Nexus demo tenants — wiped on reset so prod stays clean after scenario change
+LEGACY_DEMO_TENANT_IDS: tuple[str, ...] = tuple(
+    f"demo-nexus-{a.id}" for a in DEMO_AGENTS
+)
+ALL_DEMO_TENANT_IDS = DEMO_TENANT_IDS + LEGACY_DEMO_TENANT_IDS
 
 
 async def cleanup_demo_tenant(
@@ -54,7 +59,7 @@ async def cleanup_all_demo_tenants(
     graph: Neo4jClient,
 ) -> list[dict[str, int | str]]:
     results: list[dict[str, int | str]] = []
-    for tenant_id in DEMO_TENANT_IDS:
+    for tenant_id in ALL_DEMO_TENANT_IDS:
         results.append(await cleanup_demo_tenant(session, graph, tenant_id=tenant_id))
     await session.commit()
     return results

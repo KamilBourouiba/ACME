@@ -48,7 +48,7 @@ class DemoStateOut(BaseModel):
     running: bool
     model: str
     tick: int
-    scenario: str = "nexus-advisory-site"
+    scenario: str = "lumen-revenue-platform"
     selected_agent: str | None = None
     selected_channel: str | None = None
     channels: list[DemoChannelOut]
