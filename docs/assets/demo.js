@@ -32,6 +32,8 @@
     sidebarBackdrop: document.getElementById("sidebar-backdrop"),
     membersPanel: document.getElementById("members-panel"),
     mobileChannels: document.getElementById("mobile-channels"),
+    mainPanel: document.getElementById("main-panel"),
+  };
 
   function isMobileLayout() {
     return window.matchMedia("(max-width: 960px)").matches;
