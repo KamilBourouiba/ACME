@@ -2,6 +2,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from acme.config import settings
 from acme.engines.retrieval import RetrievalEngine
 from acme.engines.vector_retrieval import VectorRetrievalEngine
 from acme.graph.neo4j_client import Neo4jClient
@@ -26,9 +27,14 @@ class HybridRetrievalEngine:
         self,
         question: str,
         beliefs: list[BeliefScore] | None = None,
+        *,
+        demo_mode: bool = False,
     ) -> tuple[str, list[str]]:
-        graph_context, entities = await self.graph.build_context(question, beliefs)
-        vector_eps = await self.vector.search(question, limit=5, tenant_id=self.tenant_id)
+        graph_context, entities = await self.graph.build_context(
+            question, beliefs, demo_mode=demo_mode
+        )
+        limit = settings.demo_vector_search_limit if demo_mode else settings.vector_search_limit
+        vector_eps = await self.vector.search(question, limit=limit, tenant_id=self.tenant_id)
 
         vector_lines = [
             f"Episode (similarity-ranked): {ep.content[:300]}"

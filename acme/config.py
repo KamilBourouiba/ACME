@@ -75,8 +75,8 @@ class Settings(BaseSettings):
 
     # Public multi-agent demo (website)
     demo_enabled: bool = False
-    demo_interval_sec: int = 10
-    demo_reset_cooldown_sec: int = 60
+    demo_interval_sec: int = 5
+    demo_reset_cooldown_sec: int = 5
     demo_azure_deployment: str = ""  # e.g. gpt-5.4; empty = use AZURE_OPENAI_DEPLOYMENT
     demo_llm_paraphrase: bool = False
     demo_channel_hearsay: bool = True
@@ -84,9 +84,12 @@ class Settings(BaseSettings):
     demo_github_repo: str = "KamilBourouiba/consulting-site-demo"
     demo_github_branch: str = "main"
     demo_auto_publish: bool = True
-    demo_publish_cooldown_sec: int = 300
+    demo_publish_cooldown_sec: int = 30
     demo_clean_on_start: bool = True
     demo_clean_repo_on_reset: bool = True
+    demo_vector_search_limit: int = 50
+    demo_message_cap: int = 0  # 0 = unlimited history
+    demo_state_message_cap: int = 0  # 0 = send all messages in SSE state
     demo_vm_url: str = ""  # e.g. http://1.2.3.4:9090
     demo_vm_deploy_key: str = ""
     demo_vm_site_url: str = ""  # e.g. https://1.2.3.4

@@ -177,7 +177,9 @@
 
   function renderPreview(next) {
     if (!els.previewPanel || !els.sitePreview) return;
-    const artifactsReady = Boolean(next.artifacts && next.artifacts["index.html"]);
+    const artifactsReady = Boolean(
+      next.artifacts && (next.artifacts["static/index.html"] || next.artifacts["index.html"])
+    );
     const show = next.preview_ready || next.live_preview_url || artifactsReady;
     els.previewPanel.hidden = !show;
     if (!show) return;
@@ -230,7 +232,7 @@
           code = `
           <div class="code-block">
             <div class="code-head"><span>${escapeHtml(m.code_file || "file")}</span><span>${escapeHtml(m.code_lang || "")}</span></div>
-            <pre>${escapeHtml(m.code_body.slice(0, 1200))}${m.code_body.length > 1200 ? "\n…" : ""}</pre>
+            <pre>${escapeHtml(m.code_body)}</pre>
           </div>`;
         }
         const answer = m.answer
@@ -285,9 +287,6 @@
 
   function maybeRefreshBeliefs() {
     if (!selectedAgent) return;
-    const now = Date.now();
-    if (now - lastBeliefFetch < 15000) return;
-    lastBeliefFetch = now;
     loadAgentBeliefs(selectedAgent);
   }
 

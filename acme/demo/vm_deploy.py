@@ -12,20 +12,25 @@ import httpx
 logger = logging.getLogger("acme.demo.vm")
 
 SITE_DIR = Path(__file__).resolve().parent / "site"
+INFRA_NAMES = frozenset(
+    {
+        "Dockerfile",
+        "docker-compose.yml",
+        "nginx.conf",
+        "requirements.txt",
+        "deploy_receiver.py",
+    }
+)
 
 
 def _stack_files(artifacts: dict[str, str]) -> dict[str, str]:
-    """Merge static artifacts with backend stack files for VM deploy."""
-    stack = {
-        "server.py": (SITE_DIR / "server.py").read_text(encoding="utf-8"),
-        "requirements.txt": (SITE_DIR / "requirements.txt").read_text(encoding="utf-8"),
-        "Dockerfile": (SITE_DIR / "Dockerfile").read_text(encoding="utf-8"),
-        "docker-compose.yml": (SITE_DIR / "docker-compose.yml").read_text(encoding="utf-8"),
-        "nginx.conf": (SITE_DIR / "nginx.conf").read_text(encoding="utf-8"),
-    }
-    for name in ("index.html", "styles.css", "app.js"):
-        if name in artifacts:
-            stack[name] = artifacts[name]
+    """Merge squad artifacts with infra files from site/."""
+    stack: dict[str, str] = {}
+    for name in INFRA_NAMES:
+        path = SITE_DIR / name
+        if path.is_file():
+            stack[name] = path.read_text(encoding="utf-8")
+    stack.update(artifacts)
     return stack
 
 

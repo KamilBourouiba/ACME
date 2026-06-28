@@ -1,8 +1,8 @@
-"""Scripted Slack beats — Nexus Advisory website build with peer Q&A."""
+"""Scripted Slack beats — Nexus Advisory full-stack build with peer Q&A."""
 
 from dataclasses import dataclass
 
-from acme.demo.agents import APP_JS, INDEX_HTML, SERVER_PY, SITE_ARTIFACTS, STYLES_CSS
+from acme.demo.artifacts import artifact as A
 
 
 @dataclass(frozen=True)
@@ -17,177 +17,49 @@ class DemoBeat:
     code_body: str | None = None
 
 
+def _code(path: str, lang: str, msg: str) -> DemoBeat:
+    return DemoBeat("engineering", "marco", "code", msg, code_file=path, code_lang=lang, code_body=A(path))
+
+
 SCRIPT_BEATS: tuple[DemoBeat, ...] = (
-    DemoBeat(
-        "general",
-        "alex",
-        "message",
-        "Kickoff: we're shipping the Nexus Advisory consulting site by Friday — static host on GitHub Pages.",
-    ),
-    DemoBeat(
-        "general",
-        "kai",
-        "message",
-        "@Alex — I'll track cross-team deps. Design, eng, and QA all post blockers in-channel.",
-    ),
-    DemoBeat(
-        "product",
-        "morgan",
-        "message",
-        "Client wants enterprise proof points, a services grid, and one primary CTA above the fold.",
-    ),
-    DemoBeat(
-        "product",
-        "alex",
-        "reply",
-        "@Morgan — can we defer case-study PDFs and still hit Friday?",
-        reply_to="morgan",
-    ),
-    DemoBeat(
-        "product",
-        "morgan",
-        "reply",
-        "@Alex yes — logo strip + 3 service cards is enough for v1 sign-off.",
-        reply_to="alex",
-    ),
-    DemoBeat(
-        "design",
-        "priya",
-        "message",
-        "Hero: purple→blue gradient, system fonts, WCAG AA on the CTA. @Riley headline goes above the fold.",
-    ),
-    DemoBeat(
-        "design",
-        "riley",
-        "reply",
-        '@Priya headline locked: *Clarity for complex transformations* — subline covers SaaS, ops, and GTM.',
-        reply_to="priya",
-    ),
-    DemoBeat(
-        "design",
-        "sam",
-        "query",
-        "What copy and layout constraints should engineering implement on the homepage?",
-    ),
-    DemoBeat(
-        "design",
-        "marco",
-        "reply",
-        "@Sam — copying that into the shell: gradient hero, 3-card services grid, single CTA.",
-        reply_to="sam",
-    ),
-    DemoBeat(
-        "engineering",
-        "chen",
-        "query",
-        "Do we need a backend for v1 or is static HTML enough for the consulting landing page?",
-    ),
-    DemoBeat(
-        "engineering",
-        "sam",
-        "reply",
-        "@Chen static only this sprint — mock the lead form; API can land next iteration.",
-        reply_to="chen",
-    ),
-    DemoBeat(
-        "engineering",
-        "marco",
-        "code",
-        "Initial HTML shell — hero, nav, services mount point.",
-        code_file="index.html",
-        code_lang="html",
-        code_body=INDEX_HTML,
-    ),
-    DemoBeat(
-        "engineering",
-        "marco",
-        "code",
-        "Brand tokens + hero layout CSS.",
-        code_file="styles.css",
-        code_lang="css",
-        code_body=STYLES_CSS,
-    ),
-    DemoBeat(
-        "engineering",
-        "marco",
-        "code",
-        "Services grid from JS array + CTA handler (posts to `/api/lead`).",
-        code_file="app.js",
-        code_lang="javascript",
-        code_body=APP_JS,
-    ),
-    DemoBeat(
-        "engineering",
-        "chen",
-        "code",
-        "Lead capture API — FastAPI + asyncpg on secure Postgres VM.",
-        code_file="server.py",
-        code_lang="python",
-        code_body=SERVER_PY,
-    ),
-    DemoBeat(
-        "engineering",
-        "chen",
-        "message",
-        "@Nina — backend ready for VM deploy: `/api/lead` persists to private Postgres (~1 TB).",
-    ),
-    DemoBeat(
-        "engineering",
-        "priya",
-        "preview",
-        "Opening staging preview — checking visual balance on hero padding and CTA contrast.",
-    ),
-    DemoBeat(
-        "engineering",
-        "jordan",
-        "query",
-        "What are our smoke-test acceptance criteria for mobile and desktop?",
-    ),
-    DemoBeat(
-        "engineering",
-        "jordan",
-        "reply",
-        "Running visual pass on staging now — hero, 3 cards, CTA alert all render correctly.",
-        reply_to="jordan",
-    ),
-    DemoBeat(
-        "product",
-        "alex",
-        "reply",
-        "@Jordan if staging looks good, @Nina can publish to GitHub Pages autonomously.",
-        reply_to="jordan",
-    ),
-    DemoBeat(
-        "deploy",
-        "nina",
-        "query",
-        "What files and hosting target are we publishing for Nexus Advisory?",
-    ),
-    DemoBeat(
-        "deploy",
-        "nina",
-        "deploy",
-        "Autonomous publish: static files to GitHub Pages + stack to secure squad VM…",
-    ),
-    DemoBeat(
-        "deploy",
-        "jordan",
-        "preview",
-        "Production visual check — comparing live GitHub Pages to staging preview.",
-    ),
-    DemoBeat(
-        "general",
-        "kai",
-        "message",
-        "Nice work — client review tomorrow AM. Each of us keeps ACME beliefs on why we chose static v1.",
-    ),
-    DemoBeat(
-        "engineering",
-        "chen",
-        "reply",
-        "@Sam I'll log lead-capture schema as beliefs before we wire `/api/lead` next sprint.",
-        reply_to="sam",
-    ),
+    DemoBeat("general", "alex", "message", "Kickoff: Nexus Advisory site — layered architecture (static + API + Postgres VM)."),
+    DemoBeat("general", "sam", "message", "Architecture doc first: `static/`, `api/routes/`, nginx TLS, private SQL."),
+    DemoBeat("general", "kai", "message", "@Sam tracking file-level ownership — no monolith `app.js` this sprint."),
+    DemoBeat("product", "morgan", "message", "Client wants services API-driven, lead capture persisted, enterprise proof strip later."),
+    DemoBeat("product", "alex", "reply", "@Morgan — v1 = modular frontend + `/api/lead` + `/api/services`.", reply_to="morgan"),
+    DemoBeat("design", "priya", "message", "CSS split: tokens → layout → components. ES modules for JS."),
+    DemoBeat("design", "riley", "reply", 'Headline locked: *Clarity for complex transformations*.', reply_to="priya"),
+    DemoBeat("design", "sam", "query", "What frontend file structure should we implement for Nexus Advisory?"),
+    DemoBeat("engineering", "sam", "reply", "@Priya `@Marco` use `static/css/*` + `static/js/{api,components,app}.js`.", reply_to="sam"),
+    DemoBeat("engineering", "chen", "query", "What backend modules do we need for leads and services on the VM stack?"),
+    DemoBeat("engineering", "chen", "reply", "@Sam `api/db.py`, `api/models.py`, `api/routes/{health,leads}.py`, thin `server.py`.", reply_to="chen"),
+    DemoBeat("engineering", "marco", "code", "Repo architecture overview.", code_file="ARCHITECTURE.md", code_lang="markdown", code_body=A("ARCHITECTURE.md")),
+    DemoBeat("engineering", "marco", "code", "Developer README.", code_file="README.md", code_lang="markdown", code_body=A("README.md")),
+    _code("static/index.html", "html", "HTML shell — nav, hero, services mount, module entry."),
+    _code("static/css/tokens.css", "css", "Design tokens (brand, spacing, typography)."),
+    _code("static/css/layout.css", "css", "Page layout — hero grid, footer."),
+    _code("static/css/components.css", "css", "Reusable UI — buttons, cards."),
+    DemoBeat("engineering", "marco", "code", "Fetch wrapper for `/api/lead` and `/api/services`.", code_file="static/js/api.js", code_lang="javascript", code_body=A("static/js/api.js")),
+    DemoBeat("engineering", "marco", "code", "Services grid renderer.", code_file="static/js/components.js", code_lang="javascript", code_body=A("static/js/components.js")),
+    DemoBeat("engineering", "marco", "code", "App bootstrap + CTA handler.", code_file="static/js/app.js", code_lang="javascript", code_body=A("static/js/app.js")),
+    DemoBeat("engineering", "chen", "code", "Env-backed settings.", code_file="api/config.py", code_lang="python", code_body=A("api/config.py")),
+    DemoBeat("engineering", "chen", "code", "Asyncpg pool + migrations.", code_file="api/db.py", code_lang="python", code_body=A("api/db.py")),
+    DemoBeat("engineering", "chen", "code", "Pydantic request/response models.", code_file="api/models.py", code_lang="python", code_body=A("api/models.py")),
+    DemoBeat("engineering", "chen", "code", "Health route for nginx upstream checks.", code_file="api/routes/health.py", code_lang="python", code_body=A("api/routes/health.py")),
+    DemoBeat("engineering", "chen", "code", "Leads + services REST routes.", code_file="api/routes/leads.py", code_lang="python", code_body=A("api/routes/leads.py")),
+    DemoBeat("engineering", "chen", "code", "ASGI entry — mounts routers.", code_file="server.py", code_lang="python", code_body=A("server.py")),
+    DemoBeat("engineering", "jordan", "code", "API smoke test.", code_file="tests/test_api.py", code_lang="python", code_body=A("tests/test_api.py")),
+    DemoBeat("engineering", "priya", "preview", "Staging preview — multi-file CSS/JS inlined; checking hero + cards."),
+    DemoBeat("engineering", "jordan", "query", "What acceptance criteria cover the full static + API architecture?"),
+    DemoBeat("engineering", "jordan", "reply", "Staging pass: index, 3 CSS modules, ES modules, `/api/health` OK.", reply_to="jordan"),
+    DemoBeat("product", "alex", "reply", "@Jordan if green, @Nina publishes Pages + VM stack.", reply_to="jordan"),
+    DemoBeat("deploy", "nina", "query", "What files and targets are we publishing for Nexus Advisory?"),
+    DemoBeat("deploy", "nina", "deploy", "Autonomous publish: `static/*` → GitHub Pages, full stack → secure squad VM…"),
+    DemoBeat("deploy", "chen", "message", "VM live — `/api/lead` persisting to private Postgres (~1 TB capacity)."),
+    DemoBeat("deploy", "jordan", "preview", "Production visual check — VM HTTPS vs staging preview."),
+    DemoBeat("general", "kai", "message", "Shipped modular v1. Each agent keeps ACME beliefs on architecture trade-offs."),
+    DemoBeat("engineering", "sam", "query", "Summarize all architecture decisions we made for Nexus Advisory v1."),
+    DemoBeat("engineering", "chen", "reply", "@Sam logging lead schema + route map as beliefs for next sprint API work.", reply_to="sam"),
 )
 
-DEFAULT_SITE_ARTIFACTS = SITE_ARTIFACTS
+DEFAULT_SITE_ARTIFACTS = None  # use acme.demo.artifacts.SITE_ARTIFACTS

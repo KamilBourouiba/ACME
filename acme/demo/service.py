@@ -11,9 +11,11 @@ from typing import Any
 
 from acme.config import settings
 from acme.db.session import SessionLocal
-from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, SITE_ARTIFACTS, DemoAgent
+from acme.demo.agents import AGENT_BY_ID, DEMO_AGENTS, DemoAgent
+from acme.demo.artifacts import SITE_ARTIFACTS
 from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
 from acme.demo.github_deploy import deploy_files
+from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.reset import cleanup_all_demo_tenants
 from acme.demo.vm_deploy import deploy_to_vm
@@ -30,6 +32,21 @@ from acme.orchestrator import ACMEOrchestrator
 from acme.schemas import ExperienceCreate, QueryRequest, SourceType
 
 logger = logging.getLogger("acme.demo")
+
+
+def _index_key(artifacts: dict[str, str]) -> str | None:
+    if "static/index.html" in artifacts:
+        return "static/index.html"
+    if "index.html" in artifacts:
+        return "index.html"
+    return None
+
+
+def _trim_messages(messages: list["_DemoMessage"]) -> list["_DemoMessage"]:
+    cap = settings.demo_message_cap
+    if cap <= 0 or len(messages) <= cap:
+        return messages
+    return messages[-cap:]
 
 
 @dataclass
@@ -142,7 +159,7 @@ class DemoService:
                     await self._run_turn()
             except Exception:
                 logger.exception("Demo turn failed")
-            await asyncio.sleep(max(5, settings.demo_interval_sec))
+            await asyncio.sleep(max(1, settings.demo_interval_sec))
 
     async def _run_turn(self) -> None:
         beat = SCRIPT_BEATS[self._beat_index % len(SCRIPT_BEATS)]
@@ -174,11 +191,11 @@ class DemoService:
 
         if beat.kind == "code" and beat.code_file and beat.code_body:
             self._artifacts[beat.code_file] = beat.code_body
-            if beat.code_file == "index.html":
+            if _index_key(self._artifacts):
                 self._preview_ready = True
 
         if beat.kind == "preview":
-            self._preview_ready = bool(self._artifacts.get("index.html"))
+            self._preview_ready = bool(_index_key(self._artifacts))
             if self._last_deploy and self._last_deploy.get("pages_verified"):
                 msg.content = f"{content} Live: {self._last_deploy.get('pages_url', '')}"
 
@@ -186,8 +203,7 @@ class DemoService:
             await self._run_acme_query(beat, msg, agent)
 
         self._messages.append(msg)
-        if len(self._messages) > 120:
-            self._messages = self._messages[-120:]
+        self._messages = _trim_messages(self._messages)
 
         state = await self.get_state()
         await self._notify(
@@ -300,8 +316,7 @@ class DemoService:
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
         self._messages.append(msg)
-        if len(self._messages) > 120:
-            self._messages = self._messages[-120:]
+        self._messages = _trim_messages(self._messages)
         return msg
 
     async def _autonomous_publish(self, *, trigger_msg: _DemoMessage) -> None:
@@ -536,6 +551,10 @@ class DemoService:
             DemoChannelOut(id=c.id, name=c.name, topic=c.topic, emoji=c.emoji) for c in DEMO_CHANNELS
         ]
 
+        msgs = self._messages
+        cap = settings.demo_state_message_cap
+        if cap > 0:
+            msgs = msgs[-cap:]
         return DemoStateOut(
             running=self.running and settings.demo_enabled,
             model=self.model_label(),
@@ -544,12 +563,12 @@ class DemoService:
             selected_channel=sel_channel,
             channels=channels_out,
             agents=agents_out,
-            messages=[m.to_out() for m in self._messages[-80:]],
+            messages=[m.to_out() for m in msgs],
             artifacts=dict(self._artifacts),
             last_deploy=self._last_deploy,
-            preview_ready=self._preview_ready or bool(self._artifacts.get("index.html")),
+            preview_ready=self._preview_ready or bool(_index_key(self._artifacts)),
             preview_url=self.preview_api_url()
-            if (self._preview_ready or self._artifacts.get("index.html"))
+            if (self._preview_ready or _index_key(self._artifacts))
             else None,
             live_preview_url=(
                 self._last_deploy.get("vm_url")
@@ -599,7 +618,7 @@ class DemoService:
             raise ValueError("GitHub repo not configured — set DEMO_GITHUB_REPO or pass repo")
 
         result = await deploy_files(
-            self._artifacts,
+            github_pages_files(self._artifacts),
             token=auth,
             repo=target_repo,
             branch=target_branch,

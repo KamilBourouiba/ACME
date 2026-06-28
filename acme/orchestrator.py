@@ -173,7 +173,10 @@ class ACMEOrchestrator:
 
     async def query(self, data: QueryRequest) -> QueryResponse:
         belief_scores = await self.beliefs.list_beliefs(min_confidence=0.3)
-        memory_context, entities = await self.retrieval.build_context(data.question, belief_scores)
+        demo_mode = self.tenant_id.startswith("demo-nexus")
+        memory_context, entities = await self.retrieval.build_context(
+            data.question, belief_scores, demo_mode=demo_mode
+        )
 
         result = await self.ollama.reason(
             question=data.question,
@@ -183,7 +186,7 @@ class ACMEOrchestrator:
 
         contrarian_view = None
         run_contrarian = (data.challenge or result["confidence"] >= 0.8) and not settings.ablation_disable_contrarian
-        if run_contrarian:
+        if run_contrarian and not demo_mode:
             contrarian_view = await self.ollama.contrarian_check(result["answer"], memory_context)
 
         query_session = QuerySession(
@@ -207,12 +210,15 @@ class ACMEOrchestrator:
         )
         await self.session.commit()
 
+        belief_limit = 0 if self.tenant_id.startswith("demo-nexus") else 5
+        beliefs_out = belief_scores if belief_limit == 0 else belief_scores[:belief_limit]
+
         return QueryResponse(
             answer=str(result["answer"]),
             confidence=float(result["confidence"]),
             reasoning=str(result.get("reasoning", "")),
             contrarian_view=contrarian_view,
-            beliefs_used=belief_scores[:5],
+            beliefs_used=beliefs_out,
             entities_retrieved=entities,
             session_id=query_session.id,
         )

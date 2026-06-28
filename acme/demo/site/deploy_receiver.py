@@ -81,16 +81,9 @@ class Handler(BaseHTTPRequestHandler):
             os.chmod(env_path, 0o600)
 
         for name, content in files.items():
-            if name in (
-                "server.py",
-                "requirements.txt",
-                "Dockerfile",
-                "docker-compose.yml",
-                "nginx.conf",
-            ):
-                (SITE_DIR / name).write_text(content, encoding="utf-8")
-            elif name in ("index.html", "styles.css", "app.js"):
-                (static / name).write_text(content, encoding="utf-8")
+            dest = SITE_DIR / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(content, encoding="utf-8")
 
         def _build() -> None:
             proc = _run_compose(SITE_DIR)

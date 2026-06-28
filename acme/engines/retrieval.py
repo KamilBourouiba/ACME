@@ -16,6 +16,8 @@ class RetrievalEngine:
         self,
         question: str,
         beliefs: list[BeliefScore] | None = None,
+        *,
+        demo_mode: bool = False,
     ) -> tuple[str, list[str]]:
         terms = self._extract_terms(question)
         entities = await self.graph.search_entities(terms, tenant_id=self.tenant_id)
@@ -33,17 +35,19 @@ class RetrievalEngine:
             )
 
             neighborhood = await self.graph.get_neighborhood(name, depth=1, tenant_id=self.tenant_id)
-            for edge in neighborhood[:10]:
+            edge_limit = 50 if demo_mode else 10
+            for edge in neighborhood[:edge_limit]:
                 context_parts.append(
                     f"  {edge['source']} --[{edge['relation_type']}]--> {edge['target']} "
                     f"(confidence={edge.get('confidence')}, type={edge.get('knowledge_type')})"
                 )
 
         if beliefs:
+            belief_limit = len(beliefs) if demo_mode else 10
             belief_lines = [
                 f"Belief: {b.label} (confidence={b.confidence:.2f}, "
                 f"support={b.supporting_evidence}, contradict={b.contradicting_evidence})"
-                for b in beliefs[:10]
+                for b in beliefs[:belief_limit]
             ]
             context_parts.append("Tracked beliefs:\n" + "\n".join(belief_lines))
 
