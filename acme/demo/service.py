@@ -19,6 +19,7 @@ from acme.demo.github_deploy import delete_repo, deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
 from acme.demo.improvement import ImprovementPlan, _fallback_plan, plan_improvement
+from acme.demo.registry import SquadRegistry
 from acme.demo.site_guard import is_pinned_on_deploy, is_protected_site_file, reference_site_files, safe_site_artifact
 from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
