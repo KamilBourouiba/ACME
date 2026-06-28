@@ -11,6 +11,7 @@ from acme.demo.schemas import (
     DemoAgentOut,
     DemoDeployIn,
     DemoDeployOut,
+    DemoPauseOut,
     DemoResetOut,
     DemoStateOut,
     DemoVisitorSayIn,
@@ -53,6 +54,18 @@ async def demo_reset() -> DemoResetOut:
     if not ok:
         raise HTTPException(status_code=429, detail=message)
     return DemoResetOut(ok=True, tenants_reset=len(stats), stats=stats)
+
+
+@router.post("/pause", response_model=DemoPauseOut)
+async def demo_pause() -> DemoPauseOut:
+    _demo_disabled()
+    return await demo_service.pause()
+
+
+@router.post("/resume", response_model=DemoPauseOut)
+async def demo_resume() -> DemoPauseOut:
+    _demo_disabled()
+    return await demo_service.resume()
 
 
 @router.post("/deploy", response_model=DemoDeployOut)

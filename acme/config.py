@@ -89,10 +89,11 @@ class Settings(BaseSettings):
     demo_github_branch: str = "main"
     demo_auto_publish: bool = True
     demo_publish_cooldown_sec: int = 15
-    demo_clean_on_start: bool = True
-    demo_wipe_on_clean: bool = True  # VM + GitHub wipe on clean/reset/recycle
+    demo_clean_on_start: bool = False
+    demo_wipe_on_clean: bool = False  # wipe VM/GitHub only on explicit POST /reset
     demo_clean_repo_on_reset: bool = True
-    demo_auto_recycle: bool = True  # full clean when script loop completes
+    demo_auto_recycle: bool = False
+    demo_continuous_improvement: bool = True
     demo_belief_refresh_ticks: int = 3
     demo_vector_search_limit: int = 50
     demo_message_cap: int = 400

@@ -479,8 +479,11 @@
     state = next;
 
     els.modelLabel.textContent = next.model || "—";
-    els.tickLabel.textContent = String(next.tick || 0);
-    if (next.running) {
+    els.tickLabel.textContent = `${next.tick || 0}${next.phase ? ` · ${next.phase}` : ""}`;
+    if (next.paused) {
+      els.livePill.textContent = "Paused";
+      els.livePill.classList.remove("on");
+    } else if (next.running) {
       els.livePill.textContent = "Live";
       els.livePill.classList.add("on");
     }

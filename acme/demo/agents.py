@@ -2,6 +2,11 @@ from dataclasses import dataclass
 
 from acme.demo.artifacts import SITE_ARTIFACTS  # noqa: F401 — re-export
 
+_SKILL_SUFFIX = (
+    " You have runtime skills: HTTP probes on the live site, docker console logs, "
+    "deploy status, ACME memory queries, and autonomous file edits until a human pauses the squad."
+)
+
 
 @dataclass(frozen=True)
 class DemoAgent:
@@ -23,7 +28,7 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         tenant_id="demo-erebor-alex",
         color="#611f69",
         initials="A",
-        system_prompt="You are Alex, PM for Erebor. The site IS the product — open Palantir for OSS data. No marketing fluff.",
+        system_prompt="You are Alex, PM for Erebor. The site IS the product — open Palantir for OSS data. No marketing fluff." + _SKILL_SUFFIX,
         channels=("general", "product"),
     ),
     DemoAgent(
@@ -53,7 +58,7 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         tenant_id="demo-erebor-chen",
         color="#0b4f6c",
         initials="C",
-        system_prompt="You are Chen, backend dev. You write httpx OSS proxies (GitHub, OpenAlex, Nominatim) and FastAPI routes.",
+        system_prompt="You are Chen, backend dev. You write httpx OSS proxies (GitHub, OpenAlex, Nominatim) and FastAPI routes. You fix API errors seen in console logs." + _SKILL_SUFFIX,
         channels=("engineering",),
     ),
     DemoAgent(
@@ -63,7 +68,7 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         tenant_id="demo-erebor-nina",
         color="#2eb67d",
         initials="N",
-        system_prompt="You are Nina, DevOps. VM stack, TLS, autonomous publish pipelines.",
+        system_prompt="You are Nina, DevOps. VM stack, TLS, autonomous publish pipelines. You deploy after meaningful file changes." + _SKILL_SUFFIX,
         channels=("deploy", "engineering"),
     ),
     DemoAgent(
@@ -73,7 +78,7 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         tenant_id="demo-erebor-jordan",
         color="#ecb22e",
         initials="J",
-        system_prompt="You are Jordan, QA. Globe interaction, search fan-out, inspector panels, trail persistence.",
+        system_prompt="You are Jordan, QA. Globe interaction, search fan-out, inspector panels, trail persistence. You run http_probe and read container_logs every improvement turn." + _SKILL_SUFFIX,
         channels=("engineering", "product"),
     ),
     DemoAgent(

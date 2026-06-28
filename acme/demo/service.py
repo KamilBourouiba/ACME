@@ -18,7 +18,9 @@ from acme.demo.channels import CHANNEL_BY_ID, DEMO_CHANNELS
 from acme.demo.github_deploy import deploy_files, wipe_repo
 from acme.demo.github_pages import github_pages_files
 from acme.demo.preview import build_staging_preview
+from acme.demo.improvement import ImprovementPlan, plan_improvement
 from acme.demo.reset import cleanup_all_demo_tenants
+from acme.demo.skills import DemoSkills
 from acme.demo.vm_deploy import deploy_to_vm
 from acme.demo.schemas import (
     DemoAgentOut,
@@ -27,6 +29,7 @@ from acme.demo.schemas import (
     DemoStateOut,
     DemoVisitorSayOut,
     DemoVisitorUnlockOut,
+    DemoPauseOut,
 )
 from acme.demo.script import SCRIPT_BEATS, DemoBeat
 from acme.graph.neo4j_client import neo4j_client
@@ -112,6 +115,36 @@ class DemoService:
         self._belief_counts: dict[str, int] = {a.id: 0 for a in DEMO_AGENTS}
         self._belief_fetch_tick: int = -999
         self._recycling: bool = False
+        self._paused: bool = False
+        self._phase: str = "bootstrap"
+        self._improvement_turn: int = 0
+
+    async def pause(self) -> DemoPauseOut:
+        async with self._lock:
+            self._paused = True
+            self._phase = "paused"
+        state = await self.get_state()
+        await self._notify({"type": "pause", "state": state.model_dump()})
+        return DemoPauseOut(ok=True, paused=True, phase=self._phase)
+
+    async def resume(self) -> DemoPauseOut:
+        async with self._lock:
+            self._paused = False
+            if self._beat_index >= len(SCRIPT_BEATS):
+                self._phase = "improve"
+            else:
+                self._phase = "bootstrap"
+        state = await self.get_state()
+        await self._notify({"type": "resume", "state": state.model_dump()})
+        return DemoPauseOut(ok=True, paused=False, phase=self._phase)
+
+    @property
+    def phase(self) -> str:
+        return self._phase
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
 
     def model_label(self) -> str:
         if settings.demo_azure_deployment:
@@ -171,15 +204,25 @@ class DemoService:
             await asyncio.sleep(max(1, settings.demo_interval_sec))
 
     async def _run_turn(self) -> None:
+        if self._paused:
+            return
+        if self._beat_index < len(SCRIPT_BEATS):
+            await self._run_scripted_turn()
+        elif settings.demo_continuous_improvement:
+            await self._run_improvement_turn()
+
+    async def _run_scripted_turn(self) -> None:
         async with self._lock:
             if self._recycling:
                 return
-            beat = SCRIPT_BEATS[self._beat_index % len(SCRIPT_BEATS)]
+            beat = SCRIPT_BEATS[self._beat_index]
             self._beat_index += 1
             self._turn_index += 1
             tick = self._turn_index
             self.tick = tick
-            cycle_done = self._beat_index > 0 and self._beat_index % len(SCRIPT_BEATS) == 0
+            self._phase = "bootstrap"
+            if self._beat_index >= len(SCRIPT_BEATS):
+                self._phase = "improve"
             agent = AGENT_BY_ID[beat.agent_id]
             reply_name = (
                 AGENT_BY_ID[beat.reply_to].name if beat.reply_to and beat.reply_to in AGENT_BY_ID else None
@@ -251,10 +294,140 @@ class DemoService:
             self._bg_tasks.add(pub)
             pub.add_done_callback(self._bg_tasks.discard)
 
-        if cycle_done and settings.demo_auto_recycle:
-            recycle = asyncio.create_task(self._recycle_after_cycle())
-            self._bg_tasks.add(recycle)
-            recycle.add_done_callback(self._bg_tasks.discard)
+        if self._beat_index >= len(SCRIPT_BEATS):
+            announce = asyncio.create_task(self._announce_improvement_mode())
+            self._bg_tasks.add(announce)
+            announce.add_done_callback(self._bg_tasks.discard)
+
+    async def _announce_improvement_mode(self) -> None:
+        msg = await self._append_agent_message(
+            channel="general",
+            agent_id="kai",
+            kind="message",
+            content=(
+                "Bootstrap script complete — switching to *continuous improvement*. "
+                "Squad will probe the live site, read console logs, patch files, and redeploy "
+                "until a human calls POST /api/v1/demo/pause."
+            ),
+        )
+        async with self._lock:
+            self._phase = "improve"
+            state = await self.get_state()
+            await self._notify(
+                {
+                    "type": "phase",
+                    "phase": "improve",
+                    "message": msg.to_out().model_dump(),
+                    "state": state.model_dump(),
+                }
+            )
+
+    async def _run_improvement_turn(self) -> None:
+        async with self._lock:
+            if self._recycling:
+                return
+            self._improvement_turn += 1
+            self._turn_index += 1
+            tick = self._turn_index
+            self.tick = tick
+            self._phase = "improve"
+            artifacts_snapshot = dict(self._artifacts)
+            last_deploy = dict(self._last_deploy) if self._last_deploy else None
+            recent = "\n".join(
+                f"{m.agent_name}: {m.content[:160]}" for m in self._messages[-10:]
+            )
+            imp_turn = self._improvement_turn
+
+        skills = DemoSkills(artifacts=artifacts_snapshot, last_deploy=last_deploy)
+        observations, skill_results = await skills.gather_observations()
+        plan = await plan_improvement(
+            turn=imp_turn,
+            observations=observations,
+            artifacts=artifacts_snapshot,
+            recent_thread=recent,
+        )
+        agent = AGENT_BY_ID[plan.agent_id]
+
+        skill_note = ""
+        if plan.action == "probe" or plan.skill:
+            fails = [r for r in skill_results if not r.ok]
+            if fails:
+                skill_note = "\n".join(r.to_line() for r in fails[:4])
+
+        code_body = None
+        beat: DemoBeat | None = plan.to_beat()
+        content = plan.message
+        if skill_note:
+            content = f"{content}\n\n```\n{skill_note}\n```"
+
+        kind = plan.action
+        if plan.action == "edit" and beat:
+            kind = "code"
+            if settings.demo_llm_code and beat.code_file:
+                code_body = await generate_agent_code(agent, beat, artifacts=artifacts_snapshot)
+                content = f"Pushed `{beat.code_file}` — {plan.message}"
+        elif plan.action == "deploy":
+            kind = "deploy"
+        elif plan.action == "query" and beat:
+            kind = "query"
+        else:
+            kind = "skill" if plan.action == "probe" else "message"
+
+        msg = _DemoMessage(
+            id=str(uuid.uuid4()),
+            channel=plan.channel,
+            agent_id=agent.id,
+            agent_name=agent.name,
+            role=agent.role,
+            kind=kind,
+            content=content,
+            code_file=beat.code_file if beat else None,
+            code_lang=beat.code_lang if beat else None,
+            code_body=code_body,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+
+        if kind == "query" and plan.query:
+            msg.content = plan.query
+            if beat:
+                beat = DemoBeat(
+                    channel=plan.channel,
+                    agent_id=plan.agent_id,
+                    kind="query",
+                    content=plan.query,
+                )
+
+        if kind == "query" and beat:
+            await self._run_acme_query(beat, msg, agent)
+
+        async with self._lock:
+            if beat and kind == "code" and beat.code_file and code_body:
+                self._artifacts[beat.code_file] = code_body
+                if _index_key(self._artifacts):
+                    self._preview_ready = True
+
+            self._messages.append(msg)
+            self._messages = _trim_messages(self._messages)
+            state = await self.get_state()
+            await self._notify(
+                {
+                    "type": "turn",
+                    "tick": tick,
+                    "message": msg.to_out().model_dump(),
+                    "state": state.model_dump(),
+                }
+            )
+
+        if beat:
+            task = asyncio.create_task(self._process_acme(beat, msg, agent))
+            self._bg_tasks.add(task)
+            task.add_done_callback(self._bg_tasks.discard)
+
+        should_deploy = plan.deploy or plan.action == "deploy"
+        if should_deploy and settings.demo_auto_publish and self._artifacts:
+            pub = asyncio.create_task(self._autonomous_publish(trigger_msg=msg))
+            self._bg_tasks.add(pub)
+            pub.add_done_callback(self._bg_tasks.discard)
 
     async def _run_acme_query(self, beat: DemoBeat, msg: _DemoMessage, agent: DemoAgent) -> None:
         """Run ACME query synchronously so Q&A appears in the same turn."""
@@ -626,7 +799,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 orch = ACMEOrchestrator(session, neo4j_client, llm, tenant_id=agent.tenant_id)
                 tags = ["demo", "erebor", beat.channel]
 
-                if beat.kind in ("message", "code", "deploy", "reply", "preview"):
+                if beat.kind in ("message", "code", "deploy", "reply", "preview", "skill"):
                     body = beat.content
                     if beat.code_file and msg.code_body:
                         body = f"{beat.content} File: {beat.code_file}\n{msg.code_body[:500]}"
@@ -765,6 +938,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             running=self.running and settings.demo_enabled,
             model=self.model_label(),
             tick=self.tick,
+            scenario="erebor-open-intelligence",
+            phase=self._phase,
+            paused=self._paused,
             selected_agent=sel_agent,
             selected_channel=sel_channel,
             channels=channels_out,
@@ -846,7 +1022,9 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         await self._notify({"type": "deploy", "deploy": self._last_deploy, "state": state.model_dump()})
         return result
 
-    async def _clean_state(self, *, force: bool = False, wipe_external: bool = True) -> list[dict[str, int | str]]:
+    async def _clean_state(
+        self, *, force: bool = False, wipe_external: bool = True, force_wipe: bool = False
+    ) -> list[dict[str, int | str]]:
         async with SessionLocal() as session:
             stats = await cleanup_all_demo_tenants(session, neo4j_client)
 
@@ -858,7 +1036,10 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._preview_ready = False
         self._beat_index = 0
         self._turn_index = 0
+        self._improvement_turn = 0
         self.tick = 0
+        self._phase = "bootstrap"
+        self._paused = False
         self._last_visitor_say_at = None
         self._visitor_turn = 0
         self._belief_counts = {a.id: 0 for a in DEMO_AGENTS}
@@ -866,7 +1047,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         if force:
             self._last_reset_at = None
 
-        if wipe_external and settings.demo_wipe_on_clean:
+        if wipe_external and (settings.demo_wipe_on_clean or force_wipe):
             if self._vm_configured():
                 await self._wipe_vm_product()
             if self._publish_configured() and settings.demo_clean_repo_on_reset:
@@ -885,22 +1066,6 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             )
         except Exception:
             logger.exception("GitHub repo wipe failed")
-
-    async def _recycle_after_cycle(self) -> None:
-        async with self._lock:
-            if self._recycling:
-                return
-            self._recycling = True
-        try:
-            logger.info("Demo script cycle complete — fresh restart")
-            stats = await self._clean_state(force=False, wipe_external=True)
-            state = await self.get_state()
-            await self._notify({"type": "recycle", "stats": stats, "state": state.model_dump()})
-        except Exception:
-            logger.exception("Demo recycle failed")
-        finally:
-            async with self._lock:
-                self._recycling = False
 
     async def _wipe_vm_product(self) -> None:
         """Remove prior squad files on VM so deploy starts clean."""
@@ -927,7 +1092,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 if wait > 0:
                     return False, f"Please wait {int(wait)}s before resetting again.", []
 
-            stats = await self._clean_state(force=False, wipe_external=True)
+            stats = await self._clean_state(force=False, wipe_external=True, force_wipe=True)
             self._last_reset_at = now
 
         state = await self.get_state()

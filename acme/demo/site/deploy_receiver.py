@@ -58,11 +58,47 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _authorized(self) -> bool:
+        auth = self.headers.get("Authorization", "")
+        return bool(DEPLOY_KEY) and auth == f"Bearer {DEPLOY_KEY}"
+
     def do_GET(self) -> None:
-        if self.path.rstrip("/") == "/health":
+        path = self.path.split("?", 1)[0].rstrip("/")
+        if path == "/health":
             self._json(200, {"status": "ok"})
-        else:
-            self._json(404, {"error": "not found"})
+            return
+        if path in ("/deploy/status", "/logs"):
+            if not self._authorized():
+                self._json(401, {"error": "unauthorized"})
+                return
+            if path == "/deploy/status":
+                status_path = SITE_DIR / "last_deploy.json"
+                if not status_path.is_file():
+                    self._json(200, {"ok": False, "status": "never"})
+                    return
+                self._json(200, json.loads(status_path.read_text(encoding="utf-8")))
+                return
+            # /logs
+            from urllib.parse import parse_qs, urlparse
+
+            qs = parse_qs(urlparse(self.path).query)
+            service = (qs.get("service") or ["api"])[0]
+            tail = int((qs.get("tail") or ["80"])[0])
+            compose_file = str(SITE_DIR / "docker-compose.yml")
+            base = _compose_cmd()
+            proc = subprocess.run(
+                [*base, "-f", compose_file, "logs", "--no-color", f"--tail={tail}", service],
+                cwd=SITE_DIR,
+                capture_output=True,
+                text=True,
+            )
+            logs = (proc.stdout or "") + (proc.stderr or "")
+            self._json(
+                200,
+                {"service": service, "lines": len(logs.splitlines()), "logs": logs[-8000:]},
+            )
+            return
+        self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
         if self.path.rstrip("/") != "/deploy":

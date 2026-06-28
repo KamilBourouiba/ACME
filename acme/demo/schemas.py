@@ -49,6 +49,8 @@ class DemoStateOut(BaseModel):
     model: str
     tick: int
     scenario: str = "erebor-open-intelligence"
+    phase: str = "bootstrap"  # bootstrap | improve | paused
+    paused: bool = False
     selected_agent: str | None = None
     selected_channel: str | None = None
     channels: list[DemoChannelOut]
@@ -65,6 +67,12 @@ class DemoResetOut(BaseModel):
     ok: bool
     tenants_reset: int
     stats: list[dict[str, int | str]]
+
+
+class DemoPauseOut(BaseModel):
+    ok: bool
+    paused: bool
+    phase: str
 
 
 class DemoDeployIn(BaseModel):
