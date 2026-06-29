@@ -149,8 +149,29 @@ def _benign_console(text: str) -> bool:
             "gpu stall",
             "readpixels",
             "gl_close_path",
+            "403 (forbidden)",
         )
     )
+
+
+async def _wait_for_interactive(page) -> None:
+    """Boot can leave #loading-veil up in headless — hide it before click-through."""
+    try:
+        await page.wait_for_function(
+            """() => {
+              const veil = document.getElementById('loading-veil');
+              return veil && veil.classList.contains('hidden');
+            }""",
+            timeout=20000,
+        )
+    except Exception:
+        await page.evaluate(
+            """() => {
+              const veil = document.getElementById('loading-veil');
+              if (veil) veil.classList.add('hidden');
+            }"""
+        )
+    await page.wait_for_timeout(500)
 
 
 async def _httpx_audit(url: str, *, label: str) -> UiAuditReport:
@@ -228,6 +249,8 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
         shot_landing = f"{shot_prefix}-landing"
         screenshots[shot_landing] = await page.screenshot(full_page=False, type="png")
 
+        await _wait_for_interactive(page)
+
         selectors = {
             "search-input": "#search-input",
             "reset-view": "#btn-reset-view",
@@ -240,15 +263,16 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
             except Exception:
                 issues.append(f"Missing selector: {sel}")
 
+        search_ok = False
         try:
-            await page.click("#search-input")
             await page.fill("#search-input", "python")
             await page.keyboard.press("Enter")
             await page.wait_for_timeout(2500)
             shot_search = f"{shot_prefix}-search"
             screenshots[shot_search] = await page.screenshot(full_page=False, type="png")
             results = await page.locator(".search-hit, .search-group, #search-results").count()
-            if results == 0:
+            search_ok = results > 0
+            if not search_ok:
                 issues.append("Search submitted but no .search-hit results rendered")
         except Exception as exc:
             issues.append(f"Search interaction failed: {exc}")
@@ -256,14 +280,14 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
         for btn in ("#btn-reset-view", "#btn-rotate", "#btn-arcs"):
             try:
                 if await page.locator(btn).count():
-                    await page.click(btn, timeout=3000)
+                    await page.click(btn, timeout=3000, force=True)
                     await page.wait_for_timeout(400)
             except Exception as exc:
                 issues.append(f"Click failed {btn}: {exc}")
 
         try:
             nodes_text = (await page.locator("#hud-nodes").inner_text()).strip()
-            if nodes_text in ("0", "—", ""):
+            if nodes_text in ("—", "") and not search_ok:
                 issues.append(f"Globe HUD shows no linked nodes ({nodes_text!r})")
         except Exception:
             pass

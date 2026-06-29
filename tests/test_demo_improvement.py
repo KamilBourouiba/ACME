@@ -12,7 +12,7 @@ def test_fallback_plan_probes_on_failure():
         failure_sig="ok",
     )
     # no vm failing path — bootstraps or edits
-    assert plan.action in ("probe", "edit", "query", "deploy", "remediate", "triage")
+    assert plan.action in ("probe", "edit", "query", "deploy", "remediate", "triage", "ui_audit")
 
 
 def test_fallback_plan_bootstraps_index_when_empty():
