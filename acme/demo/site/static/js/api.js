@@ -7,7 +7,7 @@ import {
   directGithubRepo,
   directOpenAlexWork,
   directSearch,
-} from "./oss.js?v=pages2";
+} from "./oss.js";
 
 const ON_PAGES =
   typeof window !== "undefined" && /\.github\.io$/i.test(window.location.hostname);

@@ -190,10 +190,6 @@ def _deploy_stack(site_dir: Path, *, mode: str = "full") -> subprocess.Completed
     return _run_compose(site_dir, rebuild_api=rebuild)
 
 
-def _run_compose(site_dir: Path) -> subprocess.CompletedProcess[str]:
-    return _deploy_stack(site_dir, mode="full")
-
-
 class Handler(BaseHTTPRequestHandler):
     def _json(self, code: int, body: dict) -> None:
         raw = json.dumps(body).encode()

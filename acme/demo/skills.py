@@ -87,6 +87,25 @@ class DemoSkills:
                 detail={"url": url, "error": str(exc)},
             )
 
+    async def probe_static_shell(self) -> SkillResult:
+        if not self._site_url:
+            return SkillResult(
+                skill="static_shell",
+                ok=False,
+                summary="No live site URL configured yet",
+                detail={},
+            )
+        root = await self.http_get(f"{self._site_url}/")
+        css = await self.http_get(f"{self._site_url}/css/shell.css")
+        body = root.detail.get("body_preview") or ""
+        ok = root.ok and css.ok and "shell.css" in body
+        return SkillResult(
+            skill="static_shell",
+            ok=ok,
+            summary=f"root={root.detail.get('status')} shell.css={css.detail.get('status')}",
+            detail={"root": root.detail, "css": css.detail},
+        )
+
     async def probe_site_health(self) -> SkillResult:
         if not self._site_url:
             return SkillResult(
@@ -99,16 +118,24 @@ class DemoSkills:
         if not health.ok:
             health = await self.http_get(f"{self._site_url}/healthz")
         catalog = await self.http_get(f"{self._site_url}/api/catalog")
+        shell = await self.probe_static_shell()
         pages_ok = self.last_deploy.get("pages_verified") is True
-        ok = health.ok and (catalog.ok or pages_ok)
+        api_ok = health.ok and catalog.ok
+        ok = shell.ok and (api_ok or pages_ok)
         return SkillResult(
             skill="http_probe",
             ok=ok,
             summary=(
-                f"health={health.detail.get('status')} catalog={catalog.detail.get('status')}"
+                f"health={health.detail.get('status')} static={shell.detail.get('root', {}).get('status')} "
+                f"catalog={catalog.detail.get('status')}"
                 + (" (Pages-only mode OK)" if pages_ok and not health.ok else "")
             ),
-            detail={"health": health.detail, "catalog": catalog.detail, "pages_ok": pages_ok},
+            detail={
+                "health": health.detail,
+                "catalog": catalog.detail,
+                "static_shell": shell.detail,
+                "pages_ok": pages_ok,
+            },
         )
 
     async def probe_receiver(self) -> SkillResult:
@@ -248,6 +275,7 @@ class DemoSkills:
         parallel = await asyncio.gather(
             self.probe_receiver(),
             self.probe_site_health(),
+            self.probe_static_shell(),
             self.probe_search(),
             self.read_deploy_status(),
             return_exceptions=True,

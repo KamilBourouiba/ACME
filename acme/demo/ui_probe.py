@@ -310,6 +310,22 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
     )
 
 
+async def _site_shell_ready(url: str) -> tuple[bool, str]:
+    async with httpx.AsyncClient(timeout=20.0, verify=False, follow_redirects=True) as client:
+        try:
+            resp = await client.get(url)
+            if resp.status_code >= 400:
+                return False, f"HTTP {resp.status_code}"
+            if "shell.css" not in resp.text:
+                return False, "index missing shell.css"
+            css = await client.get(f"{url.rstrip('/')}/css/shell.css")
+            if css.status_code >= 400:
+                return False, f"shell.css HTTP {css.status_code}"
+            return True, "ready"
+        except Exception as exc:
+            return False, str(exc)
+
+
 async def run_ui_audit(
     *,
     pages_url: str | None = None,
@@ -333,6 +349,29 @@ async def run_ui_audit(
 
     reports: list[UiAuditReport] = []
     for url, label in targets:
+        ready, reason = await _site_shell_ready(url)
+        if not ready:
+            issues = [f"Site shell not ready: {reason}"]
+            fix_tasks = []
+            if label == "vm":
+                fix_tasks.append(
+                    UiFixTask(
+                        "nina",
+                        "static/index.html",
+                        "html",
+                        "VM nginx not serving static shell — run platform reconcile + static sync.",
+                    )
+                )
+            reports.append(
+                UiAuditReport(
+                    ok=False,
+                    summary=f"[{label}] UI audit SKIP — {reason}",
+                    issues=issues,
+                    fix_tasks=fix_tasks,
+                    detail={"url": url, "mode": "preflight"},
+                )
+            )
+            continue
         if prefer_playwright and _PLAYWRIGHT:
             reports.append(await _playwright_audit(url, label=label, shot_prefix=label))
         else:

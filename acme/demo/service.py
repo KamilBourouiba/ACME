@@ -200,7 +200,7 @@ class DemoService:
                 async with self._lock:
                     artifacts_snapshot = static_artifact_keys(self._artifacts)
                     obs = self._observations_text
-                if "http_probe] OK" in obs and "receiver_probe] OK" in obs:
+                if "http_probe] OK" in obs and "receiver_probe] OK" in obs and "[static_shell] OK" in obs:
                     continue
                 now = datetime.now(timezone.utc)
                 if self._last_platform_reconcile_at is not None:

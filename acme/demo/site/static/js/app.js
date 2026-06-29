@@ -1,13 +1,13 @@
 /** App bootstrap — wires scene, search, panels, timeline. */
-import { EreborScene } from "./scene.js?v=pages2";
-import { api, debounce } from "./api.js?v=pages2";
+import { EreborScene } from "./scene.js";
+import { api, debounce } from "./api.js";
 import {
   renderSourceChips,
   renderEntityList,
   renderInspector,
   renderSearchResults,
-} from "./panels.js?v=pages2";
-import { pushEvent, render as renderTimeline } from "./timeline.js?v=pages2";
+} from "./panels.js";
+import { pushEvent, render as renderTimeline } from "./timeline.js";
 
 const state = {
   nodes: [],
@@ -19,6 +19,9 @@ const state = {
 let scene;
 
 async function boot() {
+  const dismissVeil = () => document.getElementById("loading-veil")?.classList.add("hidden");
+  setTimeout(dismissVeil, 4000);
+
   const canvas = document.getElementById("erebor-canvas");
   scene = new EreborScene(canvas);
   scene.onSelect(handleSelect);
@@ -56,7 +59,7 @@ async function boot() {
   } catch (err) {
     console.warn("boot partial", err);
   } finally {
-    document.getElementById("loading-veil")?.classList.add("hidden");
+    dismissVeil();
   }
 
   renderTimeline();
