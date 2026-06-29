@@ -59,6 +59,7 @@ code {
 .container {
   width: min(var(--max), calc(100% - 2rem));
   margin-inline: auto;
+  padding-inline: max(0px, env(safe-area-inset-left)) max(0px, env(safe-area-inset-right));
 }
 
 /* —— Nav —— */
@@ -482,7 +483,8 @@ td.na {
 .info-card p {
   margin: 0;
   color: var(--text-secondary);
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .info-card p + p {
@@ -522,6 +524,10 @@ footer {
 
 /* —— Mobile —— */
 @media (max-width: 768px) {
+  .container {
+    width: min(var(--max), calc(100% - 1.25rem));
+  }
+
   .nav-links {
     display: none;
     position: absolute;
@@ -533,7 +539,8 @@ footer {
     gap: 0;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
-    padding: 0.5rem 1rem 1rem;
+    padding: 0.5rem 1rem max(1rem, env(safe-area-inset-bottom));
+    box-shadow: 0 8px 24px rgba(17, 20, 24, 0.08);
   }
 
   .nav-links.open {
@@ -541,12 +548,20 @@ footer {
   }
 
   .nav-links a {
-    padding: 0.6rem 0;
+    padding: 0.75rem 0;
     border-bottom: 1px solid var(--border);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
   }
 
   .nav-links a:last-child {
     border-bottom: none;
+  }
+
+  .nav-cta {
+    justify-content: center;
+    margin-top: 0.25rem;
   }
 
   .nav-inner {
@@ -555,9 +570,201 @@ footer {
 
   .menu-btn {
     display: block;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .hero {
+    padding-top: max(2.5rem, env(safe-area-inset-top));
+  }
+
+  .hero h1 {
+    max-width: none;
+    font-size: clamp(1.85rem, 8vw, 2.5rem);
+  }
+
+  .hero-lead {
+    max-width: none;
+    font-size: 1rem;
+    margin-bottom: 2rem;
   }
 
   .metrics {
     grid-template-columns: 1fr;
+    max-width: none;
   }
+
+  .metric {
+    padding: 1rem 1.125rem;
+  }
+
+  .metric-value {
+    font-size: 1.35rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-actions .btn {
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  section {
+    padding: clamp(2.5rem, 6vw, 3.5rem) 0;
+  }
+
+  .section-header {
+    margin-bottom: 1.75rem;
+  }
+
+  .section-header p {
+    max-width: none;
+    font-size: 0.9375rem;
+  }
+
+  .bench-grid {
+    gap: 2rem;
+  }
+
+  .table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .bench-table table {
+    min-width: 520px;
+  }
+
+  th,
+  td {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .caption {
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .arch-row {
+    flex-direction: column;
+  }
+
+  .arch-node {
+    min-width: 0;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 0.875rem 1rem;
+  }
+
+  .arch-node:last-child {
+    border-bottom: none;
+  }
+
+  .arch-pipeline {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .features {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .stack-list span {
+    font-size: 0.75rem;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  .footer-links {
+    flex-wrap: wrap;
+    gap: 1rem 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-eyebrow {
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  .bench-table table {
+    min-width: 0;
+    font-size: 0.75rem;
+  }
+
+  .bench-table thead {
+    display: none;
+  }
+
+  .bench-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.75rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .bench-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .bench-table tbody tr.highlight {
+    background: var(--accent-light);
+  }
+
+  .bench-table td {
+    border: none;
+    padding: 0;
+  }
+
+  .bench-table td:first-child {
+    grid-column: 1 / -1;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .bench-table td.num::before,
+  .bench-table td.na::before {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 0.15rem;
+    font-family: var(--font);
+  }
+
+  .bench-table tr.highlight td:nth-child(2)::before { content: "Overall"; }
+  .bench-table tr.highlight td:nth-child(3)::before { content: "Retention"; }
+  .bench-table tr.highlight td:nth-child(4)::before { content: "Feedback"; }
+  .bench-table tr.highlight td:nth-child(5)::before { content: "Belief"; }
+
+  .bench-table tr:not(.highlight) td:nth-child(2)::before { content: "Overall"; }
+  .bench-table tr:not(.highlight) td:nth-child(3)::before { content: "Retention"; }
+  .bench-table tr:not(.highlight) td:nth-child(4)::before { content: "Feedback"; }
+  .bench-table tr:not(.highlight) td:nth-child(5)::before { content: "Belief"; }
+
+  /* LongMemEval table has KU/Temporal/Abstain columns */
+  .bench-card:last-child .bench-table tr.highlight td:nth-child(3)::before { content: "KU"; }
+  .bench-card:last-child .bench-table tr.highlight td:nth-child(4)::before { content: "Temporal"; }
+  .bench-card:last-child .bench-table tr.highlight td:nth-child(5)::before { content: "Abstain."; }
+  .bench-card:last-child .bench-table tr:not(.highlight) td:nth-child(3)::before { content: "KU"; }
+  .bench-card:last-child .bench-table tr:not(.highlight) td:nth-child(4)::before { content: "Temporal"; }
+  .bench-card:last-child .bench-table tr:not(.highlight) td:nth-child(5)::before { content: "Abstain."; }
 }
