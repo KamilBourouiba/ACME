@@ -22,9 +22,14 @@ def test_validate_blocks_external_curl():
 
 def test_validate_allows_docker_compose():
     ok, _ = validate_command(
-        "docker compose -f /opt/nexus-site/docker-compose.yml ps"
+        "docker-compose -f /opt/nexus-site/docker-compose.yml ps"
     )
     assert ok
+
+
+def test_remediation_uses_docker_compose_binary():
+    assert "docker-compose -f" in REMEDIATION_RECIPES["compose_restart"]
+    assert "docker compose -f" not in REMEDIATION_RECIPES["compose_restart"]
 
 
 def test_pick_recipe_rotates():

@@ -98,7 +98,7 @@ class DemoSkills:
         root = await self.http_get(f"{self._site_url}/")
         css = await self.http_get(f"{self._site_url}/css/shell.css")
         body = root.detail.get("body_preview") or ""
-        ok = root.ok and css.ok and "shell.css" in body
+        ok = root.ok and css.ok
         return SkillResult(
             skill="static_shell",
             ok=ok,

@@ -317,7 +317,7 @@ async def _site_shell_ready(url: str) -> tuple[bool, str]:
             if resp.status_code >= 400:
                 return False, f"HTTP {resp.status_code}"
             if "shell.css" not in resp.text:
-                return False, "index missing shell.css"
+                return False, "index missing canonical shell.css link"
             css = await client.get(f"{url.rstrip('/')}/css/shell.css")
             if css.status_code >= 400:
                 return False, f"shell.css HTTP {css.status_code}"

@@ -1,4 +1,4 @@
-from acme.demo.static_assets import github_pages_bundle, merge_static_bundle, normalize_static_asset_paths
+from acme.demo.static_assets import github_pages_bundle, merge_static_bundle, normalize_static_asset_paths, vm_static_bundle
 
 
 def test_normalize_strips_static_prefix():
@@ -35,3 +35,14 @@ def test_merge_fills_missing_assets():
     merged = merge_static_bundle({"static/index.html": "<html></html>"})
     assert "static/css/base.css" in merged
     assert "static/js/app.js" in merged
+
+
+def test_vm_static_bundle_pins_broken_index():
+    broken = {
+        "static/index.html": '<link rel="stylesheet" href="css/layout.css">',
+        "static/js/app.js": "console.log('agent')",
+    }
+    vm = vm_static_bundle(broken)
+    assert "layout.css" not in vm["static/index.html"]
+    assert "css/shell.css" in vm["static/index.html"]
+    assert vm["static/js/app.js"] == "console.log('agent')"

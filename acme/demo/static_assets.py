@@ -13,8 +13,9 @@ _STATIC_PREFIX = re.compile(r"""((?:href|src)\s*=\s*["'])/static/""", re.IGNOREC
 _ASSET_HREF = re.compile(r"""href=["'](css/[^"']+)["']""", re.IGNORECASE)
 _ASSET_SRC = re.compile(r"""src=["'](js/[^"']+)["']""", re.IGNORECASE)
 
-# Always publish canonical shell on GitHub Pages — agents broke index with missing css/layout.css.
+# Always publish canonical shell — agents broke index with missing css/layout.css.
 PAGES_PINNED_STATIC = frozenset({"index.html"})
+VM_PINNED_STATIC = frozenset({"index.html"})
 
 
 def normalize_static_asset_paths(content: str) -> str:
@@ -115,8 +116,10 @@ def github_pages_bundle(artifacts: dict[str, str]) -> dict[str, str]:
 
 
 def is_agent_editable_file(path: str) -> bool:
-    """After bootstrap, agents may only change the static front-end."""
+    """After bootstrap, agents may only change static css/js — not index shell."""
     norm = path.replace("\\", "/")
+    if norm in ("static/index.html", "index.html"):
+        return False
     return norm.startswith("static/")
 
 
@@ -130,8 +133,22 @@ def platform_reference_artifacts() -> dict[str, str]:
 
 
 def vm_static_bundle(artifacts: dict[str, str]) -> dict[str, str]:
-    """VM nginx root mounts ./static — normalize index.html asset URLs."""
+    """VM nginx root mounts ./static — pin index.html, merge agent css/js."""
+    refs = reference_static_files()
     merged = merge_static_bundle(artifacts)
-    if "static/index.html" in merged:
-        merged["static/index.html"] = normalize_static_asset_paths(merged["static/index.html"])
+    for path, content in artifacts.items():
+        if not path.startswith("static/"):
+            continue
+        base = path.removeprefix("static/")
+        if base in VM_PINNED_STATIC:
+            continue
+        merged[path] = content
+    if "static/index.html" in refs:
+        index = normalize_static_asset_paths(refs["static/index.html"])
+        available = {k.removeprefix("static/") for k in merged if k.startswith("static/")}
+        missing = _index_assets_missing(index, available)
+        if missing:
+            merged.update(refs)
+            index = normalize_static_asset_paths(refs["static/index.html"])
+        merged["static/index.html"] = index
     return merged

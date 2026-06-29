@@ -37,20 +37,22 @@ SYSTEMCTL_SUBCOMMANDS = frozenset({"status", "is-active", "restart", "start", "s
 
 SITE_DIR = "/opt/nexus-site"
 COMPOSE_FILE = f"{SITE_DIR}/docker-compose.yml"
+# Squad VM ships docker-compose standalone (no `docker compose` plugin).
+DC = "docker-compose"
 
 REMEDIATION_RECIPES: dict[str, str] = {
     "probe_site_health": f"curl -sk https://127.0.0.1/api/health",
     "probe_api_direct": "curl -sf http://127.0.0.1:8080/api/health",
     "probe_receiver": "curl -sf http://127.0.0.1:9090/health",
     "docker_ps": "docker ps -a --format '{{.Names}} {{.Status}}'",
-    "compose_ps": f"docker compose -f {COMPOSE_FILE} ps",
-    "compose_logs_api": f"docker compose -f {COMPOSE_FILE} logs --no-color --tail=50 api",
-    "compose_logs_nginx": f"docker compose -f {COMPOSE_FILE} logs --no-color --tail=30 nginx",
-    "compose_restart": f"docker compose -f {COMPOSE_FILE} restart",
-    "compose_up": f"docker compose -f {COMPOSE_FILE} up -d --force-recreate",
+    "compose_ps": f"{DC} -f {COMPOSE_FILE} ps",
+    "compose_logs_api": f"{DC} -f {COMPOSE_FILE} logs --no-color --tail=50 api",
+    "compose_logs_nginx": f"{DC} -f {COMPOSE_FILE} logs --no-color --tail=30 nginx",
+    "compose_restart": f"{DC} -f {COMPOSE_FILE} restart",
+    "compose_up": f"{DC} -f {COMPOSE_FILE} up -d --force-recreate",
     "compose_rebuild_api": (
-        f"docker compose -f {COMPOSE_FILE} build --no-cache api && "
-        f"docker compose -f {COMPOSE_FILE} up -d --force-recreate api nginx"
+        f"{DC} -f {COMPOSE_FILE} build --no-cache api && "
+        f"{DC} -f {COMPOSE_FILE} up -d --force-recreate api nginx"
     ),
     "receiver_status": "systemctl is-active nexus-deploy",
     "receiver_restart": "systemctl restart nexus-deploy",
