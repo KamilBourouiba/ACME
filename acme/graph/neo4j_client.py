@@ -275,6 +275,13 @@ class Neo4jClient:
                 "relations_deleted": rel_record["deleted"] if rel_record else 0,
             }
 
+    async def count_entities(self, *, tenant_id: str) -> int:
+        query = "MATCH (e:Entity {tenant_id: $tenant_id}) RETURN count(e) AS c"
+        async with self.driver.session() as session:
+            result = await session.run(query, tenant_id=tenant_id)
+            record = await result.single()
+            return int(record["c"]) if record else 0
+
     async def prune_orphan_entities(self, *, tenant_id: str | None = None) -> int:
         if tenant_id:
             query = """

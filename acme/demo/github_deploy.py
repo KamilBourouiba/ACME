@@ -65,7 +65,7 @@ async def ensure_repo(
             "name": name,
             "private": False,
             "auto_init": True,
-            "description": "Erebor open intelligence graph — published autonomously by ACME demo squad",
+            "description": "Belief Observatory — auditable beliefs demo published by ACME squad",
         },
     )
     if create.status_code >= 400:
@@ -104,7 +104,7 @@ async def wait_for_pages_live(
     *,
     attempts: int = 12,
     pause_sec: float = 3.0,
-    expected_snippet: str = "Erebor",
+    expected_snippet: str = "Belief Observatory",
 ) -> dict[str, Any]:
     """Poll the public GitHub Pages URL until the site responds."""
     last_status: int | None = None
@@ -150,13 +150,99 @@ async def get_pages_info(
     }
 
 
+async def _get_branch_head(
+    client: httpx.AsyncClient,
+    *,
+    token: str,
+    repo: str,
+    branch: str,
+) -> str | None:
+    resp = await client.get(
+        f"{GITHUB_API}/repos/{repo}/git/ref/heads/{branch}",
+        headers=_headers(token),
+    )
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.json()["object"]["sha"]
+
+
+async def _deploy_files_atomic(
+    client: httpx.AsyncClient,
+    *,
+    token: str,
+    repo: str,
+    branch: str,
+    files: dict[str, str],
+    commit_message: str,
+) -> list[str]:
+    """One commit for all files — avoids GitHub Pages build storms."""
+    parent = await _get_branch_head(client, token=token, repo=repo, branch=branch)
+    tree_items: list[dict[str, str]] = []
+    for path, content in sorted(files.items()):
+        blob_resp = await client.post(
+            f"{GITHUB_API}/repos/{repo}/git/blobs",
+            headers=_headers(token),
+            json={"content": content, "encoding": "utf-8"},
+        )
+        blob_resp.raise_for_status()
+        tree_items.append(
+            {"path": path, "mode": "100644", "type": "blob", "sha": blob_resp.json()["sha"]}
+        )
+
+    tree_body: dict[str, Any] = {"tree": tree_items}
+    if parent:
+        commit_resp = await client.get(
+            f"{GITHUB_API}/repos/{repo}/git/commits/{parent}",
+            headers=_headers(token),
+        )
+        commit_resp.raise_for_status()
+        tree_body["base_tree"] = commit_resp.json()["tree"]["sha"]
+
+    tree_resp = await client.post(
+        f"{GITHUB_API}/repos/{repo}/git/trees",
+        headers=_headers(token),
+        json=tree_body,
+    )
+    tree_resp.raise_for_status()
+    tree_sha = tree_resp.json()["sha"]
+
+    commit_body: dict[str, Any] = {"message": commit_message, "tree": tree_sha}
+    if parent:
+        commit_body["parents"] = [parent]
+    commit_resp = await client.post(
+        f"{GITHUB_API}/repos/{repo}/git/commits",
+        headers=_headers(token),
+        json=commit_body,
+    )
+    commit_resp.raise_for_status()
+    new_sha = commit_resp.json()["sha"]
+
+    if parent:
+        ref_resp = await client.patch(
+            f"{GITHUB_API}/repos/{repo}/git/refs/heads/{branch}",
+            headers=_headers(token),
+            json={"sha": new_sha},
+        )
+        ref_resp.raise_for_status()
+    else:
+        ref_resp = await client.post(
+            f"{GITHUB_API}/repos/{repo}/git/refs",
+            headers=_headers(token),
+            json={"ref": f"refs/heads/{branch}", "sha": new_sha},
+        )
+        ref_resp.raise_for_status()
+
+    return sorted(files.keys())
+
+
 async def deploy_files(
     files: dict[str, str],
     *,
     token: str,
     repo: str,
     branch: str = "main",
-    commit_message: str = "Deploy Erebor site from ACME demo",
+    commit_message: str = "Deploy Belief Observatory site from ACME demo",
     bootstrap_repo: bool = True,
     enable_pages: bool = True,
 ) -> dict[str, Any]:
@@ -173,28 +259,14 @@ async def deploy_files(
         if enable_pages:
             await ensure_pages(client, token=token, repo=repo, branch=branch)
 
-        for path, content in sorted(files.items()):
-            sha = await _get_file_sha(client, token=token, repo=repo, path=path, branch=branch)
-            body: dict[str, Any] = {
-                "message": commit_message if len(updated) == 0 else f"{commit_message} ({path})",
-                "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
-                "branch": branch,
-            }
-            if sha:
-                body["sha"] = sha
-            url = f"{GITHUB_API}/repos/{repo}/contents/{path}"
-            resp = await client.put(url, headers=_headers(token), json=body)
-            if resp.status_code == 409:
-                fresh_sha = await _get_file_sha(
-                    client, token=token, repo=repo, path=path, branch=branch
-                )
-                if fresh_sha and fresh_sha != sha:
-                    body["sha"] = fresh_sha
-                    resp = await client.put(url, headers=_headers(token), json=body)
-            if resp.status_code >= 400:
-                logger.error("GitHub deploy failed for %s: %s", path, resp.text)
-                resp.raise_for_status()
-            updated.append(path)
+        updated = await _deploy_files_atomic(
+            client,
+            token=token,
+            repo=repo,
+            branch=branch,
+            files=files,
+            commit_message=commit_message,
+        )
 
         pages_url = pages_url_for(repo)
         pages_info = await get_pages_info(client, token=token, repo=repo)

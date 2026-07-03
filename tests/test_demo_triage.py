@@ -15,7 +15,7 @@ def test_vera_agent_exists():
     vera = AGENT_BY_ID["vera"]
     assert vera.name == "Vera"
     assert "ops" in vera.channels
-    assert len(DEMO_AGENTS) == 12
+    assert len(DEMO_AGENTS) == 8
 
 
 def test_spam_dedup():

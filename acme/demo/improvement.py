@@ -91,11 +91,11 @@ def _fallback_plan(
     failure_sig: str = "ok",
     ui_fix_pending: bool = False,
 ) -> ImprovementPlan:
-    agents_cycle = ["jordan", "marco", "chen", "priya", "nina", "sam"]
+    agents_cycle = ["jordan", "marco", "chen", "priya", "nina", "alex"]
     agent_id = agents_cycle[turn % len(agents_cycle)]
     has_index = "static/index.html" in artifacts
     vm_failing = failure_sig != "ok" or "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
-    pages_ok = "Pages-only mode OK" in observations
+    pages_ok = "[frontend_js] OK" in observations
     ui_failed = "[ui_audit] FAIL" in observations or ui_fix_pending
 
     if vm_failing:
@@ -138,7 +138,7 @@ def _fallback_plan(
             action="edit",
             file="static/index.html",
             lang="html",
-            message="Bootstrap the Erebor product shell with Three.js canvas and omnibar.",
+            message="Bootstrap the Belief Observatory shell — episodic stream, SVG graph, CRS scrubber.",
         )
     if deploy_allowed and not pages_ok and turn % 8 == 0:
         return ImprovementPlan(
@@ -150,7 +150,7 @@ def _fallback_plan(
         )
     if turn % 18 == 0:
         return ImprovementPlan(
-            agent_id="kai",
+            agent_id="alex",
             channel="general",
             action="create_channel",
             new_channel_name="war-room",
@@ -160,7 +160,7 @@ def _fallback_plan(
         )
     if turn % 22 == 0:
         return ImprovementPlan(
-            agent_id="kai",
+            agent_id="alex",
             channel="general",
             action="hire",
             new_agent_name="Quinn",
@@ -173,14 +173,14 @@ def _fallback_plan(
             agent_id="jordan",
             channel="engineering",
             action="query",
-            query="What is the highest-impact UX or API fix for Erebor right now?",
+            query="What is the highest-impact UX or API fix for Belief Observatory right now?",
             message="Checking ACME memory for the next improvement priority.",
         )
     targets = [
-        ("marco", "static/js/scene.js", "javascript", "Polish Three.js globe — nodes, arcs, damping."),
-        ("priya", "static/css/shell.css", "css", "Refine obsidian shell spacing and mobile layout."),
-        ("chen", "static/js/api.js", "javascript", "Harden API client error handling and base URL."),
-        ("marco", "static/js/app.js", "javascript", "Wire search results to globe selection + inspector."),
+        ("priya", "static/css/observatory.css", "css", "Refine observatory shell spacing and mobile layout."),
+        ("priya", "static/css/observatory.css", "css", "Polish CRS meter and scrubber touch targets."),
+        ("chen", "static/css/observatory.css", "css", "Tighten responsive stack below 900px."),
+        ("priya", "static/css/observatory.css", "css", "Improve episode panel typography and contrast."),
     ]
     pick = targets[turn % len(targets)]
     return ImprovementPlan(
@@ -228,7 +228,7 @@ async def plan_improvement(
 Squad lessons (already in ACME memory — follow strictly):
 {SQUAD_LESSONS_PROMPT}
 
-Turn #{turn}. Erebor squad is in continuous improvement mode — keep shipping until a human pauses.
+Turn #{turn}. Belief Observatory squad is in continuous improvement mode — keep shipping until a human pauses.
 
 Recent Slack:
 {recent_thread[:1800]}
@@ -278,7 +278,7 @@ Rules:
     try:
         raw = await llm.generate(
             prompt,
-            system="You are the Erebor squad coordinator. Output valid JSON only.",
+            system="You are the Belief Observatory squad coordinator. Output valid JSON only.",
             model=model,
             temperature=0.35,
             timeout=30.0,
@@ -292,7 +292,7 @@ Rules:
             agent_id=agent_id,
             channel=data.get("channel", "engineering"),
             action=data.get("action", "announce"),
-            message=data.get("message", "Continuing Erebor improvements."),
+            message=data.get("message", "Continuing Belief Observatory improvements."),
             file=data.get("file"),
             lang=data.get("lang"),
             query=data.get("query"),

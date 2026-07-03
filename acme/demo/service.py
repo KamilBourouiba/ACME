@@ -22,8 +22,20 @@ from acme.demo.improvement import ImprovementPlan, _fallback_plan, plan_improvem
 from acme.demo.lessons import seed_squad_lessons
 from acme.demo.lessons import SQUAD_LESSONS_PROMPT
 from acme.demo.registry import SquadRegistry
-from acme.demo.site_guard import is_pinned_on_deploy, is_protected_site_file, reference_site_files, safe_site_artifact
-from acme.demo.static_assets import normalize_static_asset_paths
+from acme.demo.site_guard import (
+    is_pinned_on_deploy,
+    is_pinned_static_file,
+    is_protected_site_file,
+    reference_site_file,
+    reference_site_files,
+    safe_site_artifact,
+)
+from acme.demo.static_assets import (
+    is_agent_editable_file,
+    normalize_static_asset_paths,
+    publish_artifact_bundle,
+    static_artifact_keys,
+)
 from acme.demo.reset import ALL_DEMO_TENANT_IDS, cleanup_all_demo_tenants
 from acme.demo.skills import DemoSkills
 from acme.demo.ui_probe import format_ui_audit_message, run_ui_audit
@@ -34,7 +46,6 @@ from acme.demo.triage import (
     is_spam_duplicate,
     normalize_message,
 )
-from acme.demo.static_assets import is_agent_editable_file, static_artifact_keys
 from acme.demo.vm_deploy import deploy_to_vm, reconcile_platform
 from acme.demo.schemas import (
     DemoAgentOut,
@@ -176,8 +187,12 @@ class DemoService:
         )
 
     def _pin_code_artifact(self, path: str, body: str) -> str:
-        """Boot-critical files use canonical copies; improve phase is static/ only."""
+        """Boot-critical files use canonical copies; improve phase is static/css only."""
         norm = path.replace("\\", "/")
+        if is_pinned_static_file(norm) or is_pinned_on_deploy(norm):
+            pinned = reference_site_file(norm)
+            if pinned:
+                return pinned
         if self._phase == "improve" and not is_agent_editable_file(norm):
             logger.info("Blocked non-static edit in improve phase: %s", norm)
             return self._artifacts.get(norm) or safe_site_artifact(norm, body)
@@ -343,14 +358,16 @@ class DemoService:
                 skill="vm_remediate",
                 message="Incident already triaged — running VM fix instead of another report.",
             )
-        if plan.action == "edit" and plan.file and is_pinned_on_deploy(plan.file):
+        if plan.action == "edit" and plan.file and (
+            is_pinned_on_deploy(plan.file) or is_pinned_static_file(plan.file)
+        ):
             plan = ImprovementPlan(
-                agent_id="marco",
-                channel="engineering",
+                agent_id="priya",
+                channel="design",
                 action="edit",
-                file="static/js/scene.js",
-                lang="javascript",
-                message=f"`{plan.file}` is pinned — polishing Three.js globe instead.",
+                file="static/css/observatory.css",
+                lang="css",
+                message=f"`{plan.file}` is pinned — polishing observatory layout instead.",
             )
 
         sig = self._plan_signature(plan)
@@ -380,17 +397,17 @@ class DemoService:
             return plan
 
         vm_down = "http_probe] FAIL" in observations or "receiver_probe] FAIL" in observations
-        pages_ok = "Pages-only mode OK" in observations
+        pages_ok = "[frontend_js] OK" in observations
 
         if vm_down:
             asyncio.create_task(self._reconcile_platform(reason="deploy-blocked"))
             return ImprovementPlan(
-                agent_id="marco",
-                channel="engineering",
+                agent_id="priya",
+                channel="design",
                 action="edit",
-                file="static/js/scene.js",
-                lang="javascript",
-                message=f"Deploy blocked ({reason}). Platform reconcile queued — polishing front-end.",
+                file="static/css/observatory.css",
+                lang="css",
+                message=f"Deploy blocked ({reason}). Platform reconcile queued — polishing layout CSS.",
             )
         if pages_ok:
             return ImprovementPlan(
@@ -401,7 +418,7 @@ class DemoService:
                 message=f"Deploy blocked ({reason}). GitHub Pages OK — probing VM receiver before next publish.",
             )
         return ImprovementPlan(
-            agent_id="sam",
+            agent_id="jordan",
             channel="engineering",
             action="announce",
             message=f"Holding deploy ({reason}). Next turn focuses on probes or code fixes.",
@@ -592,7 +609,12 @@ class DemoService:
 
         code_body = beat.code_body
         if beat.kind == "code" and beat.code_file:
-            if code_body is None and settings.demo_llm_code:
+            norm = beat.code_file.replace("\\", "/")
+            pinned = reference_site_file(norm)
+            if pinned and (is_pinned_static_file(norm) or is_pinned_on_deploy(norm)):
+                code_body = pinned
+                content = f"Loaded canonical `{beat.code_file}` from reference."
+            elif code_body is None and settings.demo_llm_code:
                 code_body = await generate_agent_code(agent, beat, artifacts=artifacts_snapshot)
                 content = f"Pushed `{beat.code_file}` — {beat.content}"
 
@@ -843,6 +865,8 @@ class DemoService:
                     self._ui_fix_queue.append(task.to_dict())
                 audit_line = f"[ui_audit] {'OK' if report.ok else 'FAIL'}: {report.summary}"
                 self._observations_text = f"{self._observations_text}\n{audit_line}".strip()[-8000:]
+                if not report.ok and self._last_deploy:
+                    self._last_deploy = {**self._last_deploy, "pages_verified": False}
             content = format_ui_audit_message(report)
             if report.fix_tasks:
                 content += (
@@ -944,7 +968,7 @@ class DemoService:
                         content=f"Q: {msg.content} A: {qr.answer}",
                         source_type=SourceType.HUMAN_EXPERT,
                         source_id=f"demo-{agent.id}",
-                        tags=["demo", "erebor", beat.channel, "query"],
+                        tags=["demo", "belief-observatory", beat.channel, "query"],
                         tenant_id=agent.tenant_id,
                     )
                 )
@@ -971,7 +995,7 @@ class DemoService:
             msg.answer = "(ACME query pending — graph still warming up.)"
 
     def build_preview_html(self) -> str:
-        return build_staging_preview(self._artifacts)
+        return build_staging_preview(self._publish_artifacts())
 
     def preview_api_url(self) -> str:
         return "/api/v1/demo/preview"
@@ -982,12 +1006,23 @@ class DemoService:
     def _vm_configured(self) -> bool:
         return bool(settings.demo_vm_url and settings.demo_vm_deploy_key)
 
+    def _publish_artifacts(self) -> dict[str, str]:
+        """Canon trace stack from disk; only agent CSS overrides may ship."""
+        return publish_artifact_bundle(self._artifacts)
+
+    def _seed_canon_static(self) -> None:
+        """Bootstrap pinned shell/JS from reference — never LLM-generated trace code."""
+        for path in ("static/index.html", "static/js/api.js", "static/js/app.js", "static/js/trace-fallback.json"):
+            pinned = reference_site_file(path)
+            if pinned:
+                self._artifacts[path] = pinned
+
     async def _deploy_to_vm(self, *, mode: str = "auto") -> dict[str, Any] | None:
         if not self._vm_configured() or not settings.demo_vm_auto_deploy:
             return None
         try:
             return await deploy_to_vm(
-                self._artifacts,
+                self._publish_artifacts(),
                 vm_url=settings.demo_vm_url,
                 deploy_key=settings.demo_vm_deploy_key,
                 mode=mode,  # type: ignore[arg-type]
@@ -1134,7 +1169,7 @@ class DemoService:
 
 Visitor says: {visitor_text}
 
-Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the Erebor build. No markdown fences."""
+Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the Belief Observatory build. No markdown fences."""
         try:
             return await llm.generate(
                 prompt,
@@ -1145,7 +1180,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             )
         except Exception:
             logger.exception("Visitor reply failed for %s", agent.id)
-            return f"Hey — {agent.name} here. We're heads-down on Erebor; ask again in a sec."
+            return f"Hey — {agent.name} here. We're heads-down on Belief Observatory; ask again in a sec."
 
     async def handle_visitor_say(
         self, *, secret: str, channel: str, message: str
@@ -1266,7 +1301,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                             content=f"[#{channel}] Visitor: {visitor_text} → {agent.name}: {reply.content}",
                             source_type=SourceType.HUMAN_EXPERT,
                             source_id="demo-visitor",
-                            tags=["demo", "erebor", channel, "visitor"],
+                            tags=["demo", "belief-observatory", channel, "visitor"],
                             tenant_id=agent.tenant_id,
                         )
                     )
@@ -1306,6 +1341,16 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 return
 
             pages_already_ok = bool((self._last_deploy or {}).get("pages_verified"))
+            if pages_already_ok:
+                js_probe = await DemoSkills(
+                    artifacts={},
+                    last_deploy=self._last_deploy,
+                ).probe_frontend_js()
+                if not js_probe.ok:
+                    pages_already_ok = False
+                    async with self._lock:
+                        if self._last_deploy:
+                            self._last_deploy = {**self._last_deploy, "pages_verified": False}
 
             try:
                 if pages_already_ok:
@@ -1332,7 +1377,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 if verified:
                     nina_msg = f"GitHub Pages reachable — site live at {pages_url} (HTTP {status})."
                     jordan_msg = (
-                        f"Fetched {pages_url} — found Erebor globe + OSS search shell. Pages build OK."
+                        f"Fetched {pages_url} — found Belief Observatory shell. Pages build OK."
                     )
                 elif pages_already_ok:
                     nina_msg = f"GitHub Pages still healthy at {pages_url} — VM-only deploy this turn."
@@ -1360,7 +1405,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                     await self._ingest_pages_access(pages_url, verified=bool(verified))
 
                 vm_mode = "static"
-                if not settings.demo_static_only_deploy or "http_probe] FAIL" in self._observations_text:
+                if not settings.demo_static_only_deploy and "receiver_probe] FAIL" in self._observations_text:
                     vm_mode = "platform"
                 vm_result = await self._deploy_to_vm(mode=vm_mode)
                 if vm_result:
@@ -1393,7 +1438,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 trigger_msg.content = f"{trigger_msg.content}\n\nPublish failed: {exc}"
                 fail = await self._append_agent_message(
                     channel="deploy",
-                    agent_id="sam",
+                    agent_id="nina",
                     kind="message",
                     content=f"Publish blocked — check repo permissions and DEMO_GITHUB_TOKEN. ({exc})",
                 )
@@ -1434,7 +1479,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             llm = get_llm_client()
             async with SessionLocal() as session:
                 orch = ACMEOrchestrator(session, neo4j_client, llm, tenant_id=agent.tenant_id)
-                tags = ["demo", "erebor", beat.channel]
+                tags = ["demo", "belief-observatory", beat.channel]
 
                 if beat.kind in ("message", "code", "deploy", "reply", "preview", "skill"):
                     body = beat.content
@@ -1503,7 +1548,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             f"GitHub Pages site {'verified live' if verified else 'deployed but not yet verified'} "
             f"at {pages_url}"
         )
-        for agent_id in ("nina", "jordan", "sam"):
+        for agent_id in ("nina", "jordan", "taylor"):
             agent = self._registry.get_agent(agent_id)
             if agent is None:
                 continue
@@ -1578,7 +1623,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
             running=self.running and settings.demo_enabled,
             model=self.model_label(),
             tick=self.tick,
-            scenario="erebor-open-intelligence",
+            scenario="belief-observatory",
             phase=self._phase,
             paused=self._paused,
             selected_agent=sel_agent,
@@ -1644,12 +1689,12 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 raise ValueError("GitHub repo not configured — set DEMO_GITHUB_REPO or pass repo")
 
             result = await deploy_files(
-                github_pages_files(self._artifacts),
+                github_pages_files(self._publish_artifacts()),
                 token=auth,
                 repo=target_repo,
                 branch=target_branch,
                 commit_message=commit_message
-                or "Autonomous publish — Erebor open intelligence graph (ACME demo squad)",
+                or "Autonomous publish — Belief Observatory (ACME demo squad)",
                 bootstrap_repo=True,
                 enable_pages=True,
             )
@@ -1681,6 +1726,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
         self._messages.clear()
         self._last_sessions.clear()
         self._artifacts = empty_artifacts()
+        self._seed_canon_static()
         self._last_deploy = None
         self._last_publish_at = None
         self._preview_ready = False
@@ -1781,7 +1827,7 @@ Reply as {agent.name} ({agent.role}) in Slack — 1-3 sentences, helpful, on the
                 if wait > 0:
                     return False, f"Please wait {int(wait)}s before resetting again.", []
 
-            stats = await self._clean_state(force=False, wipe_external=True, force_wipe=True)
+            stats = await self._clean_state(force=False, wipe_external=True, force_wipe=False)
             self._last_reset_at = now
             registry_snapshot = self._registry.clone()
 

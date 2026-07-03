@@ -227,3 +227,37 @@ class BenchmarkRunRecord(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class ChatSession(Base):
+    """Public memory chat — one UUID per visitor agent."""
+
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(256), default="New conversation")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ChatMessage(Base):
+    """Chat transcript row — user, assistant, or tool trace."""
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    attachments: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    tool_calls: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    beliefs_used: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    query_session_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

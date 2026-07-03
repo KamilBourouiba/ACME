@@ -109,13 +109,13 @@ class SquadRegistry:
                 raise ValueError(f"unknown channel: {ch}")
         pick_color = color or _PALETTE[len(self.agents) % len(_PALETTE)]
         prompt = system_prompt or (
-            f"You are {name}, {role} on the Erebor squad. Ship concrete improvements." + _SKILL_SUFFIX
+            f"You are {name}, {role} on the Belief Observatory squad. Ship concrete improvements." + _SKILL_SUFFIX
         )
         agent = DemoAgent(
             id=slug,
             name=name.strip(),
             role=role.strip(),
-            tenant_id=f"demo-erebor-{slug}",
+            tenant_id=f"demo-belief-{slug}",
             color=pick_color,
             initials=_initials(name),
             system_prompt=prompt,

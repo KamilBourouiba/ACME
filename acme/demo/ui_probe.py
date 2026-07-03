@@ -1,4 +1,4 @@
-"""Browser UI/UX audit for Erebor — clicks, screenshots, fix handoff to builders."""
+"""Browser UI/UX audit for Belief Observatory."""
 
 from __future__ import annotations
 
@@ -23,18 +23,7 @@ except ImportError:
 _CSS_HREF = re.compile(r"""href=["'](css/[^"']+)["']""", re.IGNORECASE)
 _JS_SRC = re.compile(r"""src=["'](js/[^"']+)["']""", re.IGNORECASE)
 
-CANONICAL_CSS = frozenset(
-    {
-        "css/tokens.css",
-        "css/base.css",
-        "css/shell.css",
-        "css/omnibar.css",
-        "css/panels.css",
-        "css/canvas.css",
-        "css/inspector.css",
-        "css/timeline.css",
-    }
-)
+CANONICAL_CSS = frozenset({"css/observatory.css"})
 
 
 @dataclass
@@ -86,18 +75,18 @@ def _fix_tasks_for_issues(issues: list[str]) -> list[UiFixTask]:
         tasks.append(
             UiFixTask(
                 "priya",
-                "static/css/shell.css",
+                "static/css/observatory.css",
                 "css",
                 "Fix layout/CSS regressions Taylor flagged in the UI audit.",
             )
         )
-    if "search" in joined or "oss" in joined or "api" in joined:
+    if "trace" in joined or "scrub" in joined or "crs" in joined or "api" in joined:
         tasks.append(
             UiFixTask(
                 "chen",
                 "static/js/api.js",
                 "javascript",
-                "Fix search/API client failures seen during browser audit.",
+                "Fix trace/API client failures seen during browser audit.",
             )
         )
         tasks.append(
@@ -105,25 +94,25 @@ def _fix_tasks_for_issues(issues: list[str]) -> list[UiFixTask]:
                 "marco",
                 "static/js/app.js",
                 "javascript",
-                "Wire search results → globe + inspector after Taylor's click-through.",
+                "Wire scrubber → CRS meter + inspector after Taylor's click-through.",
             )
         )
-    if "globe" in joined or "canvas" in joined or "three" in joined or "node" in joined:
+    if "graph" in joined or "svg" in joined or "belief" in joined:
         tasks.append(
             UiFixTask(
                 "marco",
-                "static/js/scene.js",
+                "static/js/app.js",
                 "javascript",
-                "Restore Three.js globe interaction after UI audit findings.",
+                "Restore belief graph interaction after UI audit findings.",
             )
         )
-    if "omnibar" in joined or "inspector" in joined or "panel" in joined:
+    if "inspector" in joined or "episode" in joined or "panel" in joined:
         tasks.append(
             UiFixTask(
                 "priya",
-                "static/css/omnibar.css",
+                "static/css/observatory.css",
                 "css",
-                "Polish omnibar/inspector spacing and hit targets from UX audit.",
+                "Polish inspector/episode panel spacing and hit targets from UX audit.",
             )
         )
     if not tasks:
@@ -176,7 +165,8 @@ async def _wait_for_interactive(page) -> None:
 
 async def _httpx_audit(url: str, *, label: str) -> UiAuditReport:
     issues: list[str] = []
-    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+    verify = not url.startswith("https://20.199.121.183")
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True, verify=verify) as client:
         try:
             resp = await client.get(url)
         except Exception as exc:
@@ -190,8 +180,8 @@ async def _httpx_audit(url: str, *, label: str) -> UiAuditReport:
         if resp.status_code >= 400:
             issues.append(f"Landing HTTP {resp.status_code}")
         html = resp.text
-        if "shell.css" not in html and "layout.css" in html:
-            issues.append("index references layout.css instead of canonical shell.css")
+        if "observatory.css" not in html and "layout.css" in html:
+            issues.append("index references layout.css instead of canonical observatory.css")
         refs = set(_CSS_HREF.findall(html)) | set(_JS_SRC.findall(html))
         for ref in sorted(refs):
             asset_url = urljoin(url, ref.split("?", 1)[0])
@@ -252,10 +242,10 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
         await _wait_for_interactive(page)
 
         selectors = {
-            "search-input": "#search-input",
-            "reset-view": "#btn-reset-view",
-            "rotate": "#btn-rotate",
-            "hud-nodes": "#hud-nodes",
+            "belief-svg": "#belief-svg",
+            "crs-value": "#crs-value",
+            "scrub-steps": "#scrub-steps",
+            "btn-play": "#btn-play",
         }
         for name, sel in selectors.items():
             try:
@@ -263,34 +253,26 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
             except Exception:
                 issues.append(f"Missing selector: {sel}")
 
-        search_ok = False
         try:
-            await page.fill("#search-input", "python")
-            await page.keyboard.press("Enter")
-            await page.wait_for_timeout(2500)
-            shot_search = f"{shot_prefix}-search"
-            screenshots[shot_search] = await page.screenshot(full_page=False, type="png")
-            results = await page.locator(".search-hit, .search-group, #search-results").count()
-            search_ok = results > 0
-            if not search_ok:
-                issues.append("Search submitted but no .search-hit results rendered")
+            await page.click("#btn-play", timeout=3000, force=True)
+            await page.wait_for_timeout(1500)
+            await page.click("#btn-next", timeout=3000, force=True)
+            await page.wait_for_timeout(800)
+            shot_trace = f"{shot_prefix}-trace"
+            screenshots[shot_trace] = await page.screenshot(full_page=False, type="png")
+            crs = (await page.locator("#crs-value").inner_text()).strip()
+            if crs in ("—", ""):
+                issues.append("CRS meter did not populate after trace scrub")
         except Exception as exc:
-            issues.append(f"Search interaction failed: {exc}")
+            issues.append(f"Trace scrub interaction failed: {exc}")
 
-        for btn in ("#btn-reset-view", "#btn-rotate", "#btn-arcs"):
+        for btn in ("#btn-prev", "#btn-next"):
             try:
                 if await page.locator(btn).count():
                     await page.click(btn, timeout=3000, force=True)
-                    await page.wait_for_timeout(400)
+                    await page.wait_for_timeout(300)
             except Exception as exc:
                 issues.append(f"Click failed {btn}: {exc}")
-
-        try:
-            nodes_text = (await page.locator("#hud-nodes").inner_text()).strip()
-            if nodes_text in ("—", "") and not search_ok:
-                issues.append(f"Globe HUD shows no linked nodes ({nodes_text!r})")
-        except Exception:
-            pass
 
         if console_errors:
             issues.append(f"Console: {console_errors[0]}")
@@ -311,16 +293,17 @@ async def _playwright_audit(url: str, *, label: str, shot_prefix: str) -> UiAudi
 
 
 async def _site_shell_ready(url: str) -> tuple[bool, str]:
-    async with httpx.AsyncClient(timeout=20.0, verify=False, follow_redirects=True) as client:
+    verify = not url.startswith("https://20.199.121.183")
+    async with httpx.AsyncClient(timeout=20.0, verify=verify, follow_redirects=True) as client:
         try:
             resp = await client.get(url)
             if resp.status_code >= 400:
                 return False, f"HTTP {resp.status_code}"
-            if "shell.css" not in resp.text:
-                return False, "index missing canonical shell.css link"
-            css = await client.get(f"{url.rstrip('/')}/css/shell.css")
+            if "observatory.css" not in resp.text:
+                return False, "index missing canonical observatory.css link"
+            css = await client.get(f"{url.rstrip('/')}/css/observatory.css")
             if css.status_code >= 400:
-                return False, f"shell.css HTTP {css.status_code}"
+                return False, f"observatory.css HTTP {css.status_code}"
             return True, "ready"
         except Exception as exc:
             return False, str(exc)

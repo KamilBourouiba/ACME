@@ -173,7 +173,9 @@ class ACMEOrchestrator:
 
     async def query(self, data: QueryRequest) -> QueryResponse:
         belief_scores = await self.beliefs.list_beliefs(min_confidence=0.3)
-        demo_mode = self.tenant_id.startswith("demo-erebor") or self.tenant_id.startswith(("demo-lumen", "demo-nexus"))
+        demo_mode = self.tenant_id.startswith(
+            ("demo-belief", "demo-lumen", "demo-nexus", "chat-")
+        )
         memory_context, entities = await self.retrieval.build_context(
             data.question, belief_scores, demo_mode=demo_mode
         )
@@ -210,7 +212,9 @@ class ACMEOrchestrator:
         )
         await self.session.commit()
 
-        belief_limit = 0 if self.tenant_id.startswith(("demo-erebor", "demo-lumen", "demo-nexus")) else 5
+        belief_limit = 0 if self.tenant_id.startswith(
+            ("demo-belief", "demo-lumen", "demo-nexus", "chat-")
+        ) else 5
         beliefs_out = belief_scores if belief_limit == 0 else belief_scores[:belief_limit]
 
         return QueryResponse(

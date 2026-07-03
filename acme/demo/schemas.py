@@ -48,7 +48,7 @@ class DemoStateOut(BaseModel):
     running: bool
     model: str
     tick: int
-    scenario: str = "erebor-open-intelligence"
+    scenario: str = "belief-observatory"
     phase: str = "bootstrap"  # bootstrap | improve | paused
     paused: bool = False
     selected_agent: str | None = None

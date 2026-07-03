@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Enable public Slack-style squad demo on prod (autonomous GitHub publish).
+# Enable public memory chat on prod (legacy squad demo disabled).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RG="${RG:-rg-acme}"
@@ -96,5 +96,5 @@ az containerapp update -n "$API_APP" -g "$RG" \
   --set-env-vars "${ENV_VARS[@]}" \
   -o none
 
-echo "==> Demo UI: https://kamilbourouiba.github.io/ACME/demo.html"
+echo "==> Memory Chat: https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/"
 echo "==> Site target: https://${GITHUB_REPO%%/*}.github.io/${GITHUB_REPO##*/}/"

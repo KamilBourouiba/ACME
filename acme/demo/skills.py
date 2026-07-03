@@ -1,4 +1,4 @@
-"""Runtime skills for the Erebor demo squad — HTTP probes, logs, deploy status."""
+"""Runtime skills for the Belief Observatory demo squad — HTTP probes, logs, deploy status."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 import httpx
 
 from acme.config import settings
+from acme.demo.site_guard import javascript_syntax_ok, live_matches_canon
 from acme.demo.vm_deploy import settings_site_url
 from acme.demo.vm_exec import REMEDIATION_RECIPES, exec_on_vm, run_recipe
 
@@ -18,7 +19,7 @@ logger = logging.getLogger("acme.demo.skills")
 
 SKILL_CATALOG = """
 Available skills (agents use these every improvement turn):
-- http_probe: GET live site /api/health and /api/catalog
+- http_probe: GET /api/health, /api/trace, and verify live js/app.js matches canon
 - http_search: GET /api/search?q=... on the live VM
 - http_fetch: GET any URL (staging preview path, GitHub Pages)
 - deploy_status: read VM receiver last deploy result + docker build stderr
@@ -96,14 +97,62 @@ class DemoSkills:
                 detail={},
             )
         root = await self.http_get(f"{self._site_url}/")
-        css = await self.http_get(f"{self._site_url}/css/shell.css")
+        css = await self.http_get(f"{self._site_url}/css/observatory.css")
         body = root.detail.get("body_preview") or ""
         ok = root.ok and css.ok
         return SkillResult(
             skill="static_shell",
             ok=ok,
-            summary=f"root={root.detail.get('status')} shell.css={css.detail.get('status')}",
+            summary=f"root={root.detail.get('status')} observatory.css={css.detail.get('status')}",
             detail={"root": root.detail, "css": css.detail},
+        )
+
+    async def probe_frontend_js(self) -> SkillResult:
+        if not self._site_url:
+            return SkillResult(
+                skill="frontend_js",
+                ok=False,
+                summary="No live site URL configured yet",
+                detail={},
+            )
+        app = await self.http_get(f"{self._site_url}/js/app.js")
+        api = await self.http_get(f"{self._site_url}/js/api.js")
+        app_body = app.detail.get("body_preview") or ""
+        if app.ok and len(app_body) < 500:
+            # body_preview is truncated — fetch full file for hash/syntax check
+            full = await self.http_get(f"{self._site_url}/js/app.js")
+            app_body = full.detail.get("body_preview") or app_body
+        async with httpx.AsyncClient(timeout=15.0, verify=False, follow_redirects=True) as client:
+            try:
+                resp = await client.get(f"{self._site_url}/js/app.js")
+                app_body = resp.text if resp.status_code < 400 else app_body
+                api_resp = await client.get(f"{self._site_url}/js/api.js")
+                api_body = api_resp.text if api_resp.status_code < 400 else ""
+            except Exception as exc:
+                return SkillResult(
+                    skill="frontend_js",
+                    ok=False,
+                    summary=f"fetch js failed: {exc}",
+                    detail={},
+                )
+        syntax_ok = javascript_syntax_ok("static/js/app.js", app_body)
+        canon_ok = live_matches_canon(app_body, "static/js/app.js")
+        api_ok = live_matches_canon(api_body, "static/js/api.js") if api_body else False
+        ok = app.ok and syntax_ok and canon_ok and api_ok
+        return SkillResult(
+            skill="frontend_js",
+            ok=ok,
+            summary=(
+                f"app.js http={app.detail.get('status')} syntax={syntax_ok} canon={canon_ok} "
+                f"api_canon={api_ok} bytes={len(app_body)}"
+            ),
+            detail={
+                "app_status": app.detail.get("status"),
+                "syntax_ok": syntax_ok,
+                "canon_ok": canon_ok,
+                "api_canon_ok": api_ok,
+                "bytes": len(app_body),
+            },
         )
 
     async def probe_site_health(self) -> SkillResult:
@@ -117,23 +166,24 @@ class DemoSkills:
         health = await self.http_get(f"{self._site_url}/api/health")
         if not health.ok:
             health = await self.http_get(f"{self._site_url}/healthz")
-        catalog = await self.http_get(f"{self._site_url}/api/catalog")
+        trace = await self.probe_trace()
         shell = await self.probe_static_shell()
-        pages_ok = self.last_deploy.get("pages_verified") is True
-        api_ok = health.ok and catalog.ok
-        ok = shell.ok and (api_ok or pages_ok)
+        frontend = await self.probe_frontend_js()
+        pages_ok = self.last_deploy.get("pages_verified") is True and frontend.ok
+        api_ok = health.ok and trace.ok and frontend.ok
+        ok = shell.ok and api_ok
         return SkillResult(
             skill="http_probe",
             ok=ok,
             summary=(
                 f"health={health.detail.get('status')} static={shell.detail.get('root', {}).get('status')} "
-                f"catalog={catalog.detail.get('status')}"
-                + (" (Pages-only mode OK)" if pages_ok and not health.ok else "")
+                f"trace={trace.detail.get('status')} frontend={frontend.detail.get('syntax_ok')}"
             ),
             detail={
                 "health": health.detail,
-                "catalog": catalog.detail,
+                "trace": trace.detail,
                 "static_shell": shell.detail,
+                "frontend_js": frontend.detail,
                 "pages_ok": pages_ok,
             },
         )
@@ -149,11 +199,14 @@ class DemoSkills:
             )
         return await self.http_get(f"{base}/health", timeout=8.0)
 
-    async def probe_search(self, query: str = "graph intelligence") -> SkillResult:
+    async def probe_trace(self) -> SkillResult:
         if not self._site_url:
-            return SkillResult(skill="http_search", ok=False, summary="No live site URL", detail={})
-        qs = urlencode({"q": query})
-        return await self.http_get(f"{self._site_url}/api/search?{qs}", timeout=25.0)
+            return SkillResult(skill="http_trace", ok=False, summary="No live site URL", detail={})
+        return await self.http_get(f"{self._site_url}/api/trace", timeout=15.0)
+
+    async def probe_search(self, query: str = "graph intelligence") -> SkillResult:
+        """Legacy alias — belief observatory uses /api/trace, not search."""
+        return await self.probe_trace()
 
     async def read_deploy_status(self) -> SkillResult:
         base = self._vm_base()
@@ -276,6 +329,7 @@ class DemoSkills:
             self.probe_receiver(),
             self.probe_site_health(),
             self.probe_static_shell(),
+            self.probe_frontend_js(),
             self.probe_search(),
             self.read_deploy_status(),
             return_exceptions=True,

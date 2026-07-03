@@ -6,39 +6,36 @@ import re
 from typing import TYPE_CHECKING
 
 from acme.config import settings
-from acme.demo.site_guard import is_protected_site_file, reference_site_file, safe_site_artifact
+from acme.demo.site_guard import (
+    is_pinned_static_file,
+    is_protected_site_file,
+    reference_site_file,
+    safe_site_artifact,
+)
 from acme.llm.factory import get_llm_client
 
 if TYPE_CHECKING:
     from acme.demo.agents import DemoAgent
     from acme.demo.script import DemoBeat
 
-EREBOR_BRIEF = """
-Erebor is an open-source Palantir-grade intelligence product. The website IS the product.
+BELIEF_OBS_BRIEF = """
+Belief Observatory is ACME's product demo. The website IS the product.
 
 Requirements:
-- Obsidian UI (IBM Plex), NOT generic purple AI-gradient slop
-- Three.js r170 globe: emissive nodes, quadratic arc links, OrbitControls
-- Omnibar unified search across OSS APIs: GitHub REST, OpenAlex, Nominatim
-- Entity inspector + investigation timeline
-- FastAPI backend proxies open APIs via httpx (no proprietary data)
-- Site must feel premium, polished, production-grade
-- Must work on mobile: responsive shell, touch-friendly controls, collapsible panels below 768px
-
-Deploy layout (CRITICAL — squad learned this the hard way):
-- Repo paths: static/index.html, static/css/*.css, static/js/*.js
-- HTML links: href="css/tokens.css" src="js/app.js" — root-relative, NO /static/ prefix
-- GitHub Pages publishes static/ contents at site root; VM nginx root IS static/
-- Wrong /static/css/… links → 404 → broken unstyled site
-
-You are building from ZERO — no reference implementation exists. Invent clean, cohesive code.
+- Dark cinematic UI (Instrument Sans + IBM Plex Mono) — not generic AI slop
+- Episodic stream, SVG belief graph, CRS meter, investigation scrubber
+- Belief lifecycle: observation → hypothesis → contradiction → feedback → promoted belief
+- FastAPI serves GET /api/trace with canonical investigation JSON
+- Mobile: stack panels vertically below 900px, touch-friendly scrubber
+- HTML links: href="css/observatory.css" src="js/app.js" — root-relative, NO /static/ prefix
+- Agents edit static/css only — index.html, static/js/*, server.py and api/routes/* are pinned
 """
 
 LANG_HINTS = {
-    "css": "Use CSS custom properties from tokens.css when present. Mobile-first; @media (max-width: 768px) for stacked layout. No Tailwind.",
-    "javascript": "ES modules. Import Three.js via 'three' and 'three/addons/'. No React.",
-    "html": "Link css/*.css and js/*.js with root-relative paths (css/foo.css, js/foo.js). NEVER use /static/ prefix.",
-    "python": "FastAPI + httpx + asyncpg. Type hints. Match existing api/ package layout.",
+    "css": "Mobile-first; @media (max-width: 900px) for stacked observatory layout.",
+    "javascript": "Vanilla JS. BeliefObsAPI.loadTrace() for data. SVG graph rendering.",
+    "html": "Link css/observatory.css and js/*.js root-relative. NEVER /static/ prefix.",
+    "python": "FastAPI + asyncpg. belief_data.py holds canonical trace.",
     "markdown": "Technical architecture doc for the squad.",
 }
 
@@ -80,7 +77,7 @@ async def generate_agent_code(
     """Ask the assigned agent to write a file for the current beat."""
     path = beat.code_file or ""
     norm = path.replace("\\", "/")
-    if norm and is_protected_site_file(norm):
+    if norm and (is_protected_site_file(norm) or is_pinned_static_file(norm)):
         pinned = reference_site_file(norm)
         if pinned:
             return pinned
@@ -90,10 +87,10 @@ async def generate_agent_code(
 
     system = (
         f"{agent.system_prompt}\n\n"
-        "You are committing code to the Erebor repo from scratch. Output ONLY the raw file contents — "
+        "You are committing code to the Belief Observatory repo. Output ONLY the raw file contents — "
         "no markdown fences, no explanation before or after."
     )
-    prompt = f"""{EREBOR_BRIEF}
+    prompt = f"""{BELIEF_OBS_BRIEF}
 
 Task: {beat.content}
 File: {path}
@@ -117,7 +114,7 @@ Write the complete `{path}` now:"""
         )
         code = _strip_fences(raw)
         if code.strip():
-            return code
+            return safe_site_artifact(path, code, previous=artifacts.get(path))
     except Exception:
         pass
 

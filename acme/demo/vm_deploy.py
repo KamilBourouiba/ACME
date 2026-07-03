@@ -104,10 +104,10 @@ async def reconcile_platform(
     deploy_key: str,
     timeout: float = 360.0,
 ) -> dict[str, Any]:
-    """Restore pinned API stack from reference; keep agent static/ overrides."""
-    refs = platform_reference_artifacts()
-    if agent_static:
-        refs.update(static_artifact_keys(agent_static))
+    """Restore pinned API stack from reference; agent CSS only — never agent JS."""
+    from acme.demo.static_assets import publish_artifact_bundle
+
+    refs = publish_artifact_bundle(agent_static)
     return await deploy_to_vm(
         refs,
         vm_url=vm_url,

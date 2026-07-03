@@ -1,4 +1,4 @@
-"""Erebor open intelligence platform — ASGI entrypoint."""
+"""ACME Belief Observatory — ASGI entrypoint."""
 
 from contextlib import asynccontextmanager
 
@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import API_TITLE, API_VERSION
 from api.db import close_db, init_db
-from api.routes import health, intelligence
+from api.routes import beliefs, health
 
 
 @asynccontextmanager
@@ -25,4 +25,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(health.router, prefix="/api")
-app.include_router(intelligence.router, prefix="/api")
+app.include_router(beliefs.router, prefix="/api")

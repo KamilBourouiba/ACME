@@ -86,4 +86,4 @@ s=json.load(sys.stdin)
 print('phase', s['phase'], 'tick', s['tick'], 'agents', len(s['agents']), 'channels', len(s['channels']))
 "
 
-echo "✅ Nuclear reclean done — https://kamilbourouiba.github.io/ACME/demo.html"
+echo "✅ Reclean done — Memory Chat: https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/"

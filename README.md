@@ -480,42 +480,21 @@ CI gate thresholds: `BENCHMARK_MIN_OVERALL=0.85`, `BENCHMARK_MIN_BELIEF_QUALITY=
 
 ---
 
-## Live multi-agent demo
+## Live Memory Chat demo
 
-**Website:** [kamilbourouiba.github.io/ACME/demo.html](https://kamilbourouiba.github.io/ACME/demo.html)
+**Try it:** [Memory Chat](https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/) · Paper site redirects from [demo.html](https://kamilbourouiba.github.io/ACME/demo.html)
 
-Slack-style UI: **10 teammates** build **Erebor** live — each `code` beat calls the LLM (`DEMO_LLM_CODE=true`) so agents **write** files into the repo (CSS, Three.js, OSS API routes). The site starts empty except Docker/nginx infra; preview fills as they commit.
-
-**Nina (DevOps) autonomously publishes** to GitHub Pages + secure VM when the script reaches `#deploy`.
-
-Visitors can:
-
-- Switch **rooms** and read **30+ source files** (Three.js scene, OSS proxies, CSS shell)
-- Click a teammate to inspect **full belief graphs**
-- Watch the **staging preview** and live VM deploy
-- See autonomous publish to `KamilBourouiba/erebor-site-demo`
+Each visitor gets a unique agent UUID with isolated episodic memory, beliefs, and a knowledge graph. The agent can browse the web, search memory, remember facts, and ingest uploaded files.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `DEMO_ENABLED` | `false` | Start the background loop at API startup |
-| `DEMO_LLM_CODE` | `true` | Agents generate file contents via LLM on code beats |
-| `DEMO_CODE_FALLBACK` | `true` | Use reference `site/` file if LLM fails |
-| `DEMO_CODE_TIMEOUT_SEC` | `90` | Max seconds per file generation |
-| `DEMO_INTERVAL_SEC` | `5` | Pause between turns (code beats may take longer) |
-| `DEMO_AUTO_PUBLISH` | `true` | Nina publishes on deploy beats |
-| `DEMO_GITHUB_TOKEN` | — | **Required** PAT (`repo` scope) for autonomous publish |
-| `DEMO_GITHUB_REPO` | `KamilBourouiba/erebor-site-demo` | Target repo (created if missing) |
-| `DEMO_GITHUB_BRANCH` | `main` | Branch + GitHub Pages root |
-| `DEMO_PUBLISH_COOLDOWN_SEC` | `30` | Min seconds between auto-publishes |
-| `DEMO_RESET_COOLDOWN_SEC` | `5` | Min seconds between public resets |
+| `CHAT_DEMO_ENABLED` | `true` | Public chat UI + API |
+| `DEMO_ENABLED` | `false` | Legacy squad loop (disabled) |
+| `CHAT_MAX_UPLOAD_BYTES` | `5242880` | Max file upload (5 MB) |
+| `CHAT_MAX_TOOL_ROUNDS` | `5` | Agent tool loop per message |
+| `CHAT_CLEAN_LEGACY_DEMO_ON_START` | `true` | Purge old squad tenant data |
 
-Deploy on Azure (uses `gh auth token` if `DEMO_GITHUB_TOKEN` unset locally):
-
-```bash
-DEMO_GITHUB_TOKEN=ghp_… ./scripts/deploy_demo.sh
-```
-
-API routes: `GET /api/v1/demo/state`, `GET /api/v1/demo/events` (SSE), `POST /api/v1/demo/reset`.
+API routes: `POST /api/v1/chat/sessions`, `POST /api/v1/chat/sessions/{id}/messages` (multipart), `GET /api/v1/chat/`.
 
 ---
 

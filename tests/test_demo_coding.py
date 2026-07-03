@@ -17,7 +17,7 @@ def test_strip_fences():
 
 @pytest.mark.asyncio
 async def test_generate_agent_code_uses_llm(monkeypatch):
-    beat = next(b for b in SCRIPT_BEATS if b.code_file == "static/css/tokens.css")
+    beat = next(b for b in SCRIPT_BEATS if b.code_file == "static/css/observatory.css")
 
     class FakeLLM:
         async def generate(self, *a, **kw):
@@ -30,7 +30,7 @@ async def test_generate_agent_code_uses_llm(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_generate_agent_code_no_fallback(monkeypatch):
-    beat = next(b for b in SCRIPT_BEATS if b.code_file == "static/css/tokens.css")
+    beat = next(b for b in SCRIPT_BEATS if b.code_file == "static/css/observatory.css")
 
     class FailLLM:
         async def generate(self, *a, **kw):
@@ -38,7 +38,7 @@ async def test_generate_agent_code_no_fallback(monkeypatch):
 
     monkeypatch.setattr("acme.demo.coding.get_llm_client", lambda: FailLLM())
     code = await generate_agent_code(AGENT_BY_ID["marco"], beat, artifacts={})
-    assert code != REFERENCE_ARTIFACTS.get("static/css/tokens.css", "")
+    assert code != REFERENCE_ARTIFACTS.get("static/css/observatory.css", "")
     assert "pending" in code
 
 

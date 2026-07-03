@@ -3,9 +3,8 @@ from dataclasses import dataclass
 from acme.demo.artifacts import SITE_ARTIFACTS  # noqa: F401 — re-export
 
 _SKILL_SUFFIX = (
-    " You have runtime skills: HTTP probes on the live site, docker console logs, "
-    "deploy status, ACME memory queries, and autonomous file edits until a human pauses the squad."
-    " Deploy lesson: HTML links use css/foo.css and js/bar.js — NEVER /static/ prefix."
+    " You have runtime skills: HTTP probes, deploy, ACME memory queries, file edits, ui_audit."
+    " HTML links use css/foo.css and js/bar.js — NEVER /static/ prefix."
     " Boot files (server.py, api/routes/*) are pinned — edit static/ only."
 )
 
@@ -27,131 +26,84 @@ DEMO_AGENTS: tuple[DemoAgent, ...] = (
         id="alex",
         name="Alex",
         role="Product Manager",
-        tenant_id="demo-erebor-alex",
+        tenant_id="demo-belief-alex",
         color="#611f69",
         initials="A",
-        system_prompt="You are Alex, PM for Erebor. The site IS the product — open Palantir for OSS data. No marketing fluff." + _SKILL_SUFFIX,
+        system_prompt="You are Alex, PM for Belief Observatory. The site IS ACME's product story — auditable beliefs, not RAG cosplay." + _SKILL_SUFFIX,
         channels=("general", "product"),
     ),
     DemoAgent(
         id="priya",
         name="Priya",
         role="UX Designer",
-        tenant_id="demo-erebor-priya",
+        tenant_id="demo-belief-priya",
         color="#e01e5a",
         initials="P",
-        system_prompt="You are Priya, UX lead for Erebor. Obsidian shell, IBM Plex, polished Three.js — never generic AI gradients.",
+        system_prompt="You are Priya, UX lead. Observatory shell: episodic stream, SVG belief graph, CRS scrubber — cinematic dark UI.",
         channels=("design", "product", "general"),
     ),
     DemoAgent(
         id="marco",
         name="Marco",
         role="Frontend Engineer",
-        tenant_id="demo-erebor-marco",
+        tenant_id="demo-belief-marco",
         color="#1264a3",
         initials="M",
-        system_prompt="You are Marco, frontend dev. You write Three.js scenes, CSS modules, ES modules — polished, not generic.",
+        system_prompt="You are Marco. You ship observatory.css, app.js, SVG graph interactions — polished ES modules.",
         channels=("engineering", "general"),
     ),
     DemoAgent(
         id="chen",
         name="Chen",
         role="Backend Engineer",
-        tenant_id="demo-erebor-chen",
+        tenant_id="demo-belief-chen",
         color="#0b4f6c",
         initials="C",
-        system_prompt="You are Chen, backend dev. You write httpx OSS proxies (GitHub, OpenAlex, Nominatim) and FastAPI routes. You fix API errors seen in console logs." + _SKILL_SUFFIX,
+        system_prompt="You are Chen. FastAPI /api/trace, belief_data.py, CRS payloads — no OSS proxies." + _SKILL_SUFFIX,
         channels=("engineering",),
     ),
     DemoAgent(
         id="nina",
         name="Nina",
         role="DevOps",
-        tenant_id="demo-erebor-nina",
+        tenant_id="demo-belief-nina",
         color="#2eb67d",
         initials="N",
-        system_prompt="You are Nina, DevOps. VM stack, TLS, autonomous publish pipelines. You deploy after meaningful file changes." + _SKILL_SUFFIX,
+        system_prompt="You are Nina. Publish static/ to GitHub Pages and VM after meaningful changes." + _SKILL_SUFFIX,
         channels=("deploy", "engineering"),
     ),
     DemoAgent(
         id="jordan",
         name="Jordan",
         role="QA Engineer",
-        tenant_id="demo-erebor-jordan",
+        tenant_id="demo-belief-jordan",
         color="#ecb22e",
         initials="J",
-        system_prompt="You are Jordan, QA. HTTP probes, API health, container logs. Taylor owns browser click-through — you own http_probe and search API checks." + _SKILL_SUFFIX,
+        system_prompt="You are Jordan. http_probe, /api/health, /api/trace JSON checks." + _SKILL_SUFFIX,
         channels=("engineering", "product"),
     ),
     DemoAgent(
         id="taylor",
         name="Taylor",
         role="UI/UX QA Lead",
-        tenant_id="demo-erebor-taylor",
+        tenant_id="demo-belief-taylor",
         color="#ff6b35",
         initials="T",
         system_prompt=(
-            "You are Taylor, UI/UX QA. Every improvement cycle you run ui_audit: load live Pages, "
-            "click search/controls, capture screenshots, read console errors. Post findings in #qa, "
-            "then hand off concrete fixes to Marco (JS/globe), Priya (CSS), Chen (API client). "
-            "Do not write feature code yourself — audit first, builders ship after."
+            "You are Taylor. Run ui_audit on live Pages + VM: belief-svg, scrubber, CRS meter, mobile stack."
+            " Hand off to Marco/Priya/Chen — audit first."
         )
         + _SKILL_SUFFIX,
-        channels=("qa", "design", "engineering", "product"),
-    ),
-    DemoAgent(
-        id="sam",
-        name="Sam",
-        role="Tech Lead",
-        tenant_id="demo-erebor-sam",
-        color="#1d1c1d",
-        initials="S",
-        system_prompt="You are Sam, tech lead. OSS API selection, graph model, Three.js performance trade-offs.",
-        channels=("engineering", "general", "deploy"),
-    ),
-    DemoAgent(
-        id="riley",
-        name="Riley",
-        role="Research Analyst",
-        tenant_id="demo-erebor-riley",
-        color="#694873",
-        initials="R",
-        system_prompt="You are Riley, research. Evaluate open data sources — OpenAlex vs Semantic Scholar, Nominatim usage policy.",
-        channels=("design", "product"),
-    ),
-    DemoAgent(
-        id="morgan",
-        name="Morgan",
-        role="OSINT Lead",
-        tenant_id="demo-erebor-morgan",
-        color="#36c5f0",
-        initials="Mo",
-        system_prompt="You are Morgan, OSINT. Investigation workflows — entity linking across repos, papers, geography.",
-        channels=("product", "general"),
-    ),
-    DemoAgent(
-        id="kai",
-        name="Kai",
-        role="Engineering Manager",
-        tenant_id="demo-erebor-kai",
-        color="#4a154b",
-        initials="K",
-        system_prompt="You are Kai, EM. Ship criteria: site must feel Palantir-grade, not AI slop.",
-        channels=("general", "engineering", "deploy"),
+        channels=("qa", "design", "engineering"),
     ),
     DemoAgent(
         id="vera",
         name="Vera",
         role="SRE · Debug & Triage",
-        tenant_id="demo-erebor-vera",
+        tenant_id="demo-belief-vera",
         color="#c9184a",
         initials="V",
-        system_prompt=(
-            "You are Vera, site reliability engineer for Erebor. You read probes, deploy status, "
-            "and container logs; dedupe repeated alerts; run allowlisted curl/docker commands on the "
-            "VM via /exec to fix stack issues; post one triage per incident then remediate."
-        )
-        + _SKILL_SUFFIX,
+        system_prompt="You are Vera. Probes, logs, VM exec recipes — keep belief-observatory stack green." + _SKILL_SUFFIX,
         channels=("ops", "deploy", "engineering"),
     ),
 )

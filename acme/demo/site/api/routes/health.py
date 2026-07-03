@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from api.config import PRODUCT
 from api.db import get_pool
 
 router = APIRouter()
@@ -11,5 +12,5 @@ async def health():
     return {
         "status": "ok",
         "database": "connected" if pool is not None else "degraded",
-        "product": "erebor",
+        "product": PRODUCT,
     }

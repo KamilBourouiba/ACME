@@ -54,7 +54,7 @@ def test_skills_list_artifacts():
 async def test_plan_improvement_uses_llm(monkeypatch):
     class FakeLLM:
         async def generate(self, *args, **kwargs):
-            return '{"agent_id":"marco","channel":"engineering","action":"edit","message":"Polish globe","file":"static/js/scene.js","lang":"javascript","query":null,"skill":null,"deploy":false}'
+            return '{"agent_id":"marco","channel":"engineering","action":"edit","message":"Polish trace UI","file":"static/js/app.js","lang":"javascript","query":null,"skill":null,"deploy":false}'
 
     monkeypatch.setattr("acme.demo.improvement.get_llm_client", lambda: FakeLLM())
     plan = await plan_improvement(
@@ -64,4 +64,4 @@ async def test_plan_improvement_uses_llm(monkeypatch):
         recent_thread="",
     )
     assert plan.agent_id == "marco"
-    assert plan.file == "static/js/scene.js"
+    assert plan.file == "static/js/app.js"

@@ -9,5 +9,5 @@ def test_squad_lessons_cover_static_paths():
     assert "ui-audit-workflow" in keys
     assert "/static/" in SQUAD_LESSONS_PROMPT
     assert "css/" in SQUAD_LESSONS_PROMPT
-    assert "EREBOR_DIRECT_OSS" in SQUAD_LESSONS_PROMPT
+    assert "trace-fallback.json" in SQUAD_LESSONS_PROMPT or "observatory" in SQUAD_LESSONS_PROMPT.lower()
     assert "index.html is PINNED" in SQUAD_LESSONS_PROMPT

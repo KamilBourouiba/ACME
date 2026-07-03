@@ -9,9 +9,9 @@ from acme.main import app
 
 
 def test_demo_agents_config():
-    assert len(DEMO_AGENTS) == 12
+    assert len(DEMO_AGENTS) == 8
     tenants = {a.tenant_id for a in DEMO_AGENTS}
-    assert len(tenants) == 12
+    assert len(tenants) == 8
 
 
 def test_demo_routes_disabled_by_default():
@@ -46,7 +46,7 @@ async def test_demo_routes_when_enabled(monkeypatch):
         )
 
     async def fake_reset():
-        return True, "Demo reset complete.", [{"tenant_id": "demo-erebor-alex"}]
+        return True, "Demo reset complete.", [{"tenant_id": "demo-belief-alex"}]
 
     monkeypatch.setattr(settings, "demo_enabled", True)
     monkeypatch.setattr(demo_service, "get_state", fake_state)
@@ -56,7 +56,7 @@ async def test_demo_routes_when_enabled(monkeypatch):
     assert r.status_code == 200
     data = r.json()
     assert data["running"] is True
-    assert len(data["agents"]) == 12
+    assert len(data["agents"]) == 8
 
     reset = client.post("/api/v1/demo/reset")
     assert reset.status_code == 200

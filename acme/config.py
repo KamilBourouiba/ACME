@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     demo_publish_cooldown_sec: int = 15
     demo_clean_on_start: bool = False
     demo_wipe_on_clean: bool = False  # wipe VM/GitHub only on explicit POST /reset
-    demo_clean_repo_on_reset: bool = True
+    demo_clean_repo_on_reset: bool = False
     demo_auto_recycle: bool = False
     demo_continuous_improvement: bool = True
     demo_deploy_failure_cap: int = 3
@@ -119,6 +119,14 @@ class Settings(BaseSettings):
     demo_visitor_secret: str = "LeanLean"
     demo_visitor_say_cooldown_sec: int = 3
     demo_ui_audit_interval: int = 5  # Taylor browser audit every N improvement turns
+
+    # Public memory chat demo (replaces Belief Observatory squad)
+    chat_demo_enabled: bool = True
+    chat_max_upload_bytes: int = 5_242_880  # 5 MB
+    chat_max_tool_rounds: int = 5
+    chat_browse_timeout_sec: float = 20.0
+    chat_message_history_limit: int = 24
+    chat_clean_legacy_demo_on_start: bool = True
 
 
 settings = Settings()

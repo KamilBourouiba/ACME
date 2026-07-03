@@ -2,98 +2,70 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Erebor — Open Intelligence Graph</title>
-  <meta name="description" content="Palantir-grade investigation workspace built entirely on open data. Repos, papers, geography — one graph.">
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/shell.css">
-  <link rel="stylesheet" href="css/omnibar.css">
-  <link rel="stylesheet" href="css/panels.css">
-  <link rel="stylesheet" href="css/canvas.css">
-  <link rel="stylesheet" href="css/inspector.css">
-  <link rel="stylesheet" href="css/timeline.css">
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://esm.sh/three@0.170.0",
-      "three/addons/": "https://esm.sh/three@0.170.0/examples/jsm/"
-    }
-  }
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ACME — Belief Observatory</title>
+  <meta name="description" content="Watch episodic memory become auditable belief — CRS, contradiction, feedback in one trace.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/observatory.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="app-header">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true"></div>
-        <span class="brand-name">EREBOR</span>
-      </div>
-      <div class="header-sources" id="source-chips"></div>
-      <div class="header-actions">
-        <span class="badge live">Live OSS feeds</span>
-        <button class="btn-ghost" id="btn-reset-view" type="button">Reset view</button>
+  <div class="obs-shell">
+    <header class="obs-header">
+      <a class="obs-brand" href="#">ACME <span>Belief Observatory</span></a>
+      <div class="obs-pill" id="api-pill">Loading trace…</div>
+      <div class="obs-crs">
+        <span class="obs-crs-label">CRS</span>
+        <span class="obs-crs-value" id="crs-value">—</span>
+        <div class="obs-crs-bar"><div class="obs-crs-fill" id="crs-fill"></div></div>
       </div>
     </header>
 
-    <main class="workspace">
-      <aside class="panel panel-left">
-        <div class="panel-head">Investigate</div>
-        <div class="omnibar-wrap">
-          <form class="omnibar" id="search-form">
-            <span class="omnibar-icon" aria-hidden="true">⌕</span>
-            <input id="search-input" type="search" placeholder="Search repos, papers, places…" autocomplete="off" spellcheck="false">
-            <kbd>↵</kbd>
-          </form>
-        </div>
-        <div class="panel-body">
-          <div id="search-results" class="search-results"></div>
-          <div class="panel-head" style="border:none;padding-left:0;margin-top:8px">Graph entities</div>
-          <div id="entity-list" class="entity-list"></div>
-        </div>
+    <section class="obs-hero">
+      <h1>Memory you can <em>audit</em>, not just retrieve.</h1>
+      <p>
+        ACME externalizes what the model should <strong>believe</strong> — with confidence, contradiction handling,
+        and correction when reality pushes back.
+      </p>
+    </section>
+
+    <main class="obs-grid">
+      <aside class="obs-panel obs-episodes">
+        <div class="panel-head">Episodic stream</div>
+        <div class="episode-list" id="episode-list"></div>
       </aside>
 
-      <section class="canvas-wrap">
-        <canvas id="erebor-canvas"></canvas>
-        <div class="canvas-overlay">
-          <div class="canvas-hud">
-            <div class="hud-card">
-              <div class="hud-label">Nodes linked</div>
-              <div class="hud-value" id="hud-nodes">—</div>
-            </div>
-            <div class="hud-card">
-              <div class="hud-label">Active source</div>
-              <div class="hud-value" id="hud-source" style="font-size:13px">multi</div>
-            </div>
-          </div>
-          <div class="canvas-controls">
-            <button class="ctrl-btn active" id="btn-rotate" type="button" title="Auto rotate">↻</button>
-            <button class="ctrl-btn" id="btn-arcs" type="button" title="Toggle arcs">⌇</button>
-          </div>
+      <section class="obs-panel obs-graph">
+        <div class="panel-head">Belief graph</div>
+        <svg id="belief-svg" viewBox="0 0 640 420" aria-label="Belief graph visualization"></svg>
+        <div class="graph-legend">
+          <span><i class="dot obs"></i> Observation</span>
+          <span><i class="dot hyp"></i> Hypothesis</span>
+          <span><i class="dot bel"></i> Belief</span>
+          <span><i class="dot clash"></i> Contradiction</span>
         </div>
-        <div class="loading-veil" id="loading-veil"><div class="spinner"></div></div>
       </section>
 
-      <aside class="panel panel-right">
-        <div class="panel-head">Entity inspector</div>
-        <div class="panel-body" id="inspector">
-          <div class="inspector-empty">
-            <p>Select a node or search result to inspect open-source intelligence.</p>
-          </div>
+      <aside class="obs-panel obs-inspector">
+        <div class="panel-head">Belief inspector</div>
+        <div id="inspector">
+          <p class="inspector-empty">Scrub the trace — select a node to inspect CRS factors.</p>
         </div>
       </aside>
     </main>
 
-    <footer class="timeline-bar">
-      <div class="timeline-head">
-        <span class="mono dim">Investigation trail</span>
-        <span class="badge" id="trail-count">0 events</span>
+    <footer class="obs-scrubber">
+      <div class="scrub-label">Investigation trace</div>
+      <div class="scrub-steps" id="scrub-steps"></div>
+      <div class="scrub-actions">
+        <button type="button" class="btn" id="btn-prev">← Prev</button>
+        <button type="button" class="btn btn-primary" id="btn-play">Play</button>
+        <button type="button" class="btn" id="btn-next">Next →</button>
       </div>
-      <div class="timeline-track" id="timeline-track"></div>
     </footer>
   </div>
-
-  <script type="module" src="js/scene.js"></script>
-  <script type="module" src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

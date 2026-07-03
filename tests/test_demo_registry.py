@@ -10,7 +10,7 @@ def test_hire_agent():
         channels=["engineering", "ops"],
     )
     assert agent.id
-    assert agent.tenant_id == f"demo-erebor-{agent.id}"
+    assert agent.tenant_id == f"demo-belief-{agent.id}"
     assert len(reg.list_agents()) == before + 1
     assert reg.get_agent(agent.id) is agent
 

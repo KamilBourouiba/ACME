@@ -1,10 +1,8 @@
-from acme.demo.artifacts import SITE_ARTIFACTS
-from acme.demo.vm_deploy import _stack_files
+from acme.demo.artifacts import load_site_artifacts
 
 
-def test_stack_files_erebor_architecture():
-    files = _stack_files(dict(SITE_ARTIFACTS))
-    assert "static/js/scene.js" in files
-    assert "api/oss_clients.py" in files
-    assert "api/routes/intelligence.py" in files
-    assert len(files) >= 25
+def test_stack_files_belief_observatory():
+    files = load_site_artifacts()
+    assert "static/js/app.js" in files
+    assert "api/routes/beliefs.py" in files
+    assert "static/css/observatory.css" in files

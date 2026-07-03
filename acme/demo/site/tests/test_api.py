@@ -1,4 +1,4 @@
-"""Smoke tests for Erebor intelligence API."""
+"""Smoke tests for Belief Observatory API."""
 
 from fastapi.testclient import TestClient
 
@@ -10,22 +10,12 @@ client = TestClient(app)
 def test_health():
     r = client.get("/api/health")
     assert r.status_code == 200
-    assert r.json()["product"] == "erebor"
+    assert r.json()["product"] == "belief-observatory"
 
 
-def test_catalog():
-    r = client.get("/api/catalog")
-    assert r.status_code == 200
-    sources = r.json()["sources"]
-    assert len(sources) >= 3
-    ids = {s["id"] for s in sources}
-    assert "github" in ids
-    assert "openalex" in ids
-
-
-def test_seed_graph():
-    r = client.get("/api/graph")
+def test_trace():
+    r = client.get("/api/trace")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["nodes"]) >= 3
-    assert len(data["edges"]) >= 2
+    assert len(data["nodes"]) >= 4
+    assert len(data["steps"]) >= 4

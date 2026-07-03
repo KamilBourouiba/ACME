@@ -61,6 +61,30 @@ _SCHEMA_PATCHES: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS benchmark_runs_created_idx ON benchmark_runs (created_at DESC)",
     "CREATE INDEX IF NOT EXISTS benchmark_runs_type_idx ON benchmark_runs (run_type, tenant_id)",
+    """
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+        id UUID PRIMARY KEY,
+        tenant_id VARCHAR(80) UNIQUE NOT NULL,
+        title VARCHAR(256) DEFAULT 'New conversation',
+        created_at TIMESTAMPTZ DEFAULT now(),
+        updated_at TIMESTAMPTZ DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS chat_sessions_tenant_idx ON chat_sessions (tenant_id)",
+    """
+    CREATE TABLE IF NOT EXISTS chat_messages (
+        id UUID PRIMARY KEY,
+        session_id UUID NOT NULL,
+        role VARCHAR(16) NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        attachments JSONB DEFAULT '[]'::jsonb,
+        tool_calls JSONB DEFAULT '[]'::jsonb,
+        beliefs_used JSONB DEFAULT '[]'::jsonb,
+        query_session_id UUID,
+        created_at TIMESTAMPTZ DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS chat_messages_session_idx ON chat_messages (session_id, created_at)",
 )
 
 

@@ -3,107 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ACME Live Demo — Erebor Intelligence Squad</title>
-  <meta name="description" content="Ten agents build Erebor — open Palantir with Three.js globe and real OSS APIs.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/demo.css?v=7">
+  <title>ACME Memory Chat</title>
+  <meta http-equiv="refresh" content="0;url=https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/">
+  <link rel="canonical" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/">
+  <script>location.replace("https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/");</script>
 </head>
-<body class="slack-demo panel-chat">
-  <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
-  <div class="workspace">
-    <aside class="sidebar" id="sidebar">
-      <div class="workspace-header">
-        <strong>Erebor</strong>
-        <span class="live-pill" id="live-pill">Connecting</span>
-      </div>
-      <nav class="channels" id="channel-list" aria-label="Channels"></nav>
-      <div class="sidebar-footer">
-        <span id="model-label">—</span> · turn <span id="tick-label">0</span>
-      </div>
-    </aside>
-
-    <section class="main" id="main-panel">
-      <header class="channel-header">
-        <button type="button" class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open channels">☰</button>
-        <div class="channel-header-text">
-          <h1 id="channel-title">#general</h1>
-          <p id="channel-topic">Erebor open intelligence graph</p>
-        </div>
-        <div class="header-actions">
-          <a class="live-site-link" id="live-site-link" href="#" target="_blank" rel="noopener" hidden>View live site</a>
-        </div>
-      </header>
-
-      <div class="mobile-channels-wrap">
-        <nav class="mobile-channels" id="mobile-channels" aria-label="Channels"></nav>
-      </div>
-
-      <div id="demo-error" class="demo-error" hidden></div>
-      <div id="deploy-banner" class="deploy-banner" hidden></div>
-
-      <div class="preview-panel" id="preview-panel" hidden>
-        <div class="preview-head">
-          <strong>Visual preview</strong>
-          <div class="preview-tabs">
-            <button type="button" class="preview-tab active" data-preview="staging">Staging</button>
-            <button type="button" class="preview-tab" data-preview="live" id="live-preview-tab" disabled>Live Pages</button>
-          </div>
-        </div>
-        <iframe id="site-preview" title="Erebor site preview" sandbox="allow-scripts allow-same-origin"></iframe>
-      </div>
-
-      <div class="messages" id="messages">
-        <div class="empty-state">Waiting for the squad to come online…</div>
-      </div>
-
-      <form class="visitor-compose" id="visitor-compose" autocomplete="off">
-        <input
-          id="visitor-input"
-          class="visitor-input"
-          type="password"
-          placeholder="Enter access code to chat…"
-          maxlength="800"
-          aria-label="Message the squad"
-        />
-        <button type="submit" class="visitor-send" id="visitor-send" disabled>Send</button>
-      </form>
-    </section>
-
-    <aside class="members-panel" id="members-panel">
-      <h2>Team · ACME memory</h2>
-      <div id="member-list"></div>
-      <div class="beliefs-panel" id="beliefs-panel">
-        <h3 id="belief-title">Select a teammate</h3>
-        <p id="belief-subtitle">Each role keeps an isolated belief graph.</p>
-        <div id="belief-list" class="belief-list"></div>
-      </div>
-      <div class="artifacts-panel">
-        <h3>Site files</h3>
-        <ul id="artifact-list"></ul>
-      </div>
-    </aside>
-  </div>
-
-  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Mobile navigation">
-    <button type="button" class="mobile-nav-btn active" data-panel="chat" aria-current="page">
-      <span class="mobile-nav-icon">💬</span>
-      <span>Chat</span>
-    </button>
-    <button type="button" class="mobile-nav-btn" data-panel="preview">
-      <span class="mobile-nav-icon">◫</span>
-      <span>Preview</span>
-    </button>
-    <button type="button" class="mobile-nav-btn" data-panel="team">
-      <span class="mobile-nav-icon">👥</span>
-      <span>Team</span>
-    </button>
-  </nav>
-
-  <script>
-    window.ACME_DEMO_API = window.ACME_DEMO_API || "https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io";
-  </script>
-  <script src="assets/demo.js?v=7"></script>
+<body>
+  <p>Opening <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/">ACME Memory Chat</a>…</p>
 </body>
 </html>

@@ -14,6 +14,12 @@ LEGACY_DEMO_TENANT_IDS: tuple[str, ...] = tuple(
     f"demo-lumen-{a.id}" for a in DEMO_AGENTS
 ) + tuple(
     f"demo-nexus-{a.id}" for a in DEMO_AGENTS
+) + tuple(
+    f"demo-erebor-{aid}"
+    for aid in (
+        "alex", "priya", "marco", "chen", "nina", "jordan", "taylor",
+        "sam", "riley", "morgan", "kai", "vera",
+    )
 )
 ALL_DEMO_TENANT_IDS = DEMO_TENANT_IDS + LEGACY_DEMO_TENANT_IDS
 

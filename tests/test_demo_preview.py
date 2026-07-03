@@ -1,10 +1,10 @@
 from acme.demo.preview import build_staging_preview
-from acme.demo.artifacts import load_site_artifacts
+from acme.demo.static_assets import reference_static_files
 
 
-def test_staging_preview_erebor():
-    arts = load_site_artifacts()
+def test_staging_preview_belief_observatory():
+    arts = reference_static_files()
     html = build_staging_preview(arts)
-    assert "Erebor" in html
-    assert "erebor-canvas" in html
-    assert "importmap" in html or "three" in html
+    assert "Belief Observatory" in html
+    assert "belief-svg" in html
+    assert "observatory" in html.lower()

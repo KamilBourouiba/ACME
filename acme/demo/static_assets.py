@@ -13,9 +13,27 @@ _STATIC_PREFIX = re.compile(r"""((?:href|src)\s*=\s*["'])/static/""", re.IGNOREC
 _ASSET_HREF = re.compile(r"""href=["'](css/[^"']+)["']""", re.IGNORECASE)
 _ASSET_SRC = re.compile(r"""src=["'](js/[^"']+)["']""", re.IGNORECASE)
 
-# Always publish canonical shell — agents broke index with missing css/layout.css.
-PAGES_PINNED_STATIC = frozenset({"index.html"})
-VM_PINNED_STATIC = frozenset({"index.html"})
+# Always publish canonical shell + trace JS — agents broke index and corrupted app.js.
+PAGES_PINNED_STATIC = frozenset(
+    {
+        "index.html",
+        "js/api.js",
+        "js/app.js",
+        "js/trace-fallback.json",
+    }
+)
+VM_PINNED_STATIC = PAGES_PINNED_STATIC
+
+
+def publish_artifact_bundle(agent_artifacts: dict[str, str] | None = None) -> dict[str, str]:
+    """Canon site tree from disk; only agent CSS overrides may ship."""
+    canon = load_site_artifacts()
+    css_overrides = {
+        k: v
+        for k, v in (agent_artifacts or {}).items()
+        if k.replace("\\", "/").startswith("static/css/")
+    }
+    return {**canon, **css_overrides}
 
 
 def normalize_static_asset_paths(content: str) -> str:
@@ -29,7 +47,7 @@ def reference_static_files() -> dict[str, str]:
     if not SITE_ROOT.is_dir():
         return out
     for path in sorted(SITE_ROOT.rglob("*")):
-        if path.is_file() and path.suffix in {".css", ".js", ".html"}:
+        if path.is_file() and path.suffix in {".css", ".js", ".html", ".json"}:
             rel = f"static/{path.relative_to(SITE_ROOT).as_posix()}"
             out[rel] = path.read_text(encoding="utf-8")
     return out
@@ -50,20 +68,12 @@ def _index_assets_missing(index_html: str, available: set[str]) -> list[str]:
 
 
 def inject_pages_api_base(index_html: str) -> str:
-    """GitHub Pages: use direct OSS APIs (VM TLS is self-signed and blocked by browsers)."""
-    if "EREBOR_DIRECT_OSS" in index_html:
-        html = index_html
-    else:
-        snippet = '  <script>window.EREBOR_DIRECT_OSS=true;</script>\n'
-        if "</head>" in index_html:
-            html = index_html.replace("</head>", f"{snippet}</head>", 1)
-        else:
-            html = snippet + index_html
-    # Bust module cache after deploy — browsers keep stale api.js otherwise.
+    """GitHub Pages: cache-bust static JS after deploy."""
     import time
 
     v = int(time.time())
-    html = html.replace('src="js/scene.js"', f'src="js/scene.js?v={v}"')
+    html = index_html
+    html = html.replace('src="js/api.js"', f'src="js/api.js?v={v}"')
     html = html.replace('src="js/app.js"', f'src="js/app.js?v={v}"')
     return html
 
@@ -71,7 +81,13 @@ def inject_pages_api_base(index_html: str) -> str:
 def merge_static_bundle(artifacts: dict[str, str]) -> dict[str, str]:
     """Ensure css/js exist — agents sometimes ship index.html without assets."""
     merged = dict(reference_static_files())
-    merged.update(artifacts)
+    for path, content in artifacts.items():
+        if not path.startswith("static/"):
+            continue
+        base = path.removeprefix("static/")
+        if base in VM_PINNED_STATIC:
+            continue
+        merged[path] = content
     index_key = "static/index.html" if "static/index.html" in merged else "index.html"
     if index_key in merged:
         merged[index_key] = normalize_static_asset_paths(merged[index_key])
@@ -112,13 +128,37 @@ def github_pages_bundle(artifacts: dict[str, str]) -> dict[str, str]:
                 out[path.removeprefix("static/")] = content
         out["index.html"] = normalize_static_asset_paths(inject_pages_api_base(refs["static/index.html"]))
 
+    return _with_pages_extras(_force_pinned_pages(out))
+
+
+def _force_pinned_pages(out: dict[str, str]) -> dict[str, str]:
+    """Last line of defense — pinned trace assets always from disk reference."""
+    refs = reference_static_files()
+    for path, content in refs.items():
+        if not path.startswith("static/"):
+            continue
+        base = path.removeprefix("static/")
+        if base in PAGES_PINNED_STATIC:
+            if base == "index.html":
+                out[base] = normalize_static_asset_paths(inject_pages_api_base(content))
+            else:
+                out[base] = content
+    return out
+
+
+def _with_pages_extras(out: dict[str, str]) -> dict[str, str]:
+    """GitHub Pages: skip Jekyll processing."""
+    out = dict(out)
+    out[".nojekyll"] = ""
     return out
 
 
 def is_agent_editable_file(path: str) -> bool:
-    """After bootstrap, agents may only change static css/js — not index shell."""
+    """After bootstrap, agents may only change static css — not index or trace JS."""
     norm = path.replace("\\", "/")
     if norm in ("static/index.html", "index.html"):
+        return False
+    if norm.startswith("static/js/"):
         return False
     return norm.startswith("static/")
 
@@ -151,4 +191,10 @@ def vm_static_bundle(artifacts: dict[str, str]) -> dict[str, str]:
             merged.update(refs)
             index = normalize_static_asset_paths(refs["static/index.html"])
         merged["static/index.html"] = index
+    for path, content in reference_static_files().items():
+        if not path.startswith("static/"):
+            continue
+        base = path.removeprefix("static/")
+        if base in VM_PINNED_STATIC:
+            merged[path] = content
     return merged
