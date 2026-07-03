@@ -1,0 +1,44 @@
+=== ACME Investor Demo ===
+
+Health: healthy | LLM: azure_openai
+
+1) Multi-source ingestion (3 independent sources)
+   ✓ 3 episodes ingested with embeddings + graph extraction
+
+2) Graph-backed query with contrarian check
+   Answer: Customers churn primarily due to repeated performance issues, especially high latency in APIs or dashboards, slow dashboard loads, and checkout timeouts. These issues are strongly ...
+   Confidence: 1.0
+
+3) Contradiction feedback + belief adjustment
+   Beliefs tracked: 50 | top CRS: 0.7
+
+4) Autonomous learning + auto-predictions
+   Hypotheses: 5 | Predictions: 5
+
+5) MemoryBench + baseline comparison (async)
+   Using last persisted compare run (--benchmark cached)
+   (scores from persisted (cached))
+   Completed in 0s
+
+   Metric                                  ACME      RAG        Δ
+   --------------------------------------------------------------
+   retention_score                        0.952    0.964   -0.011
+   hallucination_resistance_score         0.839    0.931   -0.092
+   feedback_correction_score              1.000      N/A        —
+   belief_quality_score                   0.701      N/A        —
+   overall_score                          0.873    0.474   +0.399
+   overall_applicable_only                0.873    0.947   -0.074
+
+   ACME overall: 0.873
+   RAG overall:  0.474
+
+6) LongMemEval industry benchmark (prod, June 2026)
+   Oracle 500 Q — ACME transcript-first vs baselines:
+   System      Overall       KU   Temporal
+   ----------------------------------------
+   ACME          0.804    0.931      0.684
+   MemGPT        0.780    0.903      0.609
+   RAG           0.776    0.875      0.602
+   (MemoryBench + LongMemEval reported separately — see docs/BENCHMARK_RESULTS.md)
+
+=== Demo complete ===

@@ -1,0 +1,250 @@
+% Styled result tables — column-safe in twocolumn layout
+
+% Two-column table (fits one column width)
+\newcommand{\acmeTableBlockCol}[2]{%
+  \par\vspace{0.45em}%
+  \noindent
+  \begin{center}
+    \footnotesize
+    \captionof{table}{#1}%
+    \setlength{\tabcolsep}{3.5pt}%
+    \renewcommand{\arraystretch}{1.22}%
+    \resizebox{\dimexpr\columnwidth-1pt\relax}{!}{%
+      #2%
+    }%
+  \end{center}
+  \par\vspace{0.65em}%
+}
+
+% Full-width table (spans both columns)
+\newcommand{\acmeTableBlockWide}[2]{%
+  \begin{table*}[t]
+    \centering
+    \scriptsize
+    \setlength{\tabcolsep}{4pt}%
+    \renewcommand{\arraystretch}{1.25}%
+    \caption{#1}%
+    #2%
+  \end{table*}%
+}
+
+\newcommand{\acmeTableMetrics}{%
+  \acmeTableBlockCol{MemoryBench v3.1 metrics.}{%
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.32\columnwidth}p{0.60\columnwidth}@{}}
+      \toprule
+      \textbf{Metric} & \textbf{Description} \\
+      \midrule
+      Retention & Concept coverage (synonyms accepted) \\
+      Groundedness & Answer supported by ingested episodes \\
+      Feedback correction & Belief adjustment after contradictions \\
+      Belief quality & Mean CRS across tracked beliefs \\
+      \bottomrule
+    \end{tabular}%
+  }%
+}
+
+\newcommand{\acmeTableSetup}{%
+  \acmeTableBlockCol{Experimental configuration (Azure deployment).}{%
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.30\columnwidth}p{0.62\columnwidth}@{}}
+      \toprule
+      \textbf{Component} & \textbf{Configuration} \\
+      \midrule
+      LLM & Azure OpenAI GPT-4.1 \\
+      Embeddings & \texttt{text-embedding-3-small}, 256D \\
+      Database & Postgres Flexible + pgvector \\
+      Graph & Neo4j 5.x on Container Apps \\
+      Judge & Same deployment as extractor/reasoner \\
+      Reproducibility & \texttt{/benchmark/memorybench},\\
+      & async compare \\
+      \bottomrule
+    \end{tabular}%
+  }%
+}
+
+\newcommand{\acmeTablePositioningCapabilities}{%
+  \acmeTableBlockWide{Benchmark positioning --- evaluation capabilities (Table~1a).}{%
+    \label{tab:positioning-capabilities}%
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth} *{5}{>{\centering\arraybackslash}p{0.13\textwidth}}@{}}
+      \toprule
+      \acmeBenchCols
+      \midrule
+      Long-horizon / multi-session & Yes & Yes & Partial & Yes & Yes \\
+      Knowledge update & Yes & Yes & Partial & Partial & Yes \\
+      Feedback / belief revision & No & Partial & Yes & Partial & \textbf{Scored} \\
+      Hallucination / abstention & Yes & Partial & Partial & Partial & Yes \\
+      \bottomrule
+    \end{tabular}%
+  }%
+}
+
+\newcommand{\acmeTablePositioningInfra}{%
+  \acmeTableBlockWide{Benchmark positioning --- infrastructure and belief metrics (Table~1b).}{%
+    \label{tab:positioning-infra}%
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth} *{5}{>{\centering\arraybackslash}p{0.13\textwidth}}@{}}
+      \toprule
+      \acmeBenchColsProp
+      \midrule
+      Per-scenario sandbox & No & Partial & Yes & Yes & \textbf{Yes} \\
+      Contrarian verification & No & No & Partial & No & \textbf{Yes} \\
+      Belief quality (CRS) & No & No & No & Partial & \textbf{Yes} \\
+      Deployed API + persisted benchmark runs & No & No & No & No & \textbf{Yes} \\
+      \bottomrule
+    \end{tabular}%
+  }%
+}
+
+\newcommand{\acmeTablePositioning}{%
+  \acmeTablePositioningCapabilities
+  \acmeTablePositioningInfra
+  \FloatBarrier
+}
+
+\newcommand{\acmeScoreTable}[2]{%
+  \acmeTableBlockCol{#1}{%
+    \begin{tabular}{@{}l *{5}{S[table-format=1.3]}@{}}
+      \toprule
+      \acmeTableHdr
+      \midrule
+      #2%
+      \bottomrule
+    \end{tabular}%
+  }%
+}
+
+\newcommand{\acmeTableMemoryBenchCI}{%
+  \acmeTableBlockWide{MemoryBench v3 per-scenario bootstrap 95\% CIs (job \texttt{3b31e5e3}, $n{=}13$ scenarios). Means match Table~\ref{tab:memorybench-main}; intervals resample scenario-level judge scores.}{%
+    \label{tab:memorybench-ci}%
+    \resizebox{\dimexpr\textwidth-4pt\relax}{!}{%
+    \begin{tabular}{@{}l *{4}{S[table-format=1.3]}@{}}
+      \toprule
+      \textbf{System} &
+      {\textbf{Ret. [CI]}} &
+      {\textbf{Gnd. [CI]}} &
+      {\textbf{Fbk.}} &
+      {\textbf{Bel. [CI]}} \\
+      \midrule
+      \rowcolor{acmerow}
+      \textbf{ACME} & \textbf{1.000} {\scriptsize (1.00--1.00)} & \textbf{1.000} {\scriptsize (1.00--1.00)} & \textbf{1.000} & \textbf{0.700} {\scriptsize (0.70--0.70)} \\
+      RAG-like & 0.969 {\scriptsize (0.91--1.00)} & 0.977 {\scriptsize (0.93--1.00)} & {---} & {---} \\
+      MemGPT-insp. & 0.977 {\scriptsize (0.93--1.00)} & 0.969 {\scriptsize (0.91--1.00)} & {---} & {---} \\
+      LangGraph-sty. & 0.900 {\scriptsize (0.70--1.00)} & 0.977 {\scriptsize (0.93--1.00)} & {---} & {---} \\
+      \bottomrule
+    \end{tabular}%
+    }%
+  }%
+}
+
+\newcommand{\acmeTableMain}{%
+  \acmeScoreTable{Primary benchmark (GPT-4.1, 13 scenarios, job \texttt{3b31e5e3}). Ret.=Retention, Gnd.=Groundedness, Fbk.=Feedback, Bel.=Belief quality, Ovr.=Overall.\label{tab:memorybench-main}}{%
+      \rowcolor{acmerow}
+      \textbf{ACME} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{0.700} & \textbf{0.925} \\
+      RAG-like & 0.969 & 0.977 & {---} & {---} & 0.487 \\
+      MemGPT-insp. & 0.977 & 0.969 & {---} & {---} & 0.487 \\
+      LangGraph-sty. & 0.900 & 0.977 & {---} & {---} & 0.469 \\%
+  }%
+}
+
+\newcommand{\acmeTableMini}{%
+  \acmeScoreTable{Model sensitivity --- GPT-4.1-mini (job \texttt{107d02c0}).}{%
+      \rowcolor{acmerow}
+      \textbf{ACME} & \textbf{0.892} & \textbf{0.838} & \textbf{1.000} & \textbf{0.700} & \textbf{0.858} \\
+      RAG-like & 0.908 & 0.985 & {---} & {---} & 0.473 \\
+      MemGPT-insp. & 0.915 & 1.000 & {---} & {---} & 0.479 \\
+      LangGraph-sty. & 0.854 & 0.862 & {---} & {---} & 0.429 \\%
+  }%
+}
+
+\newcommand{\acmeTableGptFiveFour}{%
+  \acmeScoreTable{Model sensitivity --- GPT-5.4 (job \texttt{eb68f028}).}{%
+      \rowcolor{acmerow}
+      \textbf{ACME} & \textbf{0.952} & \textbf{0.839} & \textbf{1.000} & \textbf{0.701} & \textbf{0.873} \\
+      RAG-like & 0.964 & 0.931 & {---} & {---} & 0.474 \\
+      MemGPT-insp. & 0.975 & 0.939 & {---} & {---} & 0.478 \\
+      LangGraph-sty. & 0.973 & 0.950 & {---} & {---} & 0.481 \\%
+  }%
+}
+
+\newcommand{\acmeTableLongMemEvalProtocol}{%
+  \acmeTableBlockWide{LongMemEval oracle protocol (industry benchmark [35]).}{%
+    \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth} p{0.68\textwidth}@{}}
+      \toprule
+      \textbf{Component} & \textbf{Configuration} \\
+      \midrule
+      Dataset & \texttt{longmemeval\_oracle.json} (500 Q, evidence sessions) \\
+      Ingest & ACME orchestrator / RAG-like / MemGPT-inspired on identical haystacks \\
+      Scoring & Official type-specific yes/no judge (reference \texttt{evaluate\_qa.py}) \\
+      Metrics & Overall accuracy + per \texttt{question\_type} breakdown \\
+      Reproduce & \texttt{scripts/run\_longmemeval.py} (see \texttt{docs/LONGMEMEVAL.md}) \\
+      \bottomrule
+    \end{tabular}%
+  }%
+}
+
+\newcommand{\acmeTableLongMemEvalKU}{%
+  \acmeTableBlockWide{LongMemEval \texttt{knowledge-update} subset (78 Q, oracle, GPT-4.1, June 2026).}{%
+    \resizebox{\dimexpr\textwidth-4pt\relax}{!}{%
+    \begin{tabular}{@{}l *{3}{S[table-format=1.3]}@{}}
+      \toprule
+      \textbf{System} &
+      {\textbf{Overall}} &
+      {\textbf{KU}} &
+      {\textbf{Abst.}} \\
+      \midrule
+      \rowcolor{acmerow}
+      \textbf{ACME (transcript-first)} & \textbf{0.897} & \textbf{0.931} & 0.500 \\
+      MemGPT-insp. & 0.872 & 0.903 & 0.500 \\
+      RAG-like & 0.859 & 0.875 & 0.667 \\
+      \bottomrule
+    \end{tabular}%
+    }%
+  }%
+}
+
+\newcommand{\acmeTableLongMemEvalFull}{%
+  \acmeTableBlockWide{LongMemEval oracle full split (500 Q, GPT-4.1, June 2026).}{%
+    \resizebox{\dimexpr\textwidth-4pt\relax}{!}{%
+    \begin{tabular}{@{}l *{7}{S[table-format=1.3]}@{}}
+      \toprule
+      \textbf{Sys.} &
+      {\textbf{All}} &
+      {\textbf{KU}} &
+      {\textbf{Multi}} &
+      {\textbf{Temp.}} &
+      {\textbf{SS-U}} &
+      {\textbf{SS-A}} &
+      {\textbf{SS-P}} \\
+      \midrule
+      \rowcolor{acmerow}
+      \textbf{ACME} & \textbf{0.876} & \textbf{0.944} & \textbf{0.793} & \textbf{0.803} & \textbf{1.000} & \textbf{1.000} & \textbf{0.900} \\
+      MemGPT-insp. & 0.786 & 0.861 & 0.793 & 0.630 & 1.000 & 0.982 & 0.600 \\
+      RAG-like & 0.776 & 0.875 & 0.793 & 0.622 & 1.000 & 0.964 & 0.467 \\
+      \bottomrule
+    \end{tabular}%
+    }%
+  }%
+}
+
+\newcommand{\acmeTableAblations}{%
+  \acmeTableBlockWide{Component ablations (ACME-only, MemoryBench v3.1, GPT-4.1).}{%
+    \label{tab:ablations}%
+    \resizebox{\dimexpr\textwidth-4pt\relax}{!}{%
+    \begin{tabular}{@{}l *{6}{S[table-format=1.3]}@{}}
+      \toprule
+      \textbf{Configuration} &
+      {\textbf{Ovr.}} &
+      {\textbf{Ret.}} &
+      {\textbf{Gnd.}} &
+      {\textbf{Fbk.}} &
+      {\textbf{Bel.}} &
+      {$\Delta$} \\
+      \midrule
+      \rowcolor{acmerow}
+      \textbf{Full ACME} & \textbf{0.925} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{0.700} & {---} \\
+      No contrarian & 0.923 & 1.000 & 0.993 & 1.000 & 0.700 & -0.002 \\
+      No belief sync & 0.731 & 0.996 & 1.000 & 0.929 & 0.000 & -0.194 \\
+      No vector retrieval & 0.923 & 0.993 & 1.000 & 1.000 & 0.700 & -0.002 \\
+      \bottomrule
+    \end{tabular}%
+    }%
+  }%
+}

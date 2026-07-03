@@ -1,0 +1,116 @@
+% Pandoc LaTeX template — ACME arXiv paper
+% Page 1: single-column title + abstract; body: two columns
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\IfFontExistsTF{Libertinus Serif}{%
+  \setmainfont{Libertinus Serif}%
+}{%
+  \IfFontExistsTF{Times New Roman}{%
+    \setmainfont{Times New Roman}%
+  }{%
+    \setmainfont{Latin Modern Roman}%
+  }%
+}
+\IfFontExistsTF{Libertinus Sans}{%
+  \setsansfont{Libertinus Sans}%
+}{%
+  \IfFontExistsTF{Helvetica Neue}{%
+    \setsansfont{Helvetica Neue}%
+  }{%
+    \setsansfont{Latin Modern Sans}%
+  }%
+}
+\setmonofont{Menlo}[Scale=0.85]
+
+\usepackage{geometry}
+\geometry{
+  top=0.95in,
+  bottom=0.95in,
+  left=0.85in,
+  right=0.85in,
+  columnsep=0.28in
+}
+
+\usepackage[dvipsnames]{xcolor}
+\usepackage{hyperref}
+\usepackage{xurl}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=NavyBlue,
+  urlcolor=NavyBlue,
+  citecolor=NavyBlue,
+  pdfauthor={Mohamed Kamil Bourouiba},
+  pdftitle={ACME: Adaptive Cognitive Memory Engine}
+}
+
+\input{paper-preamble.tex}
+
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+% Pandoc's snugshade code blocks ignore column width in twocolumn mode.
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{%
+  breaklines,breakanywhere=true,commandchars=\\\{\},%
+  xleftmargin=0pt,xrightmargin=0pt,fontsize=\scriptsize}
+\renewenvironment{Shaded}{%
+  \begin{tcolorbox}[%
+    enhanced,breakable,%
+    colback=shadecolor,colframe=shadecolor,boxrule=0pt,%
+    left=4pt,right=4pt,top=4pt,bottom=4pt,arc=2pt,%
+    width=\linewidth,before skip=0.45em,after skip=0.55em]%
+}{%
+  \end{tcolorbox}%
+}
+
+\newcommand{\papertagline}{A cognitive memory substrate for external belief lifecycle management in LLM agents.}
+
+\begin{document}
+
+\input{paper-tables.tex}
+\input{paper-figures.tex}
+
+% --- Page 1: title + abstract (single column) ---
+\begin{center}
+  \vspace*{0.12in}
+  {\sffamily\fontsize{24}{29}\selectfont\bfseries
+   ACME: Adaptive Cognitive Memory Engine\par}
+  \vspace{0.85em}
+  {\sffamily\Large
+   Externalizing Belief, Memory, and Learning from LLM Weights\par}
+  \vspace{1.1em}
+  {\normalsize\itshape\papertagline\par}
+  \vspace{1.15em}
+  {\normalsize Mohamed Kamil Bourouiba\par}
+  \vspace{0.35em}
+  {\footnotesize\copyright{} 2026 Mohamed Kamil Bourouiba. All rights reserved.\par}
+  \vspace{0.45em}
+  {\small arXiv preprint draft v1.3 --- June 2026\par}
+  \vspace{0.85em}
+  \acmeTitleStrip
+  \vspace{0.65em}
+  \begin{metabox}
+    \begin{minipage}{0.88\linewidth}
+      \footnotesize\sffamily\color{acmefiggray}
+      \textbf{Code:} \url{https://github.com/KamilBourouiba/ACME} (tag \texttt{v0.3.0})\\
+      \textbf{Project site:} \url{https://kamilbourouiba.github.io/ACME/}\\
+      \textbf{Data:} \texttt{GET /api/v1/benchmark/export} and \texttt{docs/benchmarks/job-3b31e5e3-export.json}
+    \end{minipage}
+  \end{metabox}
+  \vspace{0.75em}
+\end{center}
+
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+$endif$
+
+\twocolumn
+\raggedbottom
+\emergencystretch=2em
+
+$body$
+
+\end{document}

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ACME — Adaptive Cognitive Memory Engine</title>
+  <meta name="description" content="External cognitive memory for LLMs. MemoryBench belief+feedback metrics; LongMemEval oracle 87.6%. Azure OpenAI GPT-4.1 benchmarks.">
+  <meta property="og:title" content="ACME — Adaptive Cognitive Memory Engine">
+  <meta property="og:description" content="Belief lifecycle, graph memory, and reproducible benchmarks on MemoryBench and LongMemEval.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css?v=4">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a class="logo" href="#">ACME</a>
+      <button class="menu-btn" type="button" aria-label="Menu" aria-expanded="false" id="nav-menu-btn">☰</button>
+      <div class="nav-links">
+        <a href="#benchmarks">Benchmarks</a>
+        <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Memory Chat</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#stack">API</a>
+        <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
+        <a class="nav-cta" href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero container">
+    <p class="hero-eyebrow">Research preprint · v0.3.0 · June 2026</p>
+    <h1>Adaptive Cognitive Memory Engine</h1>
+    <p class="hero-lead">
+      ACME externalizes memory, belief, and learning from LLM weights.
+      Experiences become auditable beliefs; feedback updates confidence; retrieval combines graph structure with vectors.
+    </p>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-value">1.000<span>feedback</span></div>
+        <div class="metric-label">MemoryBench feedback (ACME only)</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">87.6%<span>vs 77.6%</span></div>
+        <div class="metric-label">LongMemEval oracle 500 Q</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">0.700</div>
+        <div class="metric-label">Belief quality (CRS mean)</div>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Try Memory Chat</a>
+      <a class="btn btn-outline" href="PAPER.pdf" target="_blank" rel="noopener">Read the paper</a>
+      <a class="btn btn-outline" href="https://github.com/KamilBourouiba/ACME/releases/tag/v0.3.0-longmemeval-v5" target="_blank" rel="noopener">Release v0.3.0</a>
+      <a class="btn btn-outline" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/docs" target="_blank" rel="noopener">API docs</a>
+    </div>
+  </header>
+
+  <section id="benchmarks">
+    <div class="container">
+      <div class="section-header">
+        <h2>Benchmarks</h2>
+        <p>
+          Deployed benchmark runs on Azure OpenAI GPT-4.1 with sandbox-isolated scenarios,
+          official LongMemEval judge prompts, and persisted <code>benchmark_runs</code> for reproduction.
+          MemoryBench overall is a four-metric capability index; baseline feedback/belief cells are N/A but count as 0.
+        </p>
+      </div>
+
+      <div class="bench-grid">
+        <div class="bench-card">
+          <div class="table-wrap bench-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>MemoryBench v3.1</th>
+                  <th>Overall</th>
+                  <th>Retention</th>
+                  <th>Feedback</th>
+                  <th>Belief</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight">
+                  <td>ACME</td>
+                  <td class="num">0.925</td>
+                  <td class="num">1.000</td>
+                  <td class="num">1.000</td>
+                  <td class="num">0.700</td>
+                </tr>
+                <tr>
+                  <td>RAG</td>
+                  <td class="num">0.470</td>
+                  <td class="num">0.900</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                </tr>
+                <tr>
+                  <td>MemGPT</td>
+                  <td class="num">0.477</td>
+                  <td class="num">0.979</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                </tr>
+                <tr>
+                  <td>LangGraph</td>
+                  <td class="num">0.489</td>
+                  <td class="num">0.979</td>
+                  <td class="na">—</td>
+                  <td class="na">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">14 scenarios (incl. knowledge-update) · job <code>94005737</code> · 26 Jun 2026 · paper Table 8: job <code>3b31e5e3</code></p>
+        </div>
+
+        <div class="bench-card">
+          <div class="table-wrap bench-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>LongMemEval oracle</th>
+                  <th>Overall</th>
+                  <th>KU</th>
+                  <th>Temporal</th>
+                  <th>Abstain.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight">
+                  <td>ACME</td>
+                  <td class="num">0.876</td>
+                  <td class="num">0.944</td>
+                  <td class="num">0.803</td>
+                  <td class="num">0.833</td>
+                </tr>
+                <tr>
+                  <td>RAG</td>
+                  <td class="num">0.776</td>
+                  <td class="num">0.875</td>
+                  <td class="num">0.622</td>
+                  <td class="num">0.600</td>
+                </tr>
+                <tr>
+                  <td>MemGPT</td>
+                  <td class="num">0.786</td>
+                  <td class="num">0.861</td>
+                  <td class="num">0.630</td>
+                  <td class="num">0.600</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="caption">500 questions · job <code>45623ca0</code> · GPT-4.1 · v5 hybrid · +10.0 pts vs RAG</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="container">
+      <div class="section-header">
+        <h2>Architecture</h2>
+        <p>
+          Seven engines coordinated by a single orchestrator.
+          PostgreSQL stores episodes and beliefs; Neo4j holds the semantic graph; Azure OpenAI handles extraction and reasoning.
+        </p>
+      </div>
+
+      <div class="arch-flow">
+        <div class="arch-row">
+          <div class="arch-node arch-center" style="flex: 2;">
+            <strong>Input</strong>
+            <span>Experiences · queries · outcome feedback</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-node arch-center" style="flex: 2;">
+            <strong>Orchestrator</strong>
+            <span>Self-improvement loop · tenant isolation</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-node">
+            <strong>Episodic</strong>
+            <span>Postgres + pgvector</span>
+          </div>
+          <div class="arch-node">
+            <strong>Graph</strong>
+            <span>Neo4j entities</span>
+          </div>
+          <div class="arch-node">
+            <strong>Belief</strong>
+            <span>CRS scoring</span>
+          </div>
+          <div class="arch-node">
+            <strong>Failure</strong>
+            <span>Outcome log</span>
+          </div>
+          <div class="arch-node">
+            <strong>Learn</strong>
+            <span>Hypotheses</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-node arch-center" style="flex: 2;">
+            <strong>LLM</strong>
+            <span>Azure OpenAI GPT-4.1 · extraction · reason · judge</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="arch-pipeline">
+        <div class="arch-step"><em>1</em>Ingest &amp; extract</div>
+        <div class="arch-step"><em>2</em>Graph + vector retrieve</div>
+        <div class="arch-step"><em>3</em>Reason + contrarian</div>
+        <div class="arch-step"><em>4</em>Feedback &amp; belief update</div>
+        <div class="arch-step"><em>5</em>Consolidate &amp; predict</div>
+      </div>
+
+      <div class="features" style="margin-top: 2.5rem;">
+        <div class="feature">
+          <h3>Belief lifecycle</h3>
+          <p>Observation through belief promotion, with symmetric demotion when contradictory evidence arrives.</p>
+        </div>
+        <div class="feature">
+          <h3>Cognitive Reliability Score</h3>
+          <p>Beliefs ranked by prediction success, temporal stability, contradiction resistance, and source diversity.</p>
+        </div>
+        <div class="feature">
+          <h3>Reproducible evaluation</h3>
+          <p>Per-scenario sandbox reset, async benchmark jobs, and CI gates on MemoryBench and LongMemEval fixtures.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stack">
+    <div class="container">
+      <div class="section-header">
+        <h2>Deployed API</h2>
+        <p>Hosted on Azure Container Apps. Benchmarks require API key; health endpoint is public.</p>
+      </div>
+
+      <div class="stack-list">
+        <span>Azure Container Apps</span>
+        <span>GPT-4.1</span>
+        <span>text-embedding-3-small</span>
+        <span>Postgres Flexible + pgvector</span>
+        <span>Neo4j</span>
+        <span>FastAPI</span>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Endpoint</h3>
+          <p>https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io</p>
+          <p>Health: <code>/api/v1/health</code></p>
+        </div>
+        <div class="info-card">
+          <h3>Reproduce</h3>
+          <p><code>git clone</code> → <code>azure/set-api-key.sh</code></p>
+          <p><code>./scripts/run_prod_benchmark.sh</code></p>
+          <p><code>LONGMEMEVAL_TYPES=all ./scripts/run_longmemeval_prod.sh</code></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container footer-inner">
+      <div>© 2026 Mohamed Kamil Bourouiba · <a href="https://github.com/KamilBourouiba/ACME/blob/main/LICENSE">MIT</a> (code) · Paper © author</div>
+      <div class="footer-links">
+        <a href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">GitHub</a>
+        <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
+        <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Memory Chat</a>
+        <a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/BENCHMARK_RESULTS.md" target="_blank" rel="noopener">Results</a>
+        <a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/ARXIV_SUBMISSION.md" target="_blank" rel="noopener">arXiv checklist</a>
+      </div>
+    </div>
+  </footer>
+  <script src="assets/site.js" defer></script>
+</body>
+</html>
+
