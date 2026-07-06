@@ -4,6 +4,8 @@
   const API = "/api/v1/quant";
   let state = null;
   let traceStep = 0;
+  let traceFollowLive = true;
+  let lastTraceLen = 0;
 
   const $ = (sel) => document.querySelector(sel);
 
@@ -255,18 +257,59 @@
     return d.innerHTML;
   }
 
+  const PHASE_ICON = { market: "◎", belief: "◆", trade: "▸", cycle: "↻" };
+
   function renderTrace(trace) {
-    if (!trace || !trace.steps.length) return;
-    const slider = $("#trace-slider");
-    slider.max = trace.steps.length - 1;
-    if (traceStep >= trace.steps.length) traceStep = trace.steps.length - 1;
-    slider.value = traceStep;
+    if (!trace || !trace.steps.length) {
+      $("#trace-timeline").innerHTML = '<span class="trace-empty">Trail builds as cycles run…</span>';
+      return;
+    }
+
+    const steps = trace.steps;
+    const wasOnLatest = traceFollowLive || traceStep >= steps.length - 1;
+    if (wasOnLatest && steps.length > lastTraceLen) {
+      traceStep = steps.length - 1;
+    }
+    if (traceStep >= steps.length) traceStep = steps.length - 1;
+    lastTraceLen = steps.length;
+
+    renderTraceTimeline(steps, traceStep);
     drawGraph(trace, traceStep);
-    renderTraceStep(trace.steps[traceStep]);
+    renderTraceStep(steps[traceStep]);
+  }
+
+  function renderTraceTimeline(steps, activeIdx) {
+    const el = $("#trace-timeline");
+    el.innerHTML = steps.map((s, i) => {
+      const phase = s.phase || "cycle";
+      const icon = PHASE_ICON[phase] || "•";
+      const active = i === activeIdx ? " active" : "";
+      const crs = s.crs != null ? s.crs.toFixed(2) : "—";
+      return `<button type="button" class="trace-chip${active}" data-idx="${i}" title="${escapeHtml(s.summary || s.title || "")}">
+        <span class="chip-phase phase-${phase}">${icon}</span>
+        <span class="chip-body">
+          <span class="chip-title">${escapeHtml(s.title || `Step ${i + 1}`)}</span>
+          <span class="chip-crs">CRS ${crs}</span>
+        </span>
+      </button>`;
+    }).join("");
+
+    el.querySelectorAll(".trace-chip").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        traceStep = parseInt(btn.dataset.idx, 10);
+        traceFollowLive = traceStep >= steps.length - 1;
+        $("#trace-follow-live").checked = traceFollowLive;
+        if (state && state.trace) renderTrace(state.trace);
+      });
+    });
+
+    const active = el.querySelector(".trace-chip.active");
+    if (active) active.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }
 
   function renderTraceStep(step) {
     $("#trace-title").textContent = step.title || "—";
+    $("#trace-summary").textContent = step.summary || "";
     $("#trace-crs").textContent = "CRS " + (step.crs != null ? step.crs.toFixed(2) : "—");
 
     const insp = $("#trace-inspector");
@@ -275,18 +318,18 @@
       const stats = i.stats || {};
       insp.innerHTML = `
         <div class="inspector">
-          <div class="type">${escapeHtml(i.type || "")}</div>
+          <div class="type type-${(step.phase || "cycle")}">${escapeHtml(i.type || step.phase || "")}</div>
           <h3>${escapeHtml(i.title || "")}</h3>
           <p>${escapeHtml(i.desc || "")}</p>
-          <dl>${Object.entries(stats).map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(String(v))}</dd>`).join("")}</dl>
+          <dl>${Object.entries(stats).map(([k, v]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(String(v))}</dd>`).join("")}</dl>
         </div>`;
     } else {
-      insp.innerHTML = '<p class="inspector-empty">No inspector detail for this step.</p>';
+      insp.innerHTML = '<p class="inspector-empty">No detail for this step.</p>';
     }
 
     const epEl = $("#trace-episodes");
     epEl.innerHTML = (step.episodes || []).map((e) => `
-      <div class="ep-item">
+      <div class="ep-card">
         <span class="t">${escapeHtml(e.t || "")}</span>
         <span class="txt">${e.text || ""}</span>
       </div>`).join("");
@@ -296,33 +339,52 @@
     const svg = $("#trace-graph");
     const step = trace.steps[stepIdx];
     const activeNodes = new Set(step.activeNodes || []);
-    const activeEdges = new Set((step.activeEdges || []).map((e) => e.join("→")));
+    const activeEdgeKeys = new Set((step.activeEdges || []).map((e) => e.join("→")));
 
     const nodeMap = {};
     trace.nodes.forEach((n) => { nodeMap[n.id] = n; });
 
-    let edgesHtml = "";
+    const colLabels = [
+      { x: 100, t: "MARKET" },
+      { x: 280, t: "EXTRACT" },
+      { x: 480, t: "BELIEF" },
+      { x: 680, t: "TRADE" },
+    ];
+
+    let html = '<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>';
+    html += '<g class="g-cols">';
+    colLabels.forEach((c) => {
+      html += `<text x="${c.x}" y="28" text-anchor="middle" class="g-col-label">${c.t}</text>`;
+      html += `<line x1="${c.x}" y1="40" x2="${c.x}" y2="340" class="g-col-line"/>`;
+    });
+    html += "</g>";
+
     trace.edges.forEach((e) => {
       const from = nodeMap[e.from];
       const to = nodeMap[e.to];
       if (!from || !to) return;
       const key = e.from + "→" + e.to;
-      const cls = activeEdges.has(key) || (activeNodes.has(e.from) && activeNodes.has(e.to)) ? "g-edge active" : "g-edge";
-      edgesHtml += `<line class="${cls}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" />`;
+      const active = activeEdgeKeys.has(key) || (activeNodes.has(e.from) && activeNodes.has(e.to));
+      html += `<line class="g-edge${active ? " active" : ""}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" marker-end="url(#arrow)"/>`;
     });
 
-    let nodesHtml = "";
     trace.nodes.forEach((n) => {
       const kind = n.kind || "obs";
-      const active = activeNodes.has(n.id) ? " active" : "";
-      const label = (n.label || n.id).slice(0, 18);
-      nodesHtml += `<g class="g-node ${kind}${active}" transform="translate(${n.x},${n.y})">
-        <circle r="${active ? 14 : 11}" />
-        <text y="28" text-anchor="middle">${escapeHtml(label)}</text>
+      const active = activeNodes.has(n.id);
+      const label = escapeHtml(n.short || n.label || n.id);
+      const w = Math.min(120, 14 + label.length * 5.5);
+      const h = 36;
+      const x = n.x - w / 2;
+      const y = n.y - h / 2;
+      const crs = n.crs != null ? `<text x="${n.x}" y="${n.y + 4}" class="g-node-crs">${n.crs.toFixed(2)}</text>` : "";
+      html += `<g class="g-node ${kind}${active ? " active" : ""}" transform="translate(0,0)">
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" class="g-node-rect"/>
+        <text x="${n.x}" y="${n.y - 2}" text-anchor="middle" class="g-node-label">${label}</text>
+        ${crs}
       </g>`;
     });
 
-    svg.innerHTML = edgesHtml + nodesHtml;
+    svg.innerHTML = html;
   }
 
   function renderAll(data) {
@@ -382,14 +444,28 @@
   $("#btn-refresh").addEventListener("click", refresh);
   $("#btn-cycle").addEventListener("click", runCycle);
 
-  $("#trace-slider").addEventListener("input", (e) => {
-    traceStep = parseInt(e.target.value, 10);
-    if (state && state.trace) renderTrace(state.trace);
+  $("#trace-follow-live").addEventListener("change", (e) => {
+    traceFollowLive = e.target.checked;
+    if (traceFollowLive && state && state.trace) {
+      traceStep = state.trace.steps.length - 1;
+      renderTrace(state.trace);
+    }
+  });
+
+  $("#trace-latest").addEventListener("click", () => {
+    traceFollowLive = true;
+    $("#trace-follow-live").checked = true;
+    if (state && state.trace) {
+      traceStep = state.trace.steps.length - 1;
+      renderTrace(state.trace);
+    }
   });
 
   $("#trace-prev").addEventListener("click", () => {
     if (traceStep > 0) {
       traceStep--;
+      traceFollowLive = false;
+      $("#trace-follow-live").checked = false;
       if (state && state.trace) renderTrace(state.trace);
     }
   });
@@ -397,6 +473,8 @@
   $("#trace-next").addEventListener("click", () => {
     if (state && state.trace && traceStep < state.trace.steps.length - 1) {
       traceStep++;
+      traceFollowLive = traceStep >= state.trace.steps.length - 1;
+      $("#trace-follow-live").checked = traceFollowLive;
       renderTrace(state.trace);
     }
   });

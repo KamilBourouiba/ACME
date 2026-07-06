@@ -8,7 +8,7 @@
   <meta name="description" content="Real market data, ACME beliefs, paper trading dashboard with reasoning trails." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/style.css?v=7" />
+  <link rel="stylesheet" href="assets/style.css?v=8" />
 </head>
 <body>
   <div class="app">
@@ -104,18 +104,37 @@
       <section class="panel panel-trace">
         <header class="panel-head">
           <h2>Belief trail</h2>
-          <div class="scrubber">
-            <button type="button" id="trace-prev" class="btn-icon" aria-label="Previous step">‹</button>
-            <input type="range" id="trace-slider" min="0" max="0" value="0" />
-            <button type="button" id="trace-next" class="btn-icon" aria-label="Next step">›</button>
-            <span id="trace-title" class="trace-title">—</span>
-            <span id="trace-crs" class="crs-badge">CRS —</span>
+          <div class="trace-controls">
+            <label class="trace-live-toggle">
+              <input type="checkbox" id="trace-follow-live" checked />
+              Live
+            </label>
+            <button type="button" id="trace-latest" class="btn btn-ghost btn-sm">Latest</button>
           </div>
         </header>
+        <div class="trace-timeline-wrap">
+          <div class="trace-timeline" id="trace-timeline" aria-label="Cycle timeline"></div>
+        </div>
+        <div class="trace-pipeline-legend">
+          <span class="leg obs">Market</span>
+          <span class="leg-arrow">→</span>
+          <span class="leg bel">Belief</span>
+          <span class="leg-arrow">→</span>
+          <span class="leg trade">Trade</span>
+        </div>
+        <div class="trace-step-head">
+          <button type="button" id="trace-prev" class="btn-icon" aria-label="Previous step">‹</button>
+          <div class="trace-step-info">
+            <span id="trace-title" class="trace-title">—</span>
+            <span id="trace-summary" class="trace-summary"></span>
+          </div>
+          <span id="trace-crs" class="crs-badge">CRS —</span>
+          <button type="button" id="trace-next" class="btn-icon" aria-label="Next step">›</button>
+        </div>
         <div class="trace-body">
-          <svg id="trace-graph" viewBox="0 0 640 360" aria-label="Reasoning graph"></svg>
+          <svg id="trace-graph" viewBox="0 0 800 360" preserveAspectRatio="xMidYMid meet" aria-label="Reasoning graph"></svg>
           <aside class="trace-inspector" id="trace-inspector">
-            <p class="inspector-empty">Scrub the timeline to inspect belief formation and trades.</p>
+            <p class="inspector-empty">Select a step on the timeline to inspect belief → trade reasoning.</p>
           </aside>
         </div>
         <div class="episodes" id="trace-episodes"></div>
@@ -161,6 +180,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="assets/app.js?v=7"></script>
+  <script src="assets/app.js?v=8"></script>
 </body>
 </html>

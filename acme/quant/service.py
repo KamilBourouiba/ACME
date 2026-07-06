@@ -409,14 +409,27 @@ class QuantService:
             status_note = market["label"] if not thresh_note else f"{thresh_note} · {market['label']}"
             new_steps = append_cycle_step(
                 trace.steps,
-                title=f"Scalp {cycle_state.cycle_count + 1}",
+                title=f"Cycle {cycle_state.cycle_count + 1}",
+                phase="cycle",
                 crs=max_crs,
+                summary=f"{trades_executed} fills · {len(ranked)} signals · {status_note}",
                 episode_text=(
                     f"{settings.quant_bar_interval} scalp: {trades_executed} trade(s), "
-                    f"{len(ranked)} signals · {status_note}"
+                    f"{len(ranked)} signals"
                 ),
                 time_str=now_str,
-                active_nodes=[n["id"] for n in trace.nodes[:6]],
+                active_nodes=[n["id"] for n in trace.nodes if n["column"] in ("market", "belief", "trade")][:8],
+                inspector={
+                    "type": "Cycle",
+                    "title": f"Scalp cycle {cycle_state.cycle_count + 1}",
+                    "desc": status_note,
+                    "stats": {
+                        "trades": str(trades_executed),
+                        "signals": str(len(ranked)),
+                        "beliefs": str(len(beliefs_out)),
+                        "CRS": f"{max_crs:.2f}",
+                    },
+                },
             )
             cycle_state.cycle_count += 1
             cycle_state.last_cycle_at = datetime.now(timezone.utc)
