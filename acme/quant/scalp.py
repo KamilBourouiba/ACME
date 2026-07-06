@@ -145,6 +145,7 @@ def scan_scalp_signals(
     momentum_threshold_pct: float,
     min_bars: int = 3,
     require_fresh: bool = True,
+    max_bar_age_min: float = 12.0,
 ) -> list[dict[str, Any]]:
     signals: list[dict[str, Any]] = []
     for sym, bars in intraday.items():
@@ -154,6 +155,7 @@ def scan_scalp_signals(
             momentum_threshold_pct=momentum_threshold_pct,
             min_bars=min_bars,
             require_fresh=require_fresh,
+            max_bar_age_min=max_bar_age_min,
         )
         if sig:
             signals.append(sig)

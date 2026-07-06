@@ -98,6 +98,8 @@ Rules:
 class QuantService:
     def __init__(self) -> None:
         self._task: asyncio.Task | None = None
+        self._ingest_task: asyncio.Task | None = None
+        self._ingest_running = False
         self._running = False
         self.tenant_id = settings.quant_tenant_id
         self.broker = PaperBroker(self.tenant_id)
@@ -109,16 +111,26 @@ class QuantService:
         quote_cache.ttl_sec = float(settings.quant_quote_cache_sec)
         asyncio.create_task(quote_cache.warm(_symbols()))
         self._task = asyncio.create_task(self._loop())
-        logger.info("Quant demo started (tenant=%s, interval=%ds)", self.tenant_id, settings.quant_cycle_interval_sec)
+        if settings.quant_ingest_background and settings.quant_light_ingest:
+            self._ingest_task = asyncio.create_task(self._ingest_loop())
+        logger.info(
+            "Quant demo started (tenant=%s, trade=%ds, ingest_bg=%s)",
+            self.tenant_id,
+            settings.quant_cycle_interval_sec,
+            settings.quant_ingest_background,
+        )
 
     async def stop(self) -> None:
         self._running = False
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+        for task in (self._task, self._ingest_task):
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        self._task = None
+        self._ingest_task = None
         logger.info("Quant demo stopped")
 
     async def _loop(self) -> None:
@@ -135,6 +147,93 @@ class QuantService:
                 settings.quant_cycle_interval_closed_sec,
             )
             await asyncio.sleep(interval)
+
+    async def _ingest_loop(self) -> None:
+        await asyncio.sleep(settings.quant_cycle_startup_delay_sec + 5)
+        while self._running:
+            try:
+                n = await self._run_background_ingest()
+                if n:
+                    logger.info("Background ingest: %d experience(s)", n)
+            except Exception:
+                logger.exception("Background ingest failed")
+            await asyncio.sleep(settings.quant_ingest_interval_sec)
+
+    async def _run_background_ingest(self) -> int:
+        """LLM belief ingest — runs off the hot trading path."""
+        if self._ingest_running:
+            return 0
+        self._ingest_running = True
+        ingested = 0
+        try:
+            symbols = _symbols()
+            market = quant_trading_session(crypto_enabled=settings.quant_crypto_enabled)
+            equity_trade = market["equities_open"] or not settings.quant_trade_only_market_hours
+            crypto_trade = settings.quant_crypto_enabled
+            eq_syms, cr_syms = split_universe(symbols)
+            if not ((equity_trade and eq_syms) or (crypto_trade and cr_syms)):
+                return 0
+
+            intraday = await fetch_intraday_bars(symbols)
+            async with SessionLocal() as session:
+                orch = ACMEOrchestrator(
+                    session, neo4j_client, get_llm_client(), tenant_id=self.tenant_id
+                )
+                cycle_state = await self._cycle_state(session)
+                mover_pool: list[tuple[str, list]] = []
+                if equity_trade:
+                    mover_pool.extend(
+                        (sym, bars) for sym, bars in intraday.items() if sym in eq_syms and bars
+                    )
+                if crypto_trade:
+                    mover_pool.extend(
+                        (sym, bars) for sym, bars in intraday.items() if sym in cr_syms and bars
+                    )
+                movers = sorted(
+                    mover_pool,
+                    key=lambda x: abs(
+                        (x[1][-1]["close"] - x[1][-2]["close"]) / x[1][-2]["close"] * 100
+                        if len(x[1]) > 1 and x[1][-2]["close"]
+                        else 0
+                    ),
+                    reverse=True,
+                )[:3]
+                for sym, bars in movers:
+                    exp = ExperienceCreate(
+                        content=format_scalp_experience(sym, bars, settings.quant_bar_interval),
+                        action="scalp_bar",
+                        tags=["scalp", sym, settings.quant_bar_interval, "momentum"],
+                        source_type=SourceType.API,
+                        source_id=f"yahoo-{settings.quant_bar_interval}:{sym}",
+                        source_credibility=0.95,
+                        cognitive_profile=CognitiveProfile.STRATEGIC,
+                        context={"symbol": sym, "interval": settings.quant_bar_interval},
+                        tenant_id=self.tenant_id,
+                    )
+                    await orch.ingest_experience(exp)
+                    ingested += 1
+
+                if equity_trade and cycle_state.cycle_count % settings.quant_news_every_n_cycles == 0:
+                    for headline in await fetch_news(eq_syms[:4], settings.quant_news_per_symbol):
+                        await orch.ingest_experience(
+                            ExperienceCreate(
+                                content=format_news_experience(headline),
+                                action="news_headline",
+                                tags=["news", headline["symbol"], "scalp"],
+                                source_type=SourceType.WEB,
+                                source_id=headline.get("source_id"),
+                                source_credibility=0.7,
+                                cognitive_profile=CognitiveProfile.STRATEGIC,
+                                tenant_id=self.tenant_id,
+                            )
+                        )
+                        ingested += 1
+
+                cycle_state.last_ingested = ingested
+                await session.commit()
+        finally:
+            self._ingest_running = False
+        return ingested
 
     async def _cycle_state(self, session: AsyncSession) -> QuantCycleState:
         result = await session.execute(
@@ -153,8 +252,7 @@ class QuantService:
         return await self._run_research_cycle()
 
     async def _run_scalp_cycle(self) -> CycleResultOut:
-        """Fast 5m scalp cycle — rule signals, TP/SL exits, light belief ingest."""
-        ingested = 0
+        """Fast scalp cycle — quotes, exits, signals, trades only (no LLM ingest)."""
         trades_executed = 0
         symbols = _symbols()
         market = quant_trading_session(crypto_enabled=settings.quant_crypto_enabled)
@@ -163,7 +261,6 @@ class QuantService:
         eq_syms, cr_syms = split_universe(symbols)
 
         async with SessionLocal() as session:
-            orch = ACMEOrchestrator(session, neo4j_client, get_llm_client(), tenant_id=self.tenant_id)
             cycle_state = await self._cycle_state(session)
 
             quotes_raw = await fetch_quotes(symbols, force=True)
@@ -197,7 +294,7 @@ class QuantService:
                 cr_intraday = {s: intraday[s] for s in cr_syms if s in intraday}
                 cr_thresh = adaptive_momentum_threshold(
                     cr_intraday,
-                    settings.quant_scalp_momentum_threshold_pct,
+                    settings.quant_crypto_momentum_threshold_pct,
                     floor=settings.quant_crypto_momentum_floor_pct,
                 )
                 ranked.extend(
@@ -205,6 +302,7 @@ class QuantService:
                         cr_intraday,
                         momentum_threshold_pct=cr_thresh,
                         require_fresh=True,
+                        max_bar_age_min=20.0,
                     )
                 )
             ranked = rank_scalp_signals(ranked)
@@ -296,78 +394,6 @@ class QuantService:
                     if trade:
                         trades_executed += 1
 
-            # 3. Light ingest — top movers (crypto 24/7, equities in session)
-            ingest_active = (equity_trade and eq_syms) or (crypto_trade and cr_syms)
-            if (
-                ingest_active
-                and settings.quant_light_ingest
-                and cycle_state.cycle_count % settings.quant_ingest_every_n_cycles == 0
-            ):
-                mover_pool: list[tuple[str, list]] = []
-                if equity_trade:
-                    mover_pool.extend(
-                        (sym, bars) for sym, bars in intraday.items() if sym in eq_syms and bars
-                    )
-                if crypto_trade:
-                    mover_pool.extend(
-                        (sym, bars) for sym, bars in intraday.items() if sym in cr_syms and bars
-                    )
-                movers = sorted(
-                    mover_pool,
-                    key=lambda x: abs(
-                        (x[1][-1]["close"] - x[1][-2]["close"]) / x[1][-2]["close"] * 100
-                        if len(x[1]) > 1 and x[1][-2]["close"]
-                        else 0
-                    ),
-                    reverse=True,
-                )[:3]
-                for sym, bars in movers:
-                    exp = ExperienceCreate(
-                        content=format_scalp_experience(sym, bars, settings.quant_bar_interval),
-                        action="scalp_bar",
-                        tags=["scalp", sym, settings.quant_bar_interval, "momentum"],
-                        source_type=SourceType.API,
-                        source_id=f"yahoo-{settings.quant_bar_interval}:{sym}",
-                        source_credibility=0.95,
-                        cognitive_profile=CognitiveProfile.STRATEGIC,
-                        context={"symbol": sym, "interval": settings.quant_bar_interval},
-                        tenant_id=self.tenant_id,
-                    )
-                    await orch.ingest_experience(exp)
-                    ingested += 1
-            else:
-                for q in quotes_raw:
-                    await orch.ingest_experience(
-                        ExperienceCreate(
-                            content=format_quote_experience(q),
-                            action="market_tick",
-                            tags=["market", q["symbol"], "scalp"],
-                            source_type=SourceType.API,
-                            source_id=f"yahoo-quote:{q['symbol']}",
-                            source_credibility=0.95,
-                            cognitive_profile=CognitiveProfile.STRATEGIC,
-                            tenant_id=self.tenant_id,
-                        )
-                    )
-                    ingested += 1
-
-            # News only for equities during US session
-            if equity_trade and cycle_state.cycle_count % settings.quant_news_every_n_cycles == 0:
-                for headline in await fetch_news(eq_syms[:4], settings.quant_news_per_symbol):
-                    await orch.ingest_experience(
-                        ExperienceCreate(
-                            content=format_news_experience(headline),
-                            action="news_headline",
-                            tags=["news", headline["symbol"], "scalp"],
-                            source_type=SourceType.WEB,
-                            source_id=headline.get("source_id"),
-                            source_credibility=0.7,
-                            cognitive_profile=CognitiveProfile.STRATEGIC,
-                            tenant_id=self.tenant_id,
-                        )
-                    )
-                    ingested += 1
-
             beliefs_out = [
                 _belief_out(b)
                 for b in (actionable or belief_rows)[:20]
@@ -433,7 +459,6 @@ class QuantService:
             )
             cycle_state.cycle_count += 1
             cycle_state.last_cycle_at = datetime.now(timezone.utc)
-            cycle_state.last_ingested = ingested
             cycle_state.trace_nodes = trace.nodes
             cycle_state.trace_edges = trace.edges
             cycle_state.trace_steps = new_steps
@@ -441,7 +466,7 @@ class QuantService:
 
             return CycleResultOut(
                 ok=True,
-                ingested=ingested,
+                ingested=0,
                 beliefs_count=len(beliefs_out),
                 trades_executed=trades_executed,
                 message=(

@@ -137,8 +137,9 @@ class Settings(BaseSettings):
     quant_crypto_symbols: str = "BTC-USD,ETH-USD,SOL-USD,BNB-USD"
     quant_crypto_intraday_period: str = "2d"
     quant_intraday_period: str = "1d"
-    quant_crypto_momentum_floor_pct: float = 0.02
-    quant_crypto_position_pct: float = 0.03
+    quant_crypto_momentum_floor_pct: float = 0.01
+    quant_crypto_momentum_threshold_pct: float = 0.035
+    quant_crypto_position_pct: float = 0.04
     quant_starting_cash: float = 1_000_000.0
     quant_cycle_interval_sec: int = 3
     quant_cycle_startup_delay_sec: int = 2
@@ -165,6 +166,8 @@ class Settings(BaseSettings):
     quant_max_trades_per_cycle: int = 6
     quant_quote_cache_sec: int = 2
     quant_ingest_every_n_cycles: int = 6
+    quant_ingest_background: bool = True
+    quant_ingest_interval_sec: int = 45
     quant_light_ingest: bool = True
     quant_leverage_enabled: bool = True
     quant_max_leverage: float = 5.0
