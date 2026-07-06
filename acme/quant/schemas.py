@@ -27,6 +27,10 @@ class PositionOut(BaseModel):
     unrealized_pnl: float
     unrealized_pnl_pct: float
     weight_pct: float
+    leverage: float = 1.0
+    margin_used: float = 0.0
+    borrowed: float = 0.0
+    roe_pct: float = 0.0
 
 
 class PortfolioOut(BaseModel):
@@ -40,6 +44,14 @@ class PortfolioOut(BaseModel):
     cycle_pnl_pct: float
     positions: list[PositionOut]
     updated_at: datetime
+    buying_power: float = 0.0
+    margin_used: float = 0.0
+    borrowed: float = 0.0
+    gross_exposure: float = 0.0
+    effective_leverage: float = 0.0
+    fees_paid: float = 0.0
+    funding_paid: float = 0.0
+    leverage_enabled: bool = False
 
 
 class TradeOut(BaseModel):
@@ -49,6 +61,8 @@ class TradeOut(BaseModel):
     quantity: float
     price: float
     notional: float
+    fee: float = 0.0
+    leverage: float = 1.0
     belief_graph_id: str | None = None
     belief_label: str | None = None
     reasoning: str = ""

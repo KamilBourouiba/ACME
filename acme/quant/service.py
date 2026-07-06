@@ -38,6 +38,7 @@ from acme.quant.scalp import (
     rank_scalp_signals,
     scan_scalp_signals,
 )
+from acme.quant.fees import leverage_for_symbol, max_buy_notional
 from acme.quant.symbols import (
     all_symbols,
     belief_matches_symbol,
@@ -170,7 +171,9 @@ class QuantService:
             daily_map = {q["symbol"]: q["price"] for q in quotes_raw}
             quote_map = merge_mark_prices(symbols, intraday, daily_map)
 
-            # 1. Risk exits first (TP / SL / max hold) — marked at intraday 5m close
+            await self.broker.accrue_carry_costs(session, quote_map)
+
+            # 1. Risk exits first (TP / SL / trail / max hold)
             exit_trades = await self.broker.process_scalp_exits(session, quote_map)
             trades_executed += len(exit_trades)
 
@@ -269,9 +272,14 @@ class QuantService:
                     price = quote_map.get(sig["symbol"], sig["price"])
                     if price <= 0:
                         continue
-                    max_notional = portfolio.nav * _position_pct(sig["symbol"])
-                    qty = min(max_notional / price, portfolio.cash / price)
-                    if qty < 0.001:
+                    lev = leverage_for_symbol(sig["symbol"])
+                    pct = _position_pct(sig["symbol"])
+                    max_notional = min(
+                        max_buy_notional(portfolio.buying_power * pct, sig["symbol"], lev),
+                        portfolio.nav * pct * lev,
+                    )
+                    qty = max_notional / price
+                    if qty < 0.0001:
                         continue
                     bid, blabel, bcrs = _belief_for(sig["symbol"])
                     trade = await self.broker.execute_market_order(
@@ -290,7 +298,11 @@ class QuantService:
 
             # 3. Light ingest — top movers (crypto 24/7, equities in session)
             ingest_active = (equity_trade and eq_syms) or (crypto_trade and cr_syms)
-            if ingest_active and settings.quant_light_ingest:
+            if (
+                ingest_active
+                and settings.quant_light_ingest
+                and cycle_state.cycle_count % settings.quant_ingest_every_n_cycles == 0
+            ):
                 mover_pool: list[tuple[str, list]] = []
                 if equity_trade:
                     mover_pool.extend(

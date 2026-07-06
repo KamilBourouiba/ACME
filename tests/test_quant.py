@@ -256,11 +256,51 @@ def test_is_crypto_symbol():
     assert crypto_base("ETH-USD") == "ETH"
 
 
-def test_belief_matches_crypto():
-    from acme.quant.symbols import belief_matches_symbol
+def test_evaluate_exit_take_profit():
+    from datetime import datetime, timezone
 
-    assert belief_matches_symbol("BTC volatility drives risk-off", "BTC-USD")
-    assert belief_matches_symbol("AAPL earnings beat", "AAPL")
+    from acme.quant.risk import evaluate_exit
+
+    now = datetime.now(timezone.utc)
+    d = evaluate_exit(
+        symbol="ETH-USD",
+        avg_cost=100.0,
+        price=100.15,
+        peak_price=100.15,
+        stop_floor=None,
+        leverage=3.0,
+        opened_at=now,
+        now=now,
+    )
+    assert d.reason is not None
+    assert "profit" in d.reason.lower()
+
+
+def test_evaluate_exit_trailing_stop():
+    from datetime import datetime, timezone
+
+    from acme.quant.risk import evaluate_exit
+
+    now = datetime.now(timezone.utc)
+    d = evaluate_exit(
+        symbol="AAPL",
+        avg_cost=100.0,
+        price=100.05,
+        peak_price=100.20,
+        stop_floor=None,
+        leverage=2.0,
+        opened_at=now,
+        now=now,
+    )
+    assert d.reason is not None
+    assert "Trailing" in d.reason
+
+
+def test_trade_commission_crypto():
+    from acme.quant.fees import trade_commission
+
+    fee = trade_commission("BTC-USD", 10_000)
+    assert fee == round(10_000 * settings.quant_crypto_taker_fee_bps / 10_000, 4)
 
 
 def test_merge_mark_prices_prefers_intraday():

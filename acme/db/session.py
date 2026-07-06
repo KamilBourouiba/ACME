@@ -150,6 +150,16 @@ _SCHEMA_PATCHES: tuple[str, ...] = (
     """,
     "CREATE INDEX IF NOT EXISTS quant_cycle_state_tenant_idx ON quant_cycle_state (tenant_id)",
     "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ",
+    "ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS fees_paid DOUBLE PRECISION DEFAULT 0",
+    "ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS funding_paid DOUBLE PRECISION DEFAULT 0",
+    "ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS last_carry_at TIMESTAMPTZ",
+    "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS leverage DOUBLE PRECISION DEFAULT 1",
+    "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS margin_used DOUBLE PRECISION DEFAULT 0",
+    "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS borrowed DOUBLE PRECISION DEFAULT 0",
+    "ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS fee DOUBLE PRECISION DEFAULT 0",
+    "ALTER TABLE paper_trades ADD COLUMN IF NOT EXISTS leverage DOUBLE PRECISION DEFAULT 1",
+    "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS peak_price DOUBLE PRECISION",
+    "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS stop_floor DOUBLE PRECISION",
 )
 
 
