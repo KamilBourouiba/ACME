@@ -28,6 +28,21 @@ from acme.schemas import CognitiveProfile, ExperienceCreate, QueryRequest, Sourc
 logger = logging.getLogger("acme.quant.service")
 
 
+def _belief_out(b) -> BeliefOut:
+    status = b.status.value if hasattr(b.status, "value") else str(b.status)
+    return BeliefOut(
+        graph_id=b.entity_or_relation_id,
+        label=b.label,
+        status=status,
+        crs=b.crs,
+        confidence=b.confidence,
+        supporting_evidence=b.supporting_evidence,
+        contradicting_evidence=b.contradicting_evidence,
+        prediction_successes=b.prediction_successes,
+        prediction_failures=b.prediction_failures,
+    )
+
+
 def _symbols() -> list[str]:
     return [s.strip().upper() for s in settings.quant_symbols.split(",") if s.strip()]
 
@@ -162,20 +177,7 @@ class QuantService:
             # 2. List beliefs
             belief_engine = BeliefEngine(session, tenant_id=self.tenant_id)
             belief_rows = await belief_engine.list_beliefs(min_confidence=0.0)
-            beliefs_out = [
-                BeliefOut(
-                    graph_id=b.graph_id,
-                    label=b.label,
-                    status=b.status,
-                    crs=b.crs,
-                    confidence=b.confidence,
-                    supporting_evidence=b.supporting_evidence,
-                    contradicting_evidence=b.contradicting_evidence,
-                    prediction_successes=b.prediction_successes,
-                    prediction_failures=b.prediction_failures,
-                )
-                for b in belief_rows[:20]
-            ]
+            beliefs_out = [_belief_out(b) for b in belief_rows[:20]]
 
             # 3. Research query for trade decision
             quote_map = {q["symbol"]: q["price"] for q in quotes_raw}
@@ -329,20 +331,7 @@ class QuantService:
 
         belief_engine = BeliefEngine(session, tenant_id=self.tenant_id)
         belief_rows = await belief_engine.list_beliefs(min_confidence=0.0)
-        beliefs_out = [
-            BeliefOut(
-                graph_id=b.graph_id,
-                label=b.label,
-                status=b.status,
-                crs=b.crs,
-                confidence=b.confidence,
-                supporting_evidence=b.supporting_evidence,
-                contradicting_evidence=b.contradicting_evidence,
-                prediction_successes=b.prediction_successes,
-                prediction_failures=b.prediction_failures,
-            )
-            for b in belief_rows[:20]
-        ]
+        beliefs_out = [_belief_out(b) for b in belief_rows[:20]]
 
         cycle_state = await self._cycle_state(session)
 
