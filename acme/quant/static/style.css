@@ -132,6 +132,37 @@ html, body {
 
 .topbar-actions { display: flex; gap: 8px; margin-left: auto; }
 
+.readonly-banner {
+  flex: 1 1 100%;
+  order: 10;
+  margin-top: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: rgba(122, 138, 158, 0.08);
+  border: 1px solid rgba(122, 138, 158, 0.18);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.trace-live-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--green);
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(61, 214, 140, 0.1);
+  border: 1px solid rgba(61, 214, 140, 0.22);
+}
+
+.trace-chip {
+  cursor: default;
+}
+
 .btn {
   font-family: var(--sans);
   font-size: 13px;

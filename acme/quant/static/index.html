@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0e14" />
-  <title>ACME Quant — Belief-Driven Paper Trading</title>
-  <meta name="description" content="Real market data, ACME beliefs, paper trading dashboard with reasoning trails." />
+  <title>ACME Quant — Live Paper Trading Showcase</title>
+  <meta name="description" content="Read-only live showcase: real market data, autonomous paper trading, and belief reasoning trails." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/style.css?v=10" />
+  <link rel="stylesheet" href="assets/style.css?v=11" />
 </head>
 <body>
   <div class="app">
@@ -17,9 +17,10 @@
         <span class="brand-icon">Q</span>
         <div>
           <h1>ACME Quant</h1>
-          <p class="brand-tagline">5m scalp · long &amp; short · crypto 24/7</p>
+          <p class="brand-tagline">Live showcase · read-only · autonomous scalp</p>
         </div>
       </div>
+      <div class="readonly-banner" role="status">Read-only live feed — trading runs automatically in the background</div>
       <div class="topbar-stats">
         <div class="stat-pill" id="nav-pill">
           <span class="label">NAV</span>
@@ -46,10 +47,6 @@
           <span class="value" id="market-status">—</span>
         </div>
       </div>
-      <div class="topbar-actions">
-        <button type="button" id="btn-cycle" class="btn btn-ghost">Run cycle</button>
-        <button type="button" id="btn-refresh" class="btn btn-primary">Refresh</button>
-      </div>
     </header>
 
     <div class="ticker" id="ticker" aria-label="Live quotes"></div>
@@ -61,7 +58,7 @@
         <span class="positions-upnl" id="positions-upnl">uPnL —</span>
       </div>
       <div class="positions-cards" id="positions-cards">
-        <div class="positions-idle">All cash — waiting for the next scalp entry</div>
+        <div class="positions-idle">All cash — autonomous engine scanning for entries</div>
       </div>
     </section>
 
@@ -104,13 +101,7 @@
       <section class="panel panel-trace">
         <header class="panel-head">
           <h2>Belief trail</h2>
-          <div class="trace-controls">
-            <label class="trace-live-toggle">
-              <input type="checkbox" id="trace-follow-live" checked />
-              Live
-            </label>
-            <button type="button" id="trace-latest" class="btn btn-ghost btn-sm">Latest</button>
-          </div>
+          <span class="trace-live-badge">Live · auto</span>
         </header>
         <div class="trace-timeline-wrap">
           <div class="trace-timeline" id="trace-timeline" aria-label="Cycle timeline"></div>
@@ -123,13 +114,11 @@
           <span class="leg trade">Trade</span>
         </div>
         <div class="trace-step-head">
-          <button type="button" id="trace-prev" class="btn-icon" aria-label="Previous step">‹</button>
           <div class="trace-step-info">
             <span id="trace-title" class="trace-title">—</span>
             <span id="trace-summary" class="trace-summary"></span>
           </div>
           <span id="trace-crs" class="crs-badge">CRS —</span>
-          <button type="button" id="trace-next" class="btn-icon" aria-label="Next step">›</button>
         </div>
         <div class="trace-body">
           <svg id="trace-graph" viewBox="0 0 800 360" preserveAspectRatio="xMidYMid meet" aria-label="Reasoning graph"></svg>
@@ -150,7 +139,7 @@
       <section class="panel panel-trades">
         <header class="panel-head">
           <h2>Trade blotter</h2>
-          <a href="#" id="signals-export" class="link-sm">Copy-trade API ↗</a>
+          <a href="#" id="signals-export" class="link-sm" target="_blank" rel="noopener">Signals API (read-only) ↗</a>
         </header>
         <div class="table-wrap table-trades">
           <table class="data-table" id="trades-table">
@@ -174,12 +163,12 @@
     </main>
 
     <footer class="footer">
-      <span>Paper trading · Real Yahoo Finance data · Not investment advice</span>
+      <span>Read-only showcase · Paper account · Real Yahoo Finance data · Not investment advice</span>
       <span id="last-updated">—</span>
     </footer>
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="assets/app.js?v=10"></script>
+  <script src="assets/app.js?v=11"></script>
 </body>
 </html>

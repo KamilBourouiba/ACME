@@ -4,7 +4,6 @@
   const API = "/api/v1/quant";
   let state = null;
   let traceStep = 0;
-  let traceFollowLive = true;
   let lastTraceLen = 0;
 
   const $ = (sel) => document.querySelector(sel);
@@ -102,7 +101,7 @@
     strip.classList.toggle("has-positions", positions.length > 0);
 
     if (!positions.length) {
-      cards.innerHTML = '<div class="positions-idle"><span class="idle-icon">○</span> All cash — no open positions yet<br><span class="idle-hint">Scalp entries appear here instantly (crypto 24/7)</span></div>';
+      cards.innerHTML = '<div class="positions-idle"><span class="idle-icon">○</span> All cash — no open positions<br><span class="idle-hint">Autonomous entries appear here when signals fire</span></div>';
       return;
     }
 
@@ -272,8 +271,7 @@
     }
 
     const steps = trace.steps;
-    const wasOnLatest = traceFollowLive || traceStep >= steps.length - 1;
-    if (wasOnLatest && steps.length > lastTraceLen) {
+    if (steps.length > lastTraceLen) {
       traceStep = steps.length - 1;
     }
     if (traceStep >= steps.length) traceStep = steps.length - 1;
@@ -291,23 +289,14 @@
       const icon = PHASE_ICON[phase] || "•";
       const active = i === activeIdx ? " active" : "";
       const crs = s.crs != null ? s.crs.toFixed(2) : "—";
-      return `<button type="button" class="trace-chip${active}" data-idx="${i}" title="${escapeHtml(s.summary || s.title || "")}">
+      return `<div class="trace-chip${active}" title="${escapeHtml(s.summary || s.title || "")}">
         <span class="chip-phase phase-${phase}">${icon}</span>
         <span class="chip-body">
           <span class="chip-title">${escapeHtml(s.title || `Step ${i + 1}`)}</span>
           <span class="chip-crs">CRS ${crs}</span>
         </span>
-      </button>`;
+      </div>`;
     }).join("");
-
-    el.querySelectorAll(".trace-chip").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        traceStep = parseInt(btn.dataset.idx, 10);
-        traceFollowLive = traceStep >= steps.length - 1;
-        $("#trace-follow-live").checked = traceFollowLive;
-        if (state && state.trace) renderTrace(state.trace);
-      });
-    });
 
     const active = el.querySelector(".trace-chip.active");
     if (active) active.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
@@ -417,7 +406,7 @@
     renderBeliefs(data.beliefs);
     renderTrades(data.trades);
     renderTrace(data.trace);
-    $("#last-updated").textContent = "Live · " + new Date().toLocaleTimeString();
+    $("#last-updated").textContent = "Live feed · " + new Date().toLocaleTimeString();
     $("#signals-export").href = API + "/signals";
   }
 
@@ -429,61 +418,6 @@
       toast("Failed to load dashboard: " + e.message);
     }
   }
-
-  async function runCycle() {
-    const btn = $("#btn-cycle");
-    btn.disabled = true;
-    btn.textContent = "Running…";
-    try {
-      const r = await fetch(API + "/cycle", { method: "POST" });
-      const result = await r.json();
-      toast(result.message || "Cycle complete");
-      await refresh();
-    } catch (e) {
-      toast("Cycle failed: " + e.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "Run cycle";
-    }
-  }
-
-  $("#btn-refresh").addEventListener("click", refresh);
-  $("#btn-cycle").addEventListener("click", runCycle);
-
-  $("#trace-follow-live").addEventListener("change", (e) => {
-    traceFollowLive = e.target.checked;
-    if (traceFollowLive && state && state.trace) {
-      traceStep = state.trace.steps.length - 1;
-      renderTrace(state.trace);
-    }
-  });
-
-  $("#trace-latest").addEventListener("click", () => {
-    traceFollowLive = true;
-    $("#trace-follow-live").checked = true;
-    if (state && state.trace) {
-      traceStep = state.trace.steps.length - 1;
-      renderTrace(state.trace);
-    }
-  });
-
-  $("#trace-prev").addEventListener("click", () => {
-    if (traceStep > 0) {
-      traceStep--;
-      traceFollowLive = false;
-      $("#trace-follow-live").checked = false;
-      if (state && state.trace) renderTrace(state.trace);
-    }
-  });
-
-  $("#trace-next").addEventListener("click", () => {
-    if (state && state.trace && traceStep < state.trace.steps.length - 1) {
-      traceStep++;
-      traceFollowLive = traceStep >= state.trace.steps.length - 1;
-      $("#trace-follow-live").checked = traceFollowLive;
-      renderTrace(state.trace);
-    }
-  });
 
   refresh();
   setInterval(refresh, 3000);

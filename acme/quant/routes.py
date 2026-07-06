@@ -107,12 +107,16 @@ async def get_signals(
 @router.post("/cycle", response_model=CycleResultOut)
 async def trigger_cycle() -> CycleResultOut:
     _require_quant_enabled()
+    if settings.quant_public_readonly:
+        raise HTTPException(403, "Manual cycle trigger is disabled on the public dashboard")
     return await quant_service.run_cycle()
 
 
 @router.post("/reset")
 async def reset_demo(session: AsyncSession = Depends(get_db_session)) -> dict:
     _require_quant_enabled()
+    if settings.quant_public_readonly:
+        raise HTTPException(403, "Reset is disabled on the public dashboard")
     from acme.db.models import QuantCycleState
     from acme.demo.reset import cleanup_demo_tenant
     from acme.graph.neo4j_client import neo4j_client

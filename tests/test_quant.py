@@ -108,8 +108,17 @@ def test_quant_ui_available(client, monkeypatch):
     r = client.get("/api/v1/quant/")
     assert r.status_code == 200
     assert "ACME Quant" in r.text
+    assert "Read-only" in r.text
+    assert 'id="btn-cycle"' not in r.text
     assert 'href="assets/style.css' in r.text
     assert 'src="assets/app.js' in r.text
+
+
+def test_quant_cycle_blocked_when_readonly(client, monkeypatch):
+    monkeypatch.setattr(settings, "quant_demo_enabled", True)
+    monkeypatch.setattr(settings, "quant_public_readonly", True)
+    r = client.post("/api/v1/quant/cycle")
+    assert r.status_code == 403
 
 
 def test_quant_state(client, monkeypatch):

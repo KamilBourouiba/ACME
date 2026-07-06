@@ -173,6 +173,7 @@ class Settings(BaseSettings):
     quant_news_every_n_cycles: int = 90
     quant_max_trades_per_cycle: int = 6
     quant_quote_cache_sec: int = 2
+    quant_public_readonly: bool = True
     quant_short_enabled: bool = True
     quant_short_crypto_only: bool = True
     quant_ingest_every_n_cycles: int = 6
