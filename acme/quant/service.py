@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from acme.config import settings
-from acme.db.models import Episode, QuantCycleState
+from acme.db.models import Episode, PaperTrade, QuantCycleState
 from acme.db.session import SessionLocal
 from acme.engines.belief import BeliefEngine
 from acme.graph.neo4j_client import neo4j_client
@@ -39,7 +39,12 @@ from acme.quant.scalp import (
     rank_scalp_signals,
     scan_scalp_signals,
 )
-from acme.quant.fees import leverage_for_symbol, max_buy_notional, min_profit_take_pct
+from acme.quant.fees import (
+    leverage_for_symbol,
+    max_buy_notional,
+    min_entry_momentum_pct,
+    min_profit_take_pct,
+)
 from acme.quant.symbols import (
     all_symbols,
     belief_matches_symbol,
@@ -236,6 +241,35 @@ class QuantService:
             self._ingest_running = False
         return ingested
 
+    async def _symbol_entry_blocked(
+        self,
+        session: AsyncSession,
+        symbol: str,
+        closed_this_cycle: set[str],
+    ) -> bool:
+        sym = symbol.upper()
+        if sym in closed_this_cycle:
+            return True
+        result = await session.execute(
+            select(PaperTrade)
+            .where(
+                PaperTrade.tenant_id == self.tenant_id,
+                PaperTrade.symbol == sym,
+            )
+            .order_by(PaperTrade.created_at.desc())
+            .limit(1)
+        )
+        last = result.scalar_one_or_none()
+        if last is None:
+            return False
+        created = last.created_at
+        if created is None:
+            return False
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - created).total_seconds()
+        return elapsed < settings.quant_symbol_cooldown_sec
+
     async def _cycle_state(self, session: AsyncSession) -> QuantCycleState:
         result = await session.execute(
             select(QuantCycleState).where(QuantCycleState.tenant_id == self.tenant_id)
@@ -293,12 +327,21 @@ class QuantService:
             def _momentum_threshold(sym: str) -> float:
                 return cr_thresh if is_crypto(sym) else eq_thresh
 
+            def _min_entry_map(syms: list[str] | dict) -> dict[str, float]:
+                keys = syms.keys() if hasattr(syms, "keys") else syms
+                return {str(s).upper(): min_entry_momentum_pct(str(s)) for s in keys}
+
+            closed_this_cycle: set[str] = set()
+
             # 1. Risk exits first (TP / SL / trail / max hold)
             exit_trades = await self.broker.process_scalp_exits(session, quote_map)
             trades_executed += len(exit_trades)
+            for t in exit_trades:
+                closed_this_cycle.add(t.symbol.upper())
 
             # 2. Profit-take on momentum fade (winning positions only)
             profit_budget = settings.quant_max_trades_per_cycle - trades_executed
+            now = datetime.now(timezone.utc)
             for pos in await self.broker.get_positions(session):
                 if profit_budget <= 0:
                     break
@@ -309,13 +352,20 @@ class QuantService:
                     continue
                 bars = intraday.get(sym) or []
                 side = "short" if pos.quantity < 0 else "long"
+                opened = pos.opened_at or pos.updated_at or now
+                if opened.tzinfo is None:
+                    opened = opened.replace(tzinfo=timezone.utc)
+                hold_sec = max(0.0, (now - opened).total_seconds())
+                lev = getattr(pos, "leverage", None) or leverage_for_symbol(sym)
                 sig = profit_exit_signal(
                     sym,
                     bars,
                     position_side=side,
                     entry_price=pos.avg_cost,
                     momentum_threshold_pct=_momentum_threshold(sym),
-                    min_profit_pct=min_profit_take_pct(sym),
+                    min_profit_pct=min_profit_take_pct(sym, hold_sec, lev),
+                    hold_sec=hold_sec,
+                    leverage=lev,
                 )
                 if not sig:
                     continue
@@ -347,6 +397,7 @@ class QuantService:
                 if trade:
                     trades_executed += 1
                     profit_budget -= 1
+                    closed_this_cycle.add(sym.upper())
 
             # 3. Scalp signals — equities in US session, crypto 24/7
             ranked: list[dict] = []
@@ -355,6 +406,7 @@ class QuantService:
                     scan_scalp_signals(
                         eq_intraday,
                         momentum_threshold_pct=eq_thresh,
+                        min_momentum_by_symbol=_min_entry_map(eq_intraday),
                         require_fresh=True,
                     )
                 )
@@ -363,6 +415,7 @@ class QuantService:
                     scan_scalp_signals(
                         cr_intraday,
                         momentum_threshold_pct=cr_thresh,
+                        min_momentum_by_symbol=_min_entry_map(cr_intraday),
                         require_fresh=True,
                         max_bar_age_min=20.0,
                     )
@@ -427,6 +480,7 @@ class QuantService:
             portfolio = await self.broker.portfolio(session, quote_map)
             max_trades = settings.quant_max_trades_per_cycle
             trade_budget = max_trades - trades_executed
+            new_entry_budget = settings.quant_max_new_entries_per_cycle
 
             if equity_trade or crypto_trade:
                 for sig in sells[:trade_budget]:
@@ -439,6 +493,10 @@ class QuantService:
                     if pos and pos.quantity > 0:
                         qty = pos.quantity
                     elif pos is None and _can_short_symbol(sig["symbol"]):
+                        if await self._symbol_entry_blocked(session, sig["symbol"], closed_this_cycle):
+                            continue
+                        if new_entry_budget <= 0:
+                            continue
                         lev = leverage_for_symbol(sig["symbol"])
                         pct = _position_pct(sig["symbol"])
                         max_notional = min(
@@ -465,6 +523,11 @@ class QuantService:
                     if trade:
                         trades_executed += 1
                         trade_budget -= 1
+                        sym_u = sig["symbol"].upper()
+                        if pos and pos.quantity > 0:
+                            closed_this_cycle.add(sym_u)
+                        elif pos is None:
+                            new_entry_budget -= 1
 
                 portfolio = await self.broker.portfolio(session, quote_map)
                 for sig in buys[:trade_budget]:
@@ -477,6 +540,10 @@ class QuantService:
                     if pos and pos.quantity < 0:
                         qty = abs(pos.quantity)
                     else:
+                        if await self._symbol_entry_blocked(session, sig["symbol"], closed_this_cycle):
+                            continue
+                        if new_entry_budget <= 0:
+                            continue
                         lev = leverage_for_symbol(sig["symbol"])
                         pct = _position_pct(sig["symbol"])
                         max_notional = min(
@@ -500,6 +567,12 @@ class QuantService:
                     )
                     if trade:
                         trades_executed += 1
+                        trade_budget -= 1
+                        sym_u = sig["symbol"].upper()
+                        if pos and pos.quantity < 0:
+                            closed_this_cycle.add(sym_u)
+                        elif pos is None:
+                            new_entry_budget -= 1
 
             beliefs_out = [
                 _belief_out(b)

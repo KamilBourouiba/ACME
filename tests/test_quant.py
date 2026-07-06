@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -176,17 +176,26 @@ def test_parse_trade_decision_json():
     assert result["symbol"] == "NVDA"
 
 
+def _completed_test_bars(*closes: float, minutes_ago_start: int = 25) -> list[dict]:
+    base = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago_start)
+    bars = []
+    for i, close in enumerate(closes):
+        ts = base + timedelta(minutes=5 * i)
+        bars.append({"close": close, "volume": 1000, "date": ts.isoformat()})
+    return bars
+
+
 def test_scalp_signal_sell_bearish():
     from acme.quant.scalp import scalp_signal
 
-    now = datetime.now(timezone.utc).isoformat()
-    bars = [
-        {"close": 100.0, "volume": 1000, "date": now},
-        {"close": 99.95, "volume": 1000, "date": now},
-        {"close": 99.90, "volume": 1000, "date": now},
-        {"close": 99.82, "volume": 5000, "date": now},
-    ]
-    sig = scalp_signal("BTC-USD", bars, momentum_threshold_pct=0.05, require_fresh=True)
+    bars = _completed_test_bars(100.0, 99.90, 99.80, 99.60)
+    sig = scalp_signal(
+        "BTC-USD",
+        bars,
+        momentum_threshold_pct=0.05,
+        min_momentum_pct=0.18,
+        require_fresh=True,
+    )
     assert sig is not None
     assert sig["side"] == "sell"
 
@@ -198,8 +207,8 @@ def test_evaluate_exit_short_take_profit():
     d = evaluate_exit(
         symbol="ETH-USD",
         avg_cost=100.0,
-        price=99.83,
-        peak_price=99.80,
+        price=99.70,
+        peak_price=99.70,
         stop_floor=None,
         leverage=3.0,
         opened_at=now,
@@ -213,44 +222,34 @@ def test_evaluate_exit_short_take_profit():
 def test_profit_exit_signal_long():
     from acme.quant.scalp import profit_exit_signal
 
-    now = datetime.now(timezone.utc).isoformat()
-    bars = [
-        {"close": 100.0, "volume": 1000, "date": now},
-        {"close": 100.10, "volume": 1000, "date": now},
-        {"close": 100.12, "volume": 1000, "date": now},
-        {"close": 100.08, "volume": 5000, "date": now},
-    ]
+    bars = _completed_test_bars(100.0, 100.20, 100.40, 100.32)
     sig = profit_exit_signal(
         "BTC-USD",
         bars,
         position_side="long",
         entry_price=100.0,
         momentum_threshold_pct=0.05,
-        min_profit_pct=0.06,
+        min_profit_pct=0.20,
         momentum_frac=0.45,
+        hold_sec=60,
+        leverage=3.0,
     )
     assert sig is not None
     assert sig["side"] == "sell"
-    assert "Profit take" in sig["reasoning"]
+    assert "net" in sig["reasoning"].lower()
 
 
 def test_effective_take_profit_covers_fees():
-    from acme.quant.fees import effective_take_profit_pct
+    from acme.quant.fees import effective_take_profit_pct, round_trip_fee_pct
 
-    tp = effective_take_profit_pct("BTC-USD", 0.10)
-    assert tp >= 0.16
+    tp = effective_take_profit_pct("BTC-USD", 0.10, hold_sec=60, leverage=3.0)
+    assert tp >= round_trip_fee_pct("BTC-USD")
 
 
 def test_scalp_signal_buy():
     from acme.quant.scalp import scalp_signal
 
-    now = datetime.now(timezone.utc).isoformat()
-    bars = [
-        {"close": 100.0, "volume": 1000, "date": now},
-        {"close": 100.05, "volume": 1000, "date": now},
-        {"close": 100.08, "volume": 1000, "date": now},
-        {"close": 100.15, "volume": 5000, "date": now},
-    ]
+    bars = _completed_test_bars(100.0, 100.05, 100.10, 100.25)
     sig = scalp_signal("NVDA", bars, momentum_threshold_pct=0.05, require_fresh=True)
     assert sig is not None
     assert sig["side"] == "buy"
@@ -330,7 +329,7 @@ def test_evaluate_exit_take_profit():
     d = evaluate_exit(
         symbol="ETH-USD",
         avg_cost=100.0,
-        price=100.15,
+        price=100.30,
         peak_price=100.15,
         stop_floor=None,
         leverage=3.0,
@@ -350,8 +349,8 @@ def test_evaluate_exit_trailing_stop():
     d = evaluate_exit(
         symbol="AAPL",
         avg_cost=100.0,
-        price=100.05,
-        peak_price=100.20,
+        price=100.12,
+        peak_price=100.25,
         stop_floor=None,
         leverage=2.0,
         opened_at=now,

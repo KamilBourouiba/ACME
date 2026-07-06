@@ -62,16 +62,96 @@ def round_trip_fee_pct(symbol: str) -> float:
     return settings.quant_equity_commission_bps * 2.0 / 100.0
 
 
-def effective_take_profit_pct(symbol: str, base_tp_pct: float) -> float:
-    """Take-profit floor that clears round-trip fees with buffer."""
-    fee_floor = round_trip_fee_pct(symbol) * settings.quant_profit_fee_buffer
-    return max(base_tp_pct, round(fee_floor, 4))
-
-
-def min_profit_take_pct(symbol: str) -> float:
+def funding_drag_pct(symbol: str, hold_sec: float, leverage: float = 1.0) -> float:
+    """Estimated carry/funding drag as % of notional over hold time."""
+    if hold_sec <= 0:
+        return 0.0
+    hours = hold_sec / 3600.0
     if is_crypto(symbol):
-        return settings.quant_crypto_profit_take_min_pct
-    return settings.quant_profit_take_min_pct
+        apy = settings.quant_crypto_funding_apy
+        return round(apy / 100.0 / (365.0 * 24.0) * hours * 100, 4)
+    lev = max(leverage, 1.0)
+    borrowed_frac = 0.0 if lev <= 1.0 else (1.0 - 1.0 / lev)
+    apy = settings.quant_margin_interest_apy
+    return round(apy / 100.0 / (365.0 * 24.0) * hours * borrowed_frac * 100, 4)
+
+
+def min_entry_momentum_pct(symbol: str) -> float:
+    """Minimum |momentum| required to open — must clear round-trip fees."""
+    return round(round_trip_fee_pct(symbol) * settings.quant_min_entry_fee_multiple, 4)
+
+
+def min_net_profit_pct(symbol: str, hold_sec: float = 0, leverage: float = 1.0) -> float:
+    """Minimum net P&L % (after fees + estimated funding) to count as a win."""
+    base = round_trip_fee_pct(symbol) * settings.quant_profit_fee_buffer
+    return round(base + funding_drag_pct(symbol, hold_sec, leverage), 4)
+
+
+def gross_for_net_profit(
+    symbol: str,
+    target_net_pct: float,
+    hold_sec: float = 0,
+    leverage: float = 1.0,
+) -> float:
+    """Gross price move % needed to achieve target_net_pct after costs."""
+    return round(
+        target_net_pct + round_trip_fee_pct(symbol) + funding_drag_pct(symbol, hold_sec, leverage),
+        4,
+    )
+
+
+def net_pnl_pct_long(
+    avg_cost: float,
+    price: float,
+    symbol: str,
+    *,
+    hold_sec: float = 0,
+    leverage: float = 1.0,
+) -> float:
+    if avg_cost <= 0:
+        return 0.0
+    gross = (price - avg_cost) / avg_cost * 100
+    return round(gross - round_trip_fee_pct(symbol) - funding_drag_pct(symbol, hold_sec, leverage), 4)
+
+
+def net_pnl_pct_short(
+    avg_cost: float,
+    price: float,
+    symbol: str,
+    *,
+    hold_sec: float = 0,
+    leverage: float = 1.0,
+) -> float:
+    if avg_cost <= 0:
+        return 0.0
+    gross = (avg_cost - price) / avg_cost * 100
+    return round(gross - round_trip_fee_pct(symbol) - funding_drag_pct(symbol, hold_sec, leverage), 4)
+
+
+def effective_take_profit_pct(symbol: str, base_tp_pct: float, hold_sec: float = 0, leverage: float = 1.0) -> float:
+    """Take-profit floor that clears fees, funding, and buffer."""
+    floor = gross_for_net_profit(
+        symbol,
+        min_net_profit_pct(symbol, hold_sec, leverage) * 0.5,
+        hold_sec,
+        leverage,
+    )
+    return max(base_tp_pct, floor)
+
+
+def min_profit_take_pct(symbol: str, hold_sec: float = 0, leverage: float = 1.0) -> float:
+    configured = (
+        settings.quant_crypto_profit_take_min_pct
+        if is_crypto(symbol)
+        else settings.quant_profit_take_min_pct
+    )
+    floor = gross_for_net_profit(
+        symbol,
+        min_net_profit_pct(symbol, hold_sec, leverage),
+        hold_sec,
+        leverage,
+    )
+    return max(configured, floor)
 
 
 def carry_cost(

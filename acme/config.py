@@ -137,8 +137,8 @@ class Settings(BaseSettings):
     quant_crypto_symbols: str = "BTC-USD,ETH-USD,SOL-USD,BNB-USD"
     quant_crypto_intraday_period: str = "2d"
     quant_intraday_period: str = "1d"
-    quant_crypto_momentum_floor_pct: float = 0.01
-    quant_crypto_momentum_threshold_pct: float = 0.035
+    quant_crypto_momentum_floor_pct: float = 0.018
+    quant_crypto_momentum_threshold_pct: float = 0.18
     quant_crypto_position_pct: float = 0.04
     quant_starting_cash: float = 1_000_000.0
     quant_cycle_interval_sec: int = 3
@@ -161,6 +161,9 @@ class Settings(BaseSettings):
     quant_profit_exit_momentum_frac: float = 0.45
     quant_profit_fee_buffer: float = 1.35
     quant_profit_lock_pct: float = 0.04
+    quant_min_entry_fee_multiple: float = 1.5
+    quant_symbol_cooldown_sec: int = 45
+    quant_max_new_entries_per_cycle: int = 2
     quant_scalp_momentum_threshold_pct: float = 0.05
     quant_scalp_momentum_floor_pct: float = 0.015
     quant_trade_only_market_hours: bool = True
