@@ -179,15 +179,88 @@ def test_parse_trade_decision_json():
 def test_scalp_signal_buy():
     from acme.quant.scalp import scalp_signal
 
+    now = datetime.now(timezone.utc).isoformat()
     bars = [
-        {"close": 100.0, "volume": 1000},
-        {"close": 100.05, "volume": 1000},
-        {"close": 100.08, "volume": 1000},
-        {"close": 100.15, "volume": 5000},
+        {"close": 100.0, "volume": 1000, "date": now},
+        {"close": 100.05, "volume": 1000, "date": now},
+        {"close": 100.08, "volume": 1000, "date": now},
+        {"close": 100.15, "volume": 5000, "date": now},
     ]
-    sig = scalp_signal("NVDA", bars, momentum_threshold_pct=0.05)
+    sig = scalp_signal("NVDA", bars, momentum_threshold_pct=0.05, require_fresh=True)
     assert sig is not None
     assert sig["side"] == "buy"
+
+
+def test_adaptive_momentum_threshold():
+    from acme.quant.scalp import adaptive_momentum_threshold
+
+    intraday = {
+        "A": [{"close": 100, "volume": 1}, {"close": 100.02, "volume": 1}],
+        "B": [{"close": 50, "volume": 1}, {"close": 50.01, "volume": 1}],
+    }
+    t = adaptive_momentum_threshold(intraday, base=0.06, floor=0.02)
+    assert 0.02 <= t <= 0.06
+
+
+def test_is_actionable_belief_filters_price_observations():
+    from acme.quant.scalp import is_actionable_belief
+
+    assert not is_actionable_belief("AAPL-[observed_with]->$310.52")
+    assert not is_actionable_belief("NVDA-[observed_with]->1,234,567")
+    assert is_actionable_belief("AI capex drives NVDA outperformance")
+
+
+def test_us_market_session_weekend():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from acme.quant.market_hours import us_market_session
+
+    sat = datetime(2026, 6, 27, 12, 0, tzinfo=ZoneInfo("America/New_York"))
+    session = us_market_session(sat)
+    assert session["open"] is False
+    assert session["status"] == "weekend"
+
+
+def test_us_market_session_open():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from acme.quant.market_hours import us_market_session
+
+    tue = datetime(2026, 6, 24, 11, 0, tzinfo=ZoneInfo("America/New_York"))
+    session = us_market_session(tue)
+    assert session["open"] is True
+    assert session["status"] == "open"
+
+
+def test_quant_trading_session_crypto_24_7():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from acme.quant.market_hours import quant_trading_session
+
+    sat = datetime(2026, 6, 27, 12, 0, tzinfo=ZoneInfo("America/New_York"))
+    session = quant_trading_session(crypto_enabled=True, now=sat)
+    assert session["open"] is True
+    assert session["crypto_active"] is True
+    assert session["equities_open"] is False
+    assert session["status"] == "crypto_only"
+
+
+def test_is_crypto_symbol():
+    from acme.quant.symbols import crypto_base, is_crypto
+
+    assert is_crypto("BTC-USD")
+    assert not is_crypto("AAPL")
+    assert crypto_base("ETH-USD") == "ETH"
+
+
+def test_belief_matches_crypto():
+    from acme.quant.symbols import belief_matches_symbol
+
+    assert belief_matches_symbol("BTC volatility drives risk-off", "BTC-USD")
+    assert belief_matches_symbol("AAPL earnings beat", "AAPL")
 
 
 def test_merge_mark_prices_prefers_intraday():

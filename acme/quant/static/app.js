@@ -48,18 +48,95 @@
     return r.json();
   }
 
-  function renderTicker(quotes) {
+  function isCrypto(sym) {
+    return String(sym).toUpperCase().endsWith("-USD");
+  }
+
+  function fmtQty(symbol, qty) {
+    if (qty == null || isNaN(qty)) return "—";
+    const dec = isCrypto(symbol) ? 4 : 1;
+    return qty.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function assetTag(sym) {
+    return isCrypto(sym)
+      ? '<span class="asset-tag crypto">CRYPTO</span>'
+      : '<span class="asset-tag equity">EQUITY</span>';
+  }
+
+  function sumUnrealized(positions) {
+    return positions.reduce((n, p) => n + (p.unrealized_pnl || 0), 0);
+  }
+
+  function renderPositionsStrip(positions) {
+    const cards = $("#positions-cards");
+    const strip = $("#positions-strip");
+    const countEl = $("#positions-count");
+    const upnlEl = $("#positions-upnl");
+    const pill = $("#positions-pill");
+    const summary = $("#positions-summary");
+    const totalUpnl = sumUnrealized(positions);
+
+    countEl.textContent = positions.length
+      ? positions.length + " open"
+      : "0 open";
+    upnlEl.textContent = positions.length
+      ? "uPnL " + fmtMoney(totalUpnl) + " (" + fmtPct(
+          positions.reduce((s, p) => s + (p.unrealized_pnl_pct || 0), 0) / positions.length
+        ) + " avg)"
+      : "uPnL —";
+    upnlEl.className = "positions-upnl " + pnlClass(totalUpnl);
+
+    summary.textContent = positions.length
+      ? positions.length + " · " + fmtMoney(totalUpnl)
+      : "0";
+    pill.className = "stat-pill " + (positions.length ? "positions-live " + pnlClass(totalUpnl) : "positions-idle-pill");
+    strip.classList.toggle("has-positions", positions.length > 0);
+
+    if (!positions.length) {
+      cards.innerHTML = '<div class="positions-idle"><span class="idle-icon">○</span> All cash — no open positions yet<br><span class="idle-hint">Scalp entries appear here instantly (crypto 24/7)</span></div>';
+      return;
+    }
+
+    const sorted = [...positions].sort((a, b) => Math.abs(b.unrealized_pnl) - Math.abs(a.unrealized_pnl));
+    cards.innerHTML = sorted.map((pos) => `
+      <article class="position-card ${pnlClass(pos.unrealized_pnl)}">
+        <div class="pc-head">
+          <span class="pc-symbol">${pos.symbol}</span>
+          ${assetTag(pos.symbol)}
+          <span class="pc-side">LONG</span>
+        </div>
+        <div class="pc-upnl ${pnlClass(pos.unrealized_pnl)}">${fmtMoney(pos.unrealized_pnl)}</div>
+        <div class="pc-upnl-pct ${pnlClass(pos.unrealized_pnl)}">${fmtPct(pos.unrealized_pnl_pct)}</div>
+        <dl class="pc-meta">
+          <div><dt>Qty</dt><dd>${fmtQty(pos.symbol, pos.quantity)}</dd></div>
+          <div><dt>Entry</dt><dd>$${fmt(pos.avg_cost)}</dd></div>
+          <div><dt>Mark</dt><dd>$${fmt(pos.market_price)}</dd></div>
+          <div><dt>Value</dt><dd>${fmtMoney(pos.market_value)}</dd></div>
+          <div><dt>Weight</dt><dd>${fmt(pos.weight_pct, 1)}%</dd></div>
+        </dl>
+      </article>`).join("");
+  }
+
+  function renderTicker(quotes, positions) {
     const el = $("#ticker");
+    const held = new Set((positions || []).map((p) => p.symbol));
     if (!quotes.length) {
       el.innerHTML = '<span class="tick"><span class="sym">No quotes</span></span>';
       return;
     }
     el.innerHTML = quotes.map((q) => {
       const cls = q.change_pct >= 0 ? "up" : "down";
-      return `<div class="tick">
-        <span class="sym">${q.symbol}</span>
+      const heldCls = held.has(q.symbol) ? " held" : "";
+      const pos = (positions || []).find((p) => p.symbol === q.symbol);
+      const badge = pos
+        ? `<span class="held-badge ${pnlClass(pos.unrealized_pnl)}">${fmtPct(pos.unrealized_pnl_pct)}</span>`
+        : "";
+      return `<div class="tick${heldCls}">
+        <span class="sym">${q.symbol}${held.has(q.symbol) ? " ●" : ""}</span>
         <span class="px">$${fmt(q.price)}</span>
         <span class="chg ${cls}">${fmtPct(q.change_pct)}</span>
+        ${badge}
       </div>`;
     }).join("");
   }
@@ -77,16 +154,17 @@
     $("#cycle-pnl").className = "metric-value " + pnlClass(p.cycle_pnl);
 
     const tbody = $("#positions-body");
+    renderPositionsStrip(p.positions);
     if (!p.positions.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">No positions — run a cycle to start</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No positions — see strip above</td></tr>';
     } else {
       tbody.innerHTML = p.positions.map((pos) => `
-        <tr>
-          <td>${pos.symbol}</td>
-          <td>${fmt(pos.quantity, 1)}</td>
+        <tr class="row-held ${pnlClass(pos.unrealized_pnl)}">
+          <td><strong>${pos.symbol}</strong> ${isCrypto(pos.symbol) ? '<span class="asset-tag crypto">C</span>' : ""}</td>
+          <td>${fmtQty(pos.symbol, pos.quantity)}</td>
           <td>$${fmt(pos.avg_cost)}</td>
           <td>$${fmt(pos.market_price)}</td>
-          <td class="${pnlClass(pos.unrealized_pnl)}">${fmtMoney(pos.unrealized_pnl)}</td>
+          <td class="${pnlClass(pos.unrealized_pnl)}"><strong>${fmtMoney(pos.unrealized_pnl)}</strong> <span class="sub-pct">${fmtPct(pos.unrealized_pnl_pct)}</span></td>
           <td>${fmt(pos.weight_pct, 1)}%</td>
         </tr>`).join("");
     }
@@ -253,7 +331,19 @@
     if (data.scalp_mode) {
       $("#bar-interval").textContent = data.bar_interval || "5m";
     }
-    renderTicker(data.quotes);
+    const marketPill = $("#market-pill");
+    const marketStatus = $("#market-status");
+    if (data.market_label) {
+      const crypto = data.crypto_enabled && (data.crypto_symbols || []).length;
+      const openLabel = data.market_open ? (crypto ? "24/7" : "Open") : "Closed";
+      marketStatus.textContent = crypto && !data.equities_open ? "Crypto" : openLabel;
+      marketPill.title = data.market_label;
+      marketPill.className = "stat-pill " + (data.market_open ? "market-open" : "market-closed");
+    } else {
+      marketStatus.textContent = "—";
+      marketPill.className = "stat-pill";
+    }
+    renderTicker(data.quotes, data.portfolio.positions);
     renderPortfolio(data.portfolio);
     renderEquity(data.equity_curve);
     renderBeliefs(data.beliefs);

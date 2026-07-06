@@ -107,6 +107,12 @@ class QuantStateOut(BaseModel):
     scalp_mode: bool = False
     bar_interval: str = "5m"
     cycle_interval_sec: int = 60
+    market_open: bool = False
+    equities_open: bool = False
+    market_status: str = "unknown"
+    market_label: str = ""
+    crypto_enabled: bool = False
+    crypto_symbols: list[str] = []
 
 
 class CycleResultOut(BaseModel):

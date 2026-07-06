@@ -133,6 +133,12 @@ class Settings(BaseSettings):
     quant_scalp_mode: bool = True
     quant_tenant_id: str = "quant-demo"
     quant_symbols: str = "AAPL,MSFT,NVDA,GOOGL,AMZN,META,SPY,QQQ"
+    quant_crypto_enabled: bool = True
+    quant_crypto_symbols: str = "BTC-USD,ETH-USD,SOL-USD,BNB-USD"
+    quant_crypto_intraday_period: str = "2d"
+    quant_intraday_period: str = "1d"
+    quant_crypto_momentum_floor_pct: float = 0.03
+    quant_crypto_position_pct: float = 0.03
     quant_starting_cash: float = 1_000_000.0
     quant_cycle_interval_sec: int = 60
     quant_bar_interval: str = "5m"
@@ -142,6 +148,9 @@ class Settings(BaseSettings):
     quant_scalp_take_profit_pct: float = 0.25
     quant_scalp_stop_loss_pct: float = 0.18
     quant_scalp_momentum_threshold_pct: float = 0.06
+    quant_scalp_momentum_floor_pct: float = 0.02
+    quant_trade_only_market_hours: bool = True
+    quant_cycle_interval_closed_sec: int = 300
     quant_min_belief_crs: float = 0.55
     quant_news_per_symbol: int = 1
     quant_news_every_n_cycles: int = 15

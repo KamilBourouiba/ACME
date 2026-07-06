@@ -239,7 +239,11 @@ def _fetch_intraday_sync(symbol: str, interval: str = "5m", period: str = "1d") 
         return []
 
 
-def _fetch_intraday_batch_sync(symbols: list[str], interval: str = "5m") -> dict[str, list[dict]]:
+def _fetch_intraday_batch_sync(
+    symbols: list[str],
+    interval: str = "5m",
+    period: str = "1d",
+) -> dict[str, list[dict]]:
     try:
         import yfinance as yf
     except ImportError:
@@ -249,11 +253,11 @@ def _fetch_intraday_batch_sync(symbols: list[str], interval: str = "5m") -> dict
     out: dict[str, list[dict]] = {}
     try:
         if len(syms) == 1:
-            out[syms[0]] = _fetch_intraday_sync(syms[0], interval)
+            out[syms[0]] = _fetch_intraday_sync(syms[0], interval, period)
             return out
         raw = yf.download(
             syms,
-            period="1d",
+            period=period,
             interval=interval,
             group_by="ticker",
             progress=False,
@@ -285,7 +289,7 @@ def _fetch_intraday_batch_sync(symbols: list[str], interval: str = "5m") -> dict
         logger.warning("Intraday batch failed: %s", exc)
         for sym in syms:
             if sym not in out:
-                bars = _fetch_intraday_sync(sym, interval)
+                bars = _fetch_intraday_sync(sym, interval, period)
                 if bars:
                     out[sym] = bars
     return out
@@ -294,11 +298,15 @@ def _fetch_intraday_batch_sync(symbols: list[str], interval: str = "5m") -> dict
 async def fetch_intraday_bars(
     symbols: list[str],
     interval: str | None = None,
+    period: str | None = None,
 ) -> dict[str, list[dict]]:
+    from acme.quant.symbols import intraday_period_for
+
     iv = interval or settings.quant_bar_interval
+    pd = period or intraday_period_for(symbols)
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
-        None, partial(_fetch_intraday_batch_sync, symbols, iv)
+        None, partial(_fetch_intraday_batch_sync, symbols, iv, pd)
     )
 
 

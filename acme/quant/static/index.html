@@ -8,7 +8,7 @@
   <meta name="description" content="Real market data, ACME beliefs, paper trading dashboard with reasoning trails." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/style.css?v=3" />
+  <link rel="stylesheet" href="assets/style.css?v=6" />
 </head>
 <body>
   <div class="app">
@@ -17,7 +17,7 @@
         <span class="brand-icon">Q</span>
         <div>
           <h1>ACME Quant</h1>
-          <p>5m scalp · belief-driven paper trading · demo only</p>
+          <p class="brand-tagline">5m scalp · equities + crypto 24/7</p>
         </div>
       </div>
       <div class="topbar-stats">
@@ -29,13 +29,21 @@
           <span class="label">P&amp;L</span>
           <span class="value" id="pnl-value">—</span>
         </div>
-        <div class="stat-pill">
+        <div class="stat-pill stat-secondary">
           <span class="label">Cycles</span>
           <span class="value" id="cycle-count">0</span>
         </div>
-        <div class="stat-pill">
+        <div class="stat-pill stat-secondary">
           <span class="label">Bar</span>
           <span class="value" id="bar-interval">5m</span>
+        </div>
+        <div class="stat-pill" id="positions-pill">
+          <span class="label">Positions</span>
+          <span class="value" id="positions-summary">0</span>
+        </div>
+        <div class="stat-pill" id="market-pill">
+          <span class="label">Session</span>
+          <span class="value" id="market-status">—</span>
         </div>
       </div>
       <div class="topbar-actions">
@@ -46,10 +54,21 @@
 
     <div class="ticker" id="ticker" aria-label="Live quotes"></div>
 
+    <section class="positions-strip" id="positions-strip" aria-label="Open positions">
+      <div class="positions-strip-head">
+        <h2>Open positions</h2>
+        <span class="positions-count" id="positions-count">0 open</span>
+        <span class="positions-upnl" id="positions-upnl">uPnL —</span>
+      </div>
+      <div class="positions-cards" id="positions-cards">
+        <div class="positions-idle">All cash — waiting for the next scalp entry</div>
+      </div>
+    </section>
+
     <main class="grid">
       <section class="panel panel-portfolio">
         <header class="panel-head">
-          <h2>Portfolio</h2>
+          <h2>Positions detail</h2>
           <span class="badge" id="cash-badge">Cash —</span>
         </header>
         <div class="portfolio-summary">
@@ -114,7 +133,7 @@
           <h2>Trade blotter</h2>
           <a href="#" id="signals-export" class="link-sm">Copy-trade API ↗</a>
         </header>
-        <div class="table-wrap">
+        <div class="table-wrap table-trades">
           <table class="data-table" id="trades-table">
             <thead>
               <tr>
@@ -142,6 +161,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="assets/app.js?v=3"></script>
+  <script src="assets/app.js?v=6"></script>
 </body>
 </html>

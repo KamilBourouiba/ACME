@@ -27,13 +27,24 @@ from acme.quant.market import (
     quote_cache,
 )
 from acme.quant.news import fetch_news, format_news_experience
+from acme.quant.market_hours import cycle_interval_sec, quant_trading_session
 from acme.quant.paper_broker import PaperBroker
 from acme.quant.scalp import (
+    adaptive_momentum_threshold,
     format_scalp_experience,
+    is_actionable_belief,
     merge_mark_prices,
     quotes_from_intraday,
     rank_scalp_signals,
-    scalp_signal,
+    scan_scalp_signals,
+)
+from acme.quant.symbols import (
+    all_symbols,
+    belief_matches_symbol,
+    crypto_symbols,
+    equity_symbols,
+    is_crypto,
+    split_universe,
 )
 from acme.quant.schemas import BeliefOut, CycleResultOut, QuantStateOut, QuoteOut, SignalOut, SnapshotPoint
 from acme.quant.trace import append_cycle_step, build_trace
@@ -58,7 +69,7 @@ def _belief_out(b) -> BeliefOut:
 
 
 def _symbols() -> list[str]:
-    return [s.strip().upper() for s in settings.quant_symbols.split(",") if s.strip()]
+    return all_symbols()
 
 
 TRADE_DECISION_PROMPT = """You are a quantitative research agent with access to ACME memory (beliefs, episodes, graph).
@@ -116,7 +127,13 @@ class QuantService:
                 await self.run_cycle()
             except Exception:
                 logger.exception("Quant cycle failed")
-            await asyncio.sleep(settings.quant_cycle_interval_sec)
+            session = quant_trading_session(crypto_enabled=settings.quant_crypto_enabled)
+            interval = cycle_interval_sec(
+                session,
+                settings.quant_cycle_interval_sec,
+                settings.quant_cycle_interval_closed_sec,
+            )
+            await asyncio.sleep(interval)
 
     async def _cycle_state(self, session: AsyncSession) -> QuantCycleState:
         result = await session.execute(
@@ -139,6 +156,10 @@ class QuantService:
         ingested = 0
         trades_executed = 0
         symbols = _symbols()
+        market = quant_trading_session(crypto_enabled=settings.quant_crypto_enabled)
+        equity_trade = market["equities_open"] or not settings.quant_trade_only_market_hours
+        crypto_trade = settings.quant_crypto_enabled
+        eq_syms, cr_syms = split_universe(symbols)
 
         async with SessionLocal() as session:
             orch = ACMEOrchestrator(session, neo4j_client, get_llm_client(), tenant_id=self.tenant_id)
@@ -153,85 +174,134 @@ class QuantService:
             exit_trades = await self.broker.process_scalp_exits(session, quote_map)
             trades_executed += len(exit_trades)
 
-            # 2. Scalp signals from 5m (or 1m) bars
-            signals: list[dict] = []
-            held = {p.symbol for p in (await self.broker.get_positions(session))}
-            for sym, bars in intraday.items():
-                sig = scalp_signal(
-                    sym,
-                    bars,
-                    momentum_threshold_pct=settings.quant_scalp_momentum_threshold_pct,
+            # 2. Scalp signals — equities in US session, crypto 24/7
+            ranked: list[dict] = []
+            if equity_trade and eq_syms:
+                eq_intraday = {s: intraday[s] for s in eq_syms if s in intraday}
+                eq_thresh = adaptive_momentum_threshold(
+                    eq_intraday,
+                    settings.quant_scalp_momentum_threshold_pct,
+                    floor=settings.quant_scalp_momentum_floor_pct,
                 )
-                if sig:
-                    signals.append(sig)
+                ranked.extend(
+                    scan_scalp_signals(
+                        eq_intraday,
+                        momentum_threshold_pct=eq_thresh,
+                        require_fresh=True,
+                    )
+                )
+            if crypto_trade and cr_syms:
+                cr_intraday = {s: intraday[s] for s in cr_syms if s in intraday}
+                cr_thresh = adaptive_momentum_threshold(
+                    cr_intraday,
+                    settings.quant_scalp_momentum_threshold_pct,
+                    floor=settings.quant_crypto_momentum_floor_pct,
+                )
+                ranked.extend(
+                    scan_scalp_signals(
+                        cr_intraday,
+                        momentum_threshold_pct=cr_thresh,
+                        require_fresh=True,
+                    )
+                )
+            ranked = rank_scalp_signals(ranked)
 
-            ranked = rank_scalp_signals(signals)
+            def _can_trade_symbol(sym: str) -> bool:
+                if is_crypto(sym):
+                    return crypto_trade
+                return equity_trade
+
+            held = {p.symbol for p in (await self.broker.get_positions(session))}
             sells = [s for s in ranked if s["side"] == "sell" and s["symbol"] in held]
             buys = [s for s in ranked if s["side"] == "buy" and s["symbol"] not in held]
 
             belief_engine = BeliefEngine(session, tenant_id=self.tenant_id)
             belief_rows = await belief_engine.list_beliefs(min_confidence=0.0)
-            beliefs_out = [_belief_out(b) for b in belief_rows[:20]]
+            actionable = [b for b in belief_rows if is_actionable_belief(b.label)]
+            beliefs_out = [_belief_out(b) for b in (actionable or belief_rows)[:20]]
 
             def _belief_for(sym: str) -> tuple[str | None, str | None, float | None]:
                 for b in beliefs_out:
-                    if sym in b.label.upper():
+                    if belief_matches_symbol(b.label, sym) and is_actionable_belief(b.label):
+                        return b.graph_id, b.label, b.crs
+                for b in beliefs_out:
+                    if belief_matches_symbol(b.label, sym):
                         return b.graph_id, b.label, b.crs
                 return None, None, None
+
+            def _position_pct(sym: str) -> float:
+                if is_crypto(sym):
+                    return settings.quant_crypto_position_pct
+                return settings.quant_scalp_position_pct
 
             portfolio = await self.broker.portfolio(session, quote_map)
             max_trades = settings.quant_max_trades_per_cycle
             trade_budget = max_trades - trades_executed
 
-            for sig in sells[:trade_budget]:
-                price = quote_map.get(sig["symbol"], sig["price"])
-                pos = next((p for p in portfolio.positions if p.symbol == sig["symbol"]), None)
-                if not pos:
-                    continue
-                bid, blabel, bcrs = _belief_for(sig["symbol"])
-                trade = await self.broker.execute_market_order(
-                    session,
-                    symbol=sig["symbol"],
-                    side="sell",
-                    quantity=pos.quantity,
-                    price=price,
-                    belief_graph_id=bid,
-                    belief_label=blabel or "scalp_momentum",
-                    reasoning=sig["reasoning"],
-                    crs_at_trade=bcrs or sig.get("confidence"),
-                )
-                if trade:
-                    trades_executed += 1
-                    trade_budget -= 1
+            if equity_trade or crypto_trade:
+                for sig in sells[:trade_budget]:
+                    if not _can_trade_symbol(sig["symbol"]):
+                        continue
+                    price = quote_map.get(sig["symbol"], sig["price"])
+                    pos = next((p for p in portfolio.positions if p.symbol == sig["symbol"]), None)
+                    if not pos:
+                        continue
+                    bid, blabel, bcrs = _belief_for(sig["symbol"])
+                    trade = await self.broker.execute_market_order(
+                        session,
+                        symbol=sig["symbol"],
+                        side="sell",
+                        quantity=pos.quantity,
+                        price=price,
+                        belief_graph_id=bid,
+                        belief_label=blabel or "scalp_momentum",
+                        reasoning=sig["reasoning"],
+                        crs_at_trade=bcrs or sig.get("confidence"),
+                    )
+                    if trade:
+                        trades_executed += 1
+                        trade_budget -= 1
 
-            portfolio = await self.broker.portfolio(session, quote_map)
-            for sig in buys[:trade_budget]:
-                price = quote_map.get(sig["symbol"], sig["price"])
-                if price <= 0:
-                    continue
-                max_notional = portfolio.nav * settings.quant_scalp_position_pct
-                qty = min(max_notional / price, portfolio.cash / price)
-                if qty < 0.001:
-                    continue
-                bid, blabel, bcrs = _belief_for(sig["symbol"])
-                trade = await self.broker.execute_market_order(
-                    session,
-                    symbol=sig["symbol"],
-                    side="buy",
-                    quantity=qty,
-                    price=price,
-                    belief_graph_id=bid,
-                    belief_label=blabel or "scalp_momentum",
-                    reasoning=sig["reasoning"],
-                    crs_at_trade=bcrs or sig.get("confidence"),
-                )
-                if trade:
-                    trades_executed += 1
+                portfolio = await self.broker.portfolio(session, quote_map)
+                for sig in buys[:trade_budget]:
+                    if not _can_trade_symbol(sig["symbol"]):
+                        continue
+                    price = quote_map.get(sig["symbol"], sig["price"])
+                    if price <= 0:
+                        continue
+                    max_notional = portfolio.nav * _position_pct(sig["symbol"])
+                    qty = min(max_notional / price, portfolio.cash / price)
+                    if qty < 0.001:
+                        continue
+                    bid, blabel, bcrs = _belief_for(sig["symbol"])
+                    trade = await self.broker.execute_market_order(
+                        session,
+                        symbol=sig["symbol"],
+                        side="buy",
+                        quantity=qty,
+                        price=price,
+                        belief_graph_id=bid,
+                        belief_label=blabel or "scalp_momentum",
+                        reasoning=sig["reasoning"],
+                        crs_at_trade=bcrs or sig.get("confidence"),
+                    )
+                    if trade:
+                        trades_executed += 1
 
-            # 3. Light ingest — top movers only (keeps beliefs fresh without slow full ingest)
-            if settings.quant_light_ingest:
+            # 3. Light ingest — top movers (crypto 24/7, equities in session)
+            ingest_active = (equity_trade and eq_syms) or (crypto_trade and cr_syms)
+            if ingest_active and settings.quant_light_ingest:
+                mover_pool: list[tuple[str, list]] = []
+                if equity_trade:
+                    mover_pool.extend(
+                        (sym, bars) for sym, bars in intraday.items() if sym in eq_syms and bars
+                    )
+                if crypto_trade:
+                    mover_pool.extend(
+                        (sym, bars) for sym, bars in intraday.items() if sym in cr_syms and bars
+                    )
                 movers = sorted(
-                    [(sym, bars) for sym, bars in intraday.items() if bars],
+                    mover_pool,
                     key=lambda x: abs(
                         (x[1][-1]["close"] - x[1][-2]["close"]) / x[1][-2]["close"] * 100
                         if len(x[1]) > 1 and x[1][-2]["close"]
@@ -269,9 +339,9 @@ class QuantService:
                     )
                     ingested += 1
 
-            # News only every N cycles in scalp mode
-            if cycle_state.cycle_count % settings.quant_news_every_n_cycles == 0:
-                for headline in await fetch_news(symbols[:4], settings.quant_news_per_symbol):
+            # News only for equities during US session
+            if equity_trade and cycle_state.cycle_count % settings.quant_news_every_n_cycles == 0:
+                for headline in await fetch_news(eq_syms[:4], settings.quant_news_per_symbol):
                     await orch.ingest_experience(
                         ExperienceCreate(
                             content=format_news_experience(headline),
@@ -288,7 +358,7 @@ class QuantService:
 
             beliefs_out = [
                 _belief_out(b)
-                for b in (await belief_engine.list_beliefs(min_confidence=0.0))[:20]
+                for b in (actionable or belief_rows)[:20]
             ]
             portfolio = await self.broker.portfolio(session, quote_map)
             await self.broker.record_snapshot(
@@ -319,11 +389,20 @@ class QuantService:
             )
             now_str = datetime.now(timezone.utc).strftime("%H:%M")
             max_crs = max((b.crs for b in beliefs_out), default=0.4)
+            thresh_note = ""
+            if crypto_trade and cr_syms:
+                thresh_note = "crypto+eq" if equity_trade else "crypto 24/7"
+            elif equity_trade:
+                thresh_note = "equities"
+            status_note = market["label"] if not thresh_note else f"{thresh_note} · {market['label']}"
             new_steps = append_cycle_step(
                 trace.steps,
                 title=f"Scalp {cycle_state.cycle_count + 1}",
                 crs=max_crs,
-                episode_text=f"{settings.quant_bar_interval} scalp: {trades_executed} trade(s), {len(ranked)} signals",
+                episode_text=(
+                    f"{settings.quant_bar_interval} scalp: {trades_executed} trade(s), "
+                    f"{len(ranked)} signals · {status_note}"
+                ),
                 time_str=now_str,
                 active_nodes=[n["id"] for n in trace.nodes[:6]],
             )
@@ -342,7 +421,7 @@ class QuantService:
                 trades_executed=trades_executed,
                 message=(
                     f"Scalp cycle {cycle_state.cycle_count}: {trades_executed} trades, "
-                    f"{len(ranked)} signals ({settings.quant_bar_interval})"
+                    f"{len(ranked)} signals · {market['label']}"
                 ),
             )
 
@@ -571,9 +650,16 @@ class QuantService:
 
         belief_engine = BeliefEngine(session, tenant_id=self.tenant_id)
         belief_rows = await belief_engine.list_beliefs(min_confidence=0.0)
-        beliefs_out = [_belief_out(b) for b in belief_rows[:20]]
+        actionable = [b for b in belief_rows if is_actionable_belief(b.label)]
+        beliefs_out = [_belief_out(b) for b in (actionable or belief_rows)[:20]]
 
         cycle_state = await self._cycle_state(session)
+        market = quant_trading_session(crypto_enabled=settings.quant_crypto_enabled)
+        effective_interval = cycle_interval_sec(
+            market,
+            settings.quant_cycle_interval_sec,
+            settings.quant_cycle_interval_closed_sec,
+        )
 
         ep_result = await session.execute(
             select(Episode)
@@ -651,7 +737,13 @@ class QuantService:
             watchlist=symbols,
             scalp_mode=settings.quant_scalp_mode,
             bar_interval=settings.quant_bar_interval,
-            cycle_interval_sec=settings.quant_cycle_interval_sec,
+            cycle_interval_sec=effective_interval,
+            market_open=bool(market.get("open")),
+            equities_open=bool(market.get("equities_open")),
+            market_status=str(market.get("status", "unknown")),
+            market_label=str(market.get("label", "")),
+            crypto_enabled=settings.quant_crypto_enabled,
+            crypto_symbols=crypto_symbols(),
         )
 
 
