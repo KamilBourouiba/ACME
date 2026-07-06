@@ -18,5 +18,7 @@ azure/demo-squad.env
 azure/deployment.env
 azure/api-key.env
 benchmark-results/
+.gh-pages-deploy/
+_pages/
 data/longmemeval/longmemeval_*.json
 !data/longmemeval/fixture_oracle_sample.json
