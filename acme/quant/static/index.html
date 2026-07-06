@@ -8,7 +8,7 @@
   <meta name="description" content="Real market data, ACME beliefs, paper trading dashboard with reasoning trails." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/style.css?v=2" />
+  <link rel="stylesheet" href="assets/style.css?v=3" />
 </head>
 <body>
   <div class="app">
@@ -58,8 +58,8 @@
             <span class="metric-value" id="total-pnl">—</span>
           </div>
           <div class="metric">
-            <span class="metric-label">Daily</span>
-            <span class="metric-value" id="daily-pnl">—</span>
+            <span class="metric-label">Cycle Δ</span>
+            <span class="metric-value" id="cycle-pnl">—</span>
           </div>
         </div>
         <canvas id="equity-chart" height="80" aria-label="Equity curve"></canvas>
@@ -142,6 +142,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="assets/app.js?v=2"></script>
+  <script src="assets/app.js?v=3"></script>
 </body>
 </html>

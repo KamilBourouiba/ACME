@@ -36,8 +36,8 @@ class PortfolioOut(BaseModel):
     nav: float
     total_pnl: float
     total_pnl_pct: float
-    daily_pnl: float
-    daily_pnl_pct: float
+    cycle_pnl: float
+    cycle_pnl_pct: float
     positions: list[PositionOut]
     updated_at: datetime
 

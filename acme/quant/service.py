@@ -28,7 +28,13 @@ from acme.quant.market import (
 )
 from acme.quant.news import fetch_news, format_news_experience
 from acme.quant.paper_broker import PaperBroker
-from acme.quant.scalp import format_scalp_experience, rank_scalp_signals, scalp_signal
+from acme.quant.scalp import (
+    format_scalp_experience,
+    merge_mark_prices,
+    quotes_from_intraday,
+    rank_scalp_signals,
+    scalp_signal,
+)
 from acme.quant.schemas import BeliefOut, CycleResultOut, QuantStateOut, QuoteOut, SignalOut, SnapshotPoint
 from acme.quant.trace import append_cycle_step, build_trace
 from acme.schemas import CognitiveProfile, ExperienceCreate, QueryRequest, SourceType
@@ -139,10 +145,11 @@ class QuantService:
             cycle_state = await self._cycle_state(session)
 
             quotes_raw = await fetch_quotes(symbols, force=True)
-            quote_map = {q["symbol"]: q["price"] for q in quotes_raw}
             intraday = await fetch_intraday_bars(symbols)
+            daily_map = {q["symbol"]: q["price"] for q in quotes_raw}
+            quote_map = merge_mark_prices(symbols, intraday, daily_map)
 
-            # 1. Risk exits first (TP / SL / max hold)
+            # 1. Risk exits first (TP / SL / max hold) — marked at intraday 5m close
             exit_trades = await self.broker.process_scalp_exits(session, quote_map)
             trades_executed += len(exit_trades)
 
@@ -283,7 +290,6 @@ class QuantService:
                 _belief_out(b)
                 for b in (await belief_engine.list_beliefs(min_confidence=0.0))[:20]
             ]
-            quote_map = {q["symbol"]: q["price"] for q in quotes_raw}
             portfolio = await self.broker.portfolio(session, quote_map)
             await self.broker.record_snapshot(
                 session,
@@ -551,7 +557,14 @@ class QuantService:
     async def get_state(self, session: AsyncSession) -> QuantStateOut:
         symbols = _symbols()
         quotes_raw = await fetch_quotes(symbols)
-        quote_map = {q["symbol"]: q["price"] for q in quotes_raw}
+        daily_map = {q["symbol"]: q["price"] for q in quotes_raw}
+
+        if settings.quant_scalp_mode:
+            intraday = await fetch_intraday_bars(symbols)
+            quote_map = merge_mark_prices(symbols, intraday, daily_map)
+            quotes_raw = quotes_from_intraday(symbols, intraday, quotes_raw)
+        else:
+            quote_map = daily_map
 
         portfolio = await self.broker.portfolio(session, quote_map)
         trades = await self.broker.list_trades(session, limit=30)

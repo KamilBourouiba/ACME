@@ -73,8 +73,8 @@
     $("#cash-badge").textContent = "Cash " + fmtMoney(p.cash);
     $("#total-pnl").textContent = fmtMoney(p.total_pnl) + " (" + fmtPct(p.total_pnl_pct) + ")";
     $("#total-pnl").className = "metric-value " + pnlClass(p.total_pnl);
-    $("#daily-pnl").textContent = fmtMoney(p.daily_pnl) + " (" + fmtPct(p.daily_pnl_pct) + ")";
-    $("#daily-pnl").className = "metric-value " + pnlClass(p.daily_pnl);
+    $("#cycle-pnl").textContent = fmtMoney(p.cycle_pnl) + " (" + fmtPct(p.cycle_pnl_pct) + ")";
+    $("#cycle-pnl").className = "metric-value " + pnlClass(p.cycle_pnl);
 
     const tbody = $("#positions-body");
     if (!p.positions.length) {

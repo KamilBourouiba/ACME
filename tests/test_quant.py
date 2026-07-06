@@ -55,8 +55,8 @@ def _sample_state() -> QuantStateOut:
             nav=1_050_000.0,
             total_pnl=50_000.0,
             total_pnl_pct=5.0,
-            daily_pnl=2_000.0,
-            daily_pnl_pct=0.19,
+            cycle_pnl=2_000.0,
+            cycle_pnl_pct=0.19,
             positions=[
                 PositionOut(
                     symbol="NVDA",
@@ -188,6 +188,16 @@ def test_scalp_signal_buy():
     sig = scalp_signal("NVDA", bars, momentum_threshold_pct=0.05)
     assert sig is not None
     assert sig["side"] == "buy"
+
+
+def test_merge_mark_prices_prefers_intraday():
+    from acme.quant.scalp import merge_mark_prices
+
+    intraday = {"AAPL": [{"close": 310.5}]}
+    daily = {"AAPL": 308.63, "MSFT": 390.0}
+    merged = merge_mark_prices(["AAPL", "MSFT"], intraday, daily)
+    assert merged["AAPL"] == 310.5
+    assert merged["MSFT"] == 390.0
 
 
 @pytest.mark.asyncio

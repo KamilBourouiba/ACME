@@ -100,3 +100,61 @@ def format_scalp_experience(symbol: str, bars: list[dict], interval: str = "5m")
 def rank_scalp_signals(signals: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Strongest momentum signals first."""
     return sorted(signals, key=lambda s: abs(s.get("mom_1", 0)), reverse=True)
+
+
+def intraday_last_prices(intraday: dict[str, list[dict]]) -> dict[str, float]:
+    """Last bar close per symbol from intraday OHLCV."""
+    out: dict[str, float] = {}
+    for sym, bars in intraday.items():
+        if bars:
+            out[sym.upper()] = float(bars[-1]["close"])
+    return out
+
+
+def merge_mark_prices(
+    symbols: list[str],
+    intraday: dict[str, list[dict]],
+    daily_prices: dict[str, float],
+) -> dict[str, float]:
+    """Mark and fill at intraday last close when available; else daily quote."""
+    merged = {s.upper(): daily_prices[s] for s in daily_prices}
+    for sym, px in intraday_last_prices(intraday).items():
+        merged[sym] = px
+    for sym in symbols:
+        su = sym.upper()
+        if su not in merged and su in daily_prices:
+            merged[su] = daily_prices[su]
+    return merged
+
+
+def quotes_from_intraday(
+    symbols: list[str],
+    intraday: dict[str, list[dict]],
+    daily_quotes: list[dict],
+) -> list[dict]:
+    """Build quote rows for dashboard — intraday 5m when available."""
+    from datetime import datetime, timezone
+
+    daily_by_sym = {q["symbol"]: q for q in daily_quotes}
+    now = datetime.now(timezone.utc)
+    rows: list[dict] = []
+    for sym in symbols:
+        su = sym.upper()
+        bars = intraday.get(su) or intraday.get(sym) or []
+        if bars:
+            last = bars[-1]
+            prev = bars[-2]["close"] if len(bars) > 1 else last["close"]
+            chg = ((last["close"] - prev) / prev * 100) if prev else 0.0
+            rows.append(
+                {
+                    "symbol": su,
+                    "price": round(float(last["close"]), 4),
+                    "change_pct": round(chg, 3),
+                    "volume": int(last.get("volume") or 0),
+                    "market_cap": daily_by_sym.get(su, {}).get("market_cap"),
+                    "timestamp": now,
+                }
+            )
+        elif su in daily_by_sym:
+            rows.append(daily_by_sym[su])
+    return rows

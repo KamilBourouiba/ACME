@@ -215,11 +215,11 @@ class PaperBroker:
             .limit(2)
         )
         snaps = list(snap_result.scalars().all())
-        daily_pnl = 0.0
-        daily_pnl_pct = 0.0
+        cycle_pnl = 0.0
+        cycle_pnl_pct = 0.0
         if len(snaps) >= 2:
-            daily_pnl = nav - snaps[1].nav
-            daily_pnl_pct = (daily_pnl / snaps[1].nav * 100) if snaps[1].nav else 0.0
+            cycle_pnl = nav - snaps[1].nav
+            cycle_pnl_pct = (cycle_pnl / snaps[1].nav * 100) if snaps[1].nav else 0.0
 
         return PortfolioOut(
             tenant_id=self.tenant_id,
@@ -228,8 +228,8 @@ class PaperBroker:
             nav=nav,
             total_pnl=round(total_pnl, 2),
             total_pnl_pct=round(total_pnl_pct, 3),
-            daily_pnl=round(daily_pnl, 2),
-            daily_pnl_pct=round(daily_pnl_pct, 3),
+            cycle_pnl=round(cycle_pnl, 2),
+            cycle_pnl_pct=round(cycle_pnl_pct, 3),
             positions=sorted(pos_out, key=lambda x: -x.market_value),
             updated_at=datetime.now(timezone.utc),
         )
