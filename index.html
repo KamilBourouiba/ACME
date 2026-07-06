@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css?v=4">
+  <link rel="stylesheet" href="assets/style.css?v=3">
 </head>
 <body>
   <nav class="nav">
@@ -21,6 +21,7 @@
       <div class="nav-links">
         <a href="#benchmarks">Benchmarks</a>
         <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Memory Chat</a>
+        <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/quant/" target="_blank" rel="noopener">ACME Quant</a>
         <a href="#architecture">Architecture</a>
         <a href="#stack">API</a>
         <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
@@ -51,7 +52,8 @@
       </div>
     </div>
     <div class="hero-actions">
-      <a class="btn btn-primary" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Try Memory Chat</a>
+      <a class="btn btn-primary" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/quant/" target="_blank" rel="noopener">Try ACME Quant</a>
+      <a class="btn btn-outline" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Memory Chat</a>
       <a class="btn btn-outline" href="PAPER.pdf" target="_blank" rel="noopener">Read the paper</a>
       <a class="btn btn-outline" href="https://github.com/KamilBourouiba/ACME/releases/tag/v0.3.0-longmemeval-v5" target="_blank" rel="noopener">Release v0.3.0</a>
       <a class="btn btn-outline" href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/docs" target="_blank" rel="noopener">API docs</a>
@@ -231,8 +233,8 @@
           <p>Beliefs ranked by prediction success, temporal stability, contradiction resistance, and source diversity.</p>
         </div>
         <div class="feature">
-          <h3>Reproducible evaluation</h3>
-          <p>Per-scenario sandbox reset, async benchmark jobs, and CI gates on MemoryBench and LongMemEval fixtures.</p>
+          <h3>Live demos</h3>
+          <p><a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/quant/" target="_blank" rel="noopener">ACME Quant</a> — real market data, paper trading, belief trails. <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Memory Chat</a> — per-visitor agents with web browse and file upload.</p>
         </div>
       </div>
     </div>
@@ -276,6 +278,7 @@
       <div class="footer-links">
         <a href="https://github.com/KamilBourouiba/ACME" target="_blank" rel="noopener">GitHub</a>
         <a href="PAPER.pdf" target="_blank" rel="noopener">Paper</a>
+        <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/quant/" target="_blank" rel="noopener">ACME Quant</a>
         <a href="https://acme-api.blackgrass-3076f328.westeurope.azurecontainerapps.io/api/v1/chat/" target="_blank" rel="noopener">Memory Chat</a>
         <a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/BENCHMARK_RESULTS.md" target="_blank" rel="noopener">Results</a>
         <a href="https://github.com/KamilBourouiba/ACME/blob/main/docs/ARXIV_SUBMISSION.md" target="_blank" rel="noopener">arXiv checklist</a>
@@ -285,4 +288,3 @@
   <script src="assets/site.js" defer></script>
 </body>
 </html>
-
