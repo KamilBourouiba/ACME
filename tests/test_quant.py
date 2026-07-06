@@ -174,3 +174,25 @@ def test_parse_trade_decision_json():
     result = quant_service._parse_trade_decision(answer, ["AAPL", "NVDA"])
     assert result["action"] == "trade"
     assert result["symbol"] == "NVDA"
+
+
+@pytest.mark.asyncio
+async def test_quote_cache_returns_cached_without_refetch():
+    from acme.quant.market import QuoteCache
+
+    cache = QuoteCache(ttl_sec=300)
+    sample = [{"symbol": "AAPL", "price": 100.0, "change_pct": 1.0, "volume": 1, "market_cap": None, "timestamp": datetime.now(timezone.utc)}]
+
+    async def fake_refresh(symbols):
+        return sample
+
+    cache._refresh = fake_refresh  # type: ignore[method-assign]
+    cache._quotes = sample
+    cache._symbols_key = ("AAPL",)
+    cache._fetched_at = datetime.now(timezone.utc)
+
+    with patch("acme.quant.market._fetch_quotes_batch_sync") as mock_fetch:
+        result = await cache.get(["AAPL"])
+        assert result[0]["symbol"] == "AAPL"
+        mock_fetch.assert_not_called()
+

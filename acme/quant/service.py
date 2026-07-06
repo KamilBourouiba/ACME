@@ -18,7 +18,7 @@ from acme.engines.belief import BeliefEngine
 from acme.graph.neo4j_client import neo4j_client
 from acme.llm.factory import get_llm_client
 from acme.orchestrator import ACMEOrchestrator
-from acme.quant.market import fetch_bars, fetch_quotes, format_bar_summary, format_quote_experience
+from acme.quant.market import fetch_bars, fetch_quotes, format_bar_summary, format_quote_experience, quote_cache
 from acme.quant.news import fetch_news, format_news_experience
 from acme.quant.paper_broker import PaperBroker
 from acme.quant.schemas import BeliefOut, CycleResultOut, QuantStateOut, QuoteOut, SignalOut, SnapshotPoint
@@ -80,6 +80,8 @@ class QuantService:
         if self._running:
             return
         self._running = True
+        quote_cache.ttl_sec = float(settings.quant_quote_cache_sec)
+        asyncio.create_task(quote_cache.warm(_symbols()))
         self._task = asyncio.create_task(self._loop())
         logger.info("Quant demo started (tenant=%s, interval=%ds)", self.tenant_id, settings.quant_cycle_interval_sec)
 
@@ -124,7 +126,7 @@ class QuantService:
             cycle_state = await self._cycle_state(session)
 
             # 1. Fetch real market data
-            quotes_raw = await fetch_quotes(symbols)
+            quotes_raw = await fetch_quotes(symbols, force=True)
             news_raw = await fetch_news(symbols, settings.quant_news_per_symbol)
 
             for q in quotes_raw:

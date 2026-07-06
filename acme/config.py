@@ -138,6 +138,7 @@ class Settings(BaseSettings):
     quant_min_belief_crs: float = 0.55
     quant_news_per_symbol: int = 3
     quant_max_trades_per_cycle: int = 2
+    quant_quote_cache_sec: int = 60
 
 
 settings = Settings()
