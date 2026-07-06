@@ -94,15 +94,22 @@ def build_trace(
     tr_positions = _layout_rows(len(tr_slice), _COL["trade"])
     for k, (t, (x, y)) in enumerate(zip(tr_slice, tr_positions)):
         side = t.side.lower()
-        kind = "trade-buy" if side == "buy" else "trade-sell"
-        label = f"{t.side.upper()} {t.symbol} @ ${t.price:.2f}"
+        reasoning = (t.reasoning or "").lower()
+        if side == "sell" and "bearish" in reasoning:
+            kind = "trade-short"
+            label = f"SHORT {t.symbol} @ ${t.price:.2f}"
+            short = f"{t.symbol} SHORT"
+        else:
+            kind = "trade-buy" if side == "buy" else "trade-sell"
+            label = f"{t.side.upper()} {t.symbol} @ ${t.price:.2f}"
+            short = f"{t.symbol} {side.upper()}"
         nodes.append(
             {
                 "id": f"tr{k}",
                 "kind": kind,
                 "column": "trade",
                 "label": label,
-                "short": f"{t.symbol} {side.upper()}",
+                "short": short,
                 "x": x,
                 "y": y,
                 "crs": round(t.crs_at_trade, 2) if t.crs_at_trade else None,

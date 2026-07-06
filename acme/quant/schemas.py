@@ -21,6 +21,7 @@ class QuoteOut(BaseModel):
 class PositionOut(BaseModel):
     symbol: str
     quantity: float
+    side: str = "long"
     avg_cost: float
     market_price: float
     market_value: float

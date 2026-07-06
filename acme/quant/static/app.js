@@ -57,7 +57,13 @@
   function fmtQty(symbol, qty) {
     if (qty == null || isNaN(qty)) return "—";
     const dec = isCrypto(symbol) ? 4 : 1;
-    return qty.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const n = Math.abs(qty);
+    return n.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function positionSide(pos) {
+    if (pos.side === "short" || (pos.quantity != null && pos.quantity < 0)) return "SHORT";
+    return "LONG";
   }
 
   function assetTag(sym) {
@@ -106,7 +112,7 @@
         <div class="pc-head">
           <span class="pc-symbol">${pos.symbol}</span>
           ${assetTag(pos.symbol)}
-          <span class="pc-side">LONG</span>
+          <span class="pc-side ${positionSide(pos) === "SHORT" ? "short" : "long"}">${positionSide(pos)}</span>
         </div>
         <div class="pc-upnl ${pnlClass(pos.unrealized_pnl)}">${fmtMoney(pos.unrealized_pnl)}</div>
         <div class="pc-upnl-pct ${pnlClass(pos.unrealized_pnl)}">${fmtPct(pos.unrealized_pnl_pct)}</div>
@@ -162,7 +168,7 @@
     } else {
       tbody.innerHTML = p.positions.map((pos) => `
         <tr class="row-held ${pnlClass(pos.unrealized_pnl)}">
-          <td><strong>${pos.symbol}</strong> ${isCrypto(pos.symbol) ? '<span class="asset-tag crypto">C</span>' : ""}</td>
+          <td><strong>${pos.symbol}</strong> ${isCrypto(pos.symbol) ? '<span class="asset-tag crypto">C</span>' : ""} <span class="pc-side ${positionSide(pos) === "SHORT" ? "short" : "long"}">${positionSide(pos)}</span></td>
           <td>${fmtQty(pos.symbol, pos.quantity)}</td>
           <td>$${fmt(pos.avg_cost)}</td>
           <td>$${fmt(pos.market_price)}</td>

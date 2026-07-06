@@ -34,11 +34,12 @@ from acme.quant.scalp import (
     format_scalp_experience,
     is_actionable_belief,
     merge_mark_prices,
+    profit_exit_signal,
     quotes_from_intraday,
     rank_scalp_signals,
     scan_scalp_signals,
 )
-from acme.quant.fees import leverage_for_symbol, max_buy_notional
+from acme.quant.fees import leverage_for_symbol, max_buy_notional, min_profit_take_pct
 from acme.quant.symbols import (
     all_symbols,
     belief_matches_symbol,
@@ -270,25 +271,16 @@ class QuantService:
 
             await self.broker.accrue_carry_costs(session, quote_map)
 
-            # 1. Risk exits first (TP / SL / trail / max hold)
-            exit_trades = await self.broker.process_scalp_exits(session, quote_map)
-            trades_executed += len(exit_trades)
-
-            # 2. Scalp signals — equities in US session, crypto 24/7
-            ranked: list[dict] = []
+            eq_thresh = settings.quant_scalp_momentum_threshold_pct
+            cr_thresh = settings.quant_crypto_momentum_threshold_pct
+            eq_intraday: dict[str, list] = {}
+            cr_intraday: dict[str, list] = {}
             if equity_trade and eq_syms:
                 eq_intraday = {s: intraday[s] for s in eq_syms if s in intraday}
                 eq_thresh = adaptive_momentum_threshold(
                     eq_intraday,
                     settings.quant_scalp_momentum_threshold_pct,
                     floor=settings.quant_scalp_momentum_floor_pct,
-                )
-                ranked.extend(
-                    scan_scalp_signals(
-                        eq_intraday,
-                        momentum_threshold_pct=eq_thresh,
-                        require_fresh=True,
-                    )
                 )
             if crypto_trade and cr_syms:
                 cr_intraday = {s: intraday[s] for s in cr_syms if s in intraday}
@@ -297,6 +289,76 @@ class QuantService:
                     settings.quant_crypto_momentum_threshold_pct,
                     floor=settings.quant_crypto_momentum_floor_pct,
                 )
+
+            def _momentum_threshold(sym: str) -> float:
+                return cr_thresh if is_crypto(sym) else eq_thresh
+
+            # 1. Risk exits first (TP / SL / trail / max hold)
+            exit_trades = await self.broker.process_scalp_exits(session, quote_map)
+            trades_executed += len(exit_trades)
+
+            # 2. Profit-take on momentum fade (winning positions only)
+            profit_budget = settings.quant_max_trades_per_cycle - trades_executed
+            for pos in await self.broker.get_positions(session):
+                if profit_budget <= 0:
+                    break
+                sym = pos.symbol
+                if is_crypto(sym) and not crypto_trade:
+                    continue
+                if not is_crypto(sym) and not equity_trade:
+                    continue
+                bars = intraday.get(sym) or []
+                side = "short" if pos.quantity < 0 else "long"
+                sig = profit_exit_signal(
+                    sym,
+                    bars,
+                    position_side=side,
+                    entry_price=pos.avg_cost,
+                    momentum_threshold_pct=_momentum_threshold(sym),
+                    min_profit_pct=min_profit_take_pct(sym),
+                )
+                if not sig:
+                    continue
+                price = quote_map.get(sym, sig["price"])
+                if price <= 0:
+                    continue
+                if side == "long":
+                    trade = await self.broker.execute_market_order(
+                        session,
+                        symbol=sym,
+                        side="sell",
+                        quantity=pos.quantity,
+                        price=price,
+                        belief_label="profit_take",
+                        reasoning=sig["reasoning"],
+                        crs_at_trade=sig.get("confidence"),
+                    )
+                else:
+                    trade = await self.broker.execute_market_order(
+                        session,
+                        symbol=sym,
+                        side="buy",
+                        quantity=abs(pos.quantity),
+                        price=price,
+                        belief_label="profit_take",
+                        reasoning=sig["reasoning"],
+                        crs_at_trade=sig.get("confidence"),
+                    )
+                if trade:
+                    trades_executed += 1
+                    profit_budget -= 1
+
+            # 3. Scalp signals — equities in US session, crypto 24/7
+            ranked: list[dict] = []
+            if eq_intraday:
+                ranked.extend(
+                    scan_scalp_signals(
+                        eq_intraday,
+                        momentum_threshold_pct=eq_thresh,
+                        require_fresh=True,
+                    )
+                )
+            if cr_intraday:
                 ranked.extend(
                     scan_scalp_signals(
                         cr_intraday,
@@ -312,9 +374,36 @@ class QuantService:
                     return crypto_trade
                 return equity_trade
 
-            held = {p.symbol for p in (await self.broker.get_positions(session))}
-            sells = [s for s in ranked if s["side"] == "sell" and s["symbol"] in held]
-            buys = [s for s in ranked if s["side"] == "buy" and s["symbol"] not in held]
+            positions = await self.broker.get_positions(session)
+            held_long = {p.symbol for p in positions if p.quantity > 0}
+            held_short = {p.symbol for p in positions if p.quantity < 0}
+            held_any = held_long | held_short
+
+            def _can_short_symbol(sym: str) -> bool:
+                if not settings.quant_short_enabled:
+                    return False
+                if settings.quant_short_crypto_only and not is_crypto(sym):
+                    return False
+                return _can_trade_symbol(sym)
+
+            sells = [
+                s
+                for s in ranked
+                if s["side"] == "sell"
+                and (
+                    s["symbol"] in held_long
+                    or (s["symbol"] not in held_any and _can_short_symbol(s["symbol"]))
+                )
+            ]
+            buys = [
+                s
+                for s in ranked
+                if s["side"] == "buy"
+                and (
+                    s["symbol"] in held_short
+                    or (s["symbol"] not in held_any and _can_trade_symbol(s["symbol"]))
+                )
+            ]
 
             belief_engine = BeliefEngine(session, tenant_id=self.tenant_id)
             belief_rows = await belief_engine.list_beliefs(min_confidence=0.0)
@@ -344,15 +433,29 @@ class QuantService:
                     if not _can_trade_symbol(sig["symbol"]):
                         continue
                     price = quote_map.get(sig["symbol"], sig["price"])
+                    if price <= 0:
+                        continue
                     pos = next((p for p in portfolio.positions if p.symbol == sig["symbol"]), None)
-                    if not pos:
+                    if pos and pos.quantity > 0:
+                        qty = pos.quantity
+                    elif pos is None and _can_short_symbol(sig["symbol"]):
+                        lev = leverage_for_symbol(sig["symbol"])
+                        pct = _position_pct(sig["symbol"])
+                        max_notional = min(
+                            max_buy_notional(portfolio.buying_power * pct, sig["symbol"], lev),
+                            portfolio.nav * pct * lev,
+                        )
+                        qty = max_notional / price
+                    else:
+                        continue
+                    if qty < 0.0001:
                         continue
                     bid, blabel, bcrs = _belief_for(sig["symbol"])
                     trade = await self.broker.execute_market_order(
                         session,
                         symbol=sig["symbol"],
                         side="sell",
-                        quantity=pos.quantity,
+                        quantity=qty,
                         price=price,
                         belief_graph_id=bid,
                         belief_label=blabel or "scalp_momentum",
@@ -370,13 +473,17 @@ class QuantService:
                     price = quote_map.get(sig["symbol"], sig["price"])
                     if price <= 0:
                         continue
-                    lev = leverage_for_symbol(sig["symbol"])
-                    pct = _position_pct(sig["symbol"])
-                    max_notional = min(
-                        max_buy_notional(portfolio.buying_power * pct, sig["symbol"], lev),
-                        portfolio.nav * pct * lev,
-                    )
-                    qty = max_notional / price
+                    pos = next((p for p in portfolio.positions if p.symbol == sig["symbol"]), None)
+                    if pos and pos.quantity < 0:
+                        qty = abs(pos.quantity)
+                    else:
+                        lev = leverage_for_symbol(sig["symbol"])
+                        pct = _position_pct(sig["symbol"])
+                        max_notional = min(
+                            max_buy_notional(portfolio.buying_power * pct, sig["symbol"], lev),
+                            portfolio.nav * pct * lev,
+                        )
+                        qty = max_notional / price
                     if qty < 0.0001:
                         continue
                     bid, blabel, bcrs = _belief_for(sig["symbol"])

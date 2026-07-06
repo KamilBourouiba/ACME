@@ -90,7 +90,7 @@ class PaperBroker:
         total = 0.0
         for pos in await self.get_positions(session):
             mkt = quotes.get(pos.symbol, pos.avg_cost)
-            notional = pos.quantity * mkt
+            notional = abs(pos.quantity) * mkt
             borrowed = self._position_borrowed(pos)
             cost = carry_cost(
                 symbol=pos.symbol,
@@ -107,6 +107,130 @@ class PaperBroker:
         await session.flush()
         return round(total, 4)
 
+    async def _open_short(
+        self,
+        session: AsyncSession,
+        *,
+        acct: PaperAccount,
+        positions: list[PaperPosition],
+        symbol: str,
+        quantity: float,
+        price: float,
+        leverage: float,
+        quotes: dict[str, float],
+        belief_graph_id: str | None,
+        belief_label: str | None,
+        reasoning: str,
+        crs_at_trade: float | None,
+    ) -> PaperTrade | None:
+        notional = round(quantity * price, 2)
+        fee = trade_commission(symbol, notional)
+        margin = margin_required(notional, leverage)
+        if margin + fee > acct.cash + 0.01:
+            affordable = max_buy_notional(acct.cash, symbol, leverage)
+            quantity = min(quantity, affordable / price if price else 0)
+            notional = round(quantity * price, 2)
+            fee = trade_commission(symbol, notional)
+            margin = margin_required(notional, leverage)
+        portfolio = await self.portfolio(session, quotes)
+        cap = self._exposure_cap_notional(portfolio.nav, positions, quotes)
+        if notional > cap:
+            quantity = min(quantity, cap / price if price else 0)
+            notional = round(quantity * price, 2)
+            fee = trade_commission(symbol, notional)
+            margin = margin_required(notional, leverage)
+        if margin + fee > acct.cash or quantity < 0.0001:
+            logger.info("Insufficient margin for %s short", symbol)
+            return None
+
+        trade = PaperTrade(
+            account_id=acct.id,
+            tenant_id=self.tenant_id,
+            symbol=symbol,
+            side="sell",
+            quantity=round(quantity, 6),
+            price=round(price, 4),
+            notional=notional,
+            fee=fee,
+            leverage=leverage,
+            belief_graph_id=belief_graph_id,
+            belief_label=belief_label,
+            reasoning=reasoning[:2000],
+            crs_at_trade=crs_at_trade,
+        )
+        session.add(trade)
+        acct.fees_paid = round((acct.fees_paid or 0) + fee, 4)
+        acct.cash = round(acct.cash - margin - fee, 4)
+        borrowed = borrowed_from_cost(notional, leverage)
+        pos = PaperPosition(
+            account_id=acct.id,
+            tenant_id=self.tenant_id,
+            symbol=symbol,
+            quantity=-round(quantity, 6),
+            avg_cost=price,
+            leverage=leverage,
+            margin_used=margin,
+            borrowed=borrowed,
+            opened_at=datetime.now(timezone.utc),
+            peak_price=price,
+            stop_floor=None,
+        )
+        session.add(pos)
+        await session.flush()
+        return trade
+
+    async def _cover_short(
+        self,
+        session: AsyncSession,
+        *,
+        acct: PaperAccount,
+        pos: PaperPosition,
+        symbol: str,
+        quantity: float,
+        price: float,
+        leverage: float,
+        belief_graph_id: str | None,
+        belief_label: str | None,
+        reasoning: str,
+        crs_at_trade: float | None,
+    ) -> PaperTrade | None:
+        short_qty = abs(pos.quantity)
+        quantity = min(quantity, short_qty)
+        if quantity < 0.0001:
+            return None
+        notional = round(quantity * price, 2)
+        fee = trade_commission(symbol, notional)
+        frac = quantity / short_qty if short_qty else 1.0
+        margin_release = round(self._position_margin(pos) * frac, 4)
+        borrowed_release = round(self._position_borrowed(pos) * frac, 4)
+        realized = (pos.avg_cost - price) * quantity - fee
+
+        trade = PaperTrade(
+            account_id=acct.id,
+            tenant_id=self.tenant_id,
+            symbol=symbol,
+            side="buy",
+            quantity=round(quantity, 6),
+            price=round(price, 4),
+            notional=notional,
+            fee=fee,
+            leverage=leverage,
+            belief_graph_id=belief_graph_id,
+            belief_label=belief_label,
+            reasoning=reasoning[:2000],
+            crs_at_trade=crs_at_trade,
+        )
+        session.add(trade)
+        acct.fees_paid = round((acct.fees_paid or 0) + fee, 4)
+        acct.cash = round(acct.cash + margin_release + realized, 4)
+        pos.quantity = round(pos.quantity + quantity, 6)
+        pos.margin_used = round(max(0.0, (pos.margin_used or 0) - margin_release), 4)
+        pos.borrowed = round(max(0.0, (pos.borrowed or 0) - borrowed_release), 4)
+        if pos.quantity > -0.0001:
+            await session.delete(pos)
+        await session.flush()
+        return trade
+
     def _exposure_cap_notional(
         self,
         nav: float,
@@ -115,7 +239,7 @@ class PaperBroker:
         additional: float = 0.0,
     ) -> float:
         current = sum(
-            p.quantity * quotes.get(p.symbol, p.avg_cost) for p in positions
+            abs(p.quantity * quotes.get(p.symbol, p.avg_cost)) for p in positions
         )
         cap = nav * max(settings.quant_max_leverage, 1.0)
         return max(0.0, cap - current - additional)
@@ -143,7 +267,29 @@ class PaperBroker:
         positions = await self.get_positions(session)
         quotes = {symbol: price}
 
+        pos_result = await session.execute(
+            select(PaperPosition).where(
+                PaperPosition.account_id == acct.id,
+                PaperPosition.symbol == symbol,
+            )
+        )
+        pos = pos_result.scalar_one_or_none()
+
         if side == "buy":
+            if pos is not None and pos.quantity < 0:
+                return await self._cover_short(
+                    session,
+                    acct=acct,
+                    pos=pos,
+                    symbol=symbol,
+                    quantity=quantity,
+                    price=price,
+                    leverage=leverage,
+                    belief_graph_id=belief_graph_id,
+                    belief_label=belief_label,
+                    reasoning=reasoning,
+                    crs_at_trade=crs_at_trade,
+                )
             notional = round(quantity * price, 2)
             fee = trade_commission(symbol, notional)
             margin = margin_required(notional, leverage)
@@ -167,18 +313,26 @@ class PaperBroker:
             notional = round(quantity * price, 2)
             fee = trade_commission(symbol, notional)
 
-        pos_result = await session.execute(
-            select(PaperPosition).where(
-                PaperPosition.account_id == acct.id,
-                PaperPosition.symbol == symbol,
-            )
-        )
-        pos = pos_result.scalar_one_or_none()
-
         if side == "sell":
-            if pos is None or pos.quantity < quantity:
-                if pos is None:
-                    return None
+            if pos is None:
+                return await self._open_short(
+                    session,
+                    acct=acct,
+                    positions=positions,
+                    symbol=symbol,
+                    quantity=quantity,
+                    price=price,
+                    leverage=leverage,
+                    quotes=quotes,
+                    belief_graph_id=belief_graph_id,
+                    belief_label=belief_label,
+                    reasoning=reasoning,
+                    crs_at_trade=crs_at_trade,
+                )
+            if pos.quantity < 0:
+                logger.info("Already short %s — skip add", symbol)
+                return None
+            if pos.quantity < quantity:
                 quantity = pos.quantity
                 notional = round(quantity * price, 2)
                 fee = trade_commission(symbol, notional)
@@ -273,20 +427,32 @@ class PaperBroker:
                 leverage=lev,
                 opened_at=opened,
                 now=now,
+                quantity=pos.quantity,
             )
             pos.peak_price = decision.state.peak_price
             pos.stop_floor = decision.state.stop_floor
 
             if decision.reason:
-                trade = await self.execute_market_order(
-                    session,
-                    symbol=pos.symbol,
-                    side="sell",
-                    quantity=pos.quantity,
-                    price=price,
-                    belief_label="scalp_exit",
-                    reasoning=decision.reason,
-                )
+                if pos.quantity < 0:
+                    trade = await self.execute_market_order(
+                        session,
+                        symbol=pos.symbol,
+                        side="buy",
+                        quantity=abs(pos.quantity),
+                        price=price,
+                        belief_label="scalp_exit",
+                        reasoning=decision.reason,
+                    )
+                else:
+                    trade = await self.execute_market_order(
+                        session,
+                        symbol=pos.symbol,
+                        side="sell",
+                        quantity=pos.quantity,
+                        price=price,
+                        belief_label="scalp_exit",
+                        reasoning=decision.reason,
+                    )
                 if trade:
                     exits.append(trade)
         return exits
@@ -310,18 +476,20 @@ class PaperBroker:
             mkt_val = p.quantity * mkt
             cost_basis = p.quantity * p.avg_cost
             upnl = mkt_val - cost_basis
-            upnl_pct = (upnl / cost_basis * 100) if cost_basis else 0.0
+            upnl_pct = (upnl / abs(cost_basis) * 100) if cost_basis else 0.0
             lev = self._position_leverage(p)
             pmargin = self._position_margin(p)
             pborrowed = self._position_borrowed(p)
-            gross_exposure += mkt_val
+            gross_exposure += abs(mkt_val)
             margin_used += pmargin
             borrowed += pborrowed
             unrealized_total += upnl
+            pos_side = "short" if p.quantity < 0 else "long"
             pos_out.append(
                 PositionOut(
                     symbol=p.symbol,
                     quantity=p.quantity,
+                    side=pos_side,
                     avg_cost=p.avg_cost,
                     market_price=mkt,
                     market_value=round(mkt_val, 2),
@@ -341,7 +509,7 @@ class PaperBroker:
         effective_leverage = round(gross_exposure / equity, 2) if equity > 0 else 0.0
 
         for po in pos_out:
-            po.weight_pct = round(po.market_value / nav * 100, 2) if nav else 0.0
+            po.weight_pct = round(abs(po.market_value) / nav * 100, 2) if nav else 0.0
 
         total_pnl = nav - acct.starting_cash
         total_pnl_pct = (total_pnl / acct.starting_cash * 100) if acct.starting_cash else 0.0

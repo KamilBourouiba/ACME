@@ -153,9 +153,14 @@ class Settings(BaseSettings):
     quant_scalp_breakeven_trigger_pct: float = 0.06
     quant_scalp_tp_roe_pct: float = 0.45
     quant_scalp_sl_roe_pct: float = 0.30
-    quant_crypto_take_profit_pct: float = 0.12
+    quant_crypto_take_profit_pct: float = 0.16
     quant_crypto_stop_loss_pct: float = 0.08
     quant_crypto_max_hold_sec: int = 120
+    quant_crypto_profit_take_min_pct: float = 0.06
+    quant_profit_take_min_pct: float = 0.08
+    quant_profit_exit_momentum_frac: float = 0.45
+    quant_profit_fee_buffer: float = 1.35
+    quant_profit_lock_pct: float = 0.04
     quant_scalp_momentum_threshold_pct: float = 0.05
     quant_scalp_momentum_floor_pct: float = 0.015
     quant_trade_only_market_hours: bool = True
@@ -165,6 +170,8 @@ class Settings(BaseSettings):
     quant_news_every_n_cycles: int = 90
     quant_max_trades_per_cycle: int = 6
     quant_quote_cache_sec: int = 2
+    quant_short_enabled: bool = True
+    quant_short_crypto_only: bool = True
     quant_ingest_every_n_cycles: int = 6
     quant_ingest_background: bool = True
     quant_ingest_interval_sec: int = 45

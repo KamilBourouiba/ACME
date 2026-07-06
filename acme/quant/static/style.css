@@ -348,6 +348,12 @@ html, body {
   border: 1px solid rgba(61, 214, 140, 0.25);
 }
 
+.pc-side.short {
+  color: #f07178;
+  border-color: rgba(240, 113, 120, 0.35);
+  background: rgba(240, 113, 120, 0.08);
+}
+
 .pc-upnl {
   font-family: var(--mono);
   font-size: 26px;

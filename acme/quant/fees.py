@@ -55,6 +55,25 @@ def max_buy_notional(available_cash: float, symbol: str, leverage: float) -> flo
     return round(max(est, 0.0), 2)
 
 
+def round_trip_fee_pct(symbol: str) -> float:
+    """Estimated round-trip commission as % of notional."""
+    if is_crypto(symbol):
+        return settings.quant_crypto_taker_fee_bps * 2.0 / 100.0
+    return settings.quant_equity_commission_bps * 2.0 / 100.0
+
+
+def effective_take_profit_pct(symbol: str, base_tp_pct: float) -> float:
+    """Take-profit floor that clears round-trip fees with buffer."""
+    fee_floor = round_trip_fee_pct(symbol) * settings.quant_profit_fee_buffer
+    return max(base_tp_pct, round(fee_floor, 4))
+
+
+def min_profit_take_pct(symbol: str) -> float:
+    if is_crypto(symbol):
+        return settings.quant_crypto_profit_take_min_pct
+    return settings.quant_profit_take_min_pct
+
+
 def carry_cost(
     *,
     symbol: str,

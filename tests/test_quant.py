@@ -176,6 +176,71 @@ def test_parse_trade_decision_json():
     assert result["symbol"] == "NVDA"
 
 
+def test_scalp_signal_sell_bearish():
+    from acme.quant.scalp import scalp_signal
+
+    now = datetime.now(timezone.utc).isoformat()
+    bars = [
+        {"close": 100.0, "volume": 1000, "date": now},
+        {"close": 99.95, "volume": 1000, "date": now},
+        {"close": 99.90, "volume": 1000, "date": now},
+        {"close": 99.82, "volume": 5000, "date": now},
+    ]
+    sig = scalp_signal("BTC-USD", bars, momentum_threshold_pct=0.05, require_fresh=True)
+    assert sig is not None
+    assert sig["side"] == "sell"
+
+
+def test_evaluate_exit_short_take_profit():
+    from acme.quant.risk import evaluate_exit
+
+    now = datetime.now(timezone.utc)
+    d = evaluate_exit(
+        symbol="ETH-USD",
+        avg_cost=100.0,
+        price=99.83,
+        peak_price=99.80,
+        stop_floor=None,
+        leverage=3.0,
+        opened_at=now,
+        now=now,
+        quantity=-1.0,
+    )
+    assert d.reason is not None
+    assert "profit" in d.reason.lower()
+
+
+def test_profit_exit_signal_long():
+    from acme.quant.scalp import profit_exit_signal
+
+    now = datetime.now(timezone.utc).isoformat()
+    bars = [
+        {"close": 100.0, "volume": 1000, "date": now},
+        {"close": 100.10, "volume": 1000, "date": now},
+        {"close": 100.12, "volume": 1000, "date": now},
+        {"close": 100.08, "volume": 5000, "date": now},
+    ]
+    sig = profit_exit_signal(
+        "BTC-USD",
+        bars,
+        position_side="long",
+        entry_price=100.0,
+        momentum_threshold_pct=0.05,
+        min_profit_pct=0.06,
+        momentum_frac=0.45,
+    )
+    assert sig is not None
+    assert sig["side"] == "sell"
+    assert "Profit take" in sig["reasoning"]
+
+
+def test_effective_take_profit_covers_fees():
+    from acme.quant.fees import effective_take_profit_pct
+
+    tp = effective_take_profit_pct("BTC-USD", 0.10)
+    assert tp >= 0.16
+
+
 def test_scalp_signal_buy():
     from acme.quant.scalp import scalp_signal
 

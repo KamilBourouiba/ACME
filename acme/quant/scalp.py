@@ -6,6 +6,8 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+from acme.config import settings
+
 
 def compute_bar_momentum(bars: list[dict], lookback: int = 1) -> float:
     """Percent change over `lookback` completed bars."""
@@ -101,6 +103,7 @@ def scalp_signal(
     price = last["close"]
     vwap = compute_vwap_proxy(bars)
     above_vwap = vwap is not None and price > vwap
+    below_vwap = vwap is not None and price < vwap
     strong = abs(mom_1) >= momentum_threshold_pct * 1.4
 
     # Long scalp: momentum + trend; VWAP optional on strong impulse
@@ -120,21 +123,76 @@ def scalp_signal(
             "mom_3": mom_3,
         }
 
-    # Exit signal for longs: momentum flipped negative
-    if mom_1 <= -momentum_threshold_pct and mom_3 <= 0.02:
+    # Bearish: close longs or open shorts (service routes by position)
+    if mom_1 <= -momentum_threshold_pct and mom_3 <= 0.02 and (below_vwap or strong):
+        strength = min(abs(mom_1) / momentum_threshold_pct, 3.0) / 3.0
         return {
             "symbol": symbol,
             "side": "sell",
             "price": price,
-            "confidence": round(0.5 + min(abs(mom_1) / momentum_threshold_pct, 2.0) * 0.2, 2),
+            "confidence": round(0.45 + strength * 0.35, 2),
             "reasoning": (
-                f"Scalp exit: 5m {mom_1:.2f}% (3-bar {mom_3:+.2f}%), "
-                f"momentum reversal"
+                f"Scalp bearish: 5m {mom_1:.2f}% (3-bar {mom_3:+.2f}%), "
+                f"price ${price:.2f}" + (f" below VWAP ${vwap:.2f}" if below_vwap and vwap else "")
             ),
-            "tags": ["scalp", "exit", "momentum"],
+            "tags": ["scalp", "bearish", "momentum"],
             "mom_1": mom_1,
             "mom_3": mom_3,
         }
+
+    return None
+
+
+def profit_exit_signal(
+    symbol: str,
+    bars: list[dict],
+    *,
+    position_side: str,
+    entry_price: float,
+    momentum_threshold_pct: float,
+    min_profit_pct: float,
+    momentum_frac: float | None = None,
+) -> dict[str, Any] | None:
+    """Close a winning position when momentum fades (softer threshold than entry)."""
+    if len(bars) < 3 or entry_price <= 0:
+        return None
+
+    frac = momentum_frac if momentum_frac is not None else settings.quant_profit_exit_momentum_frac
+    mom_1 = compute_bar_momentum(bars, 1)
+    price = bars[-1]["close"]
+    fade_thresh = momentum_threshold_pct * frac
+
+    if position_side == "long":
+        pnl_pct = (price - entry_price) / entry_price * 100
+        if pnl_pct >= min_profit_pct and mom_1 <= -fade_thresh:
+            return {
+                "symbol": symbol,
+                "side": "sell",
+                "price": price,
+                "confidence": 0.72,
+                "reasoning": (
+                    f"Profit take +{pnl_pct:.2f}% on fade "
+                    f"(5m {mom_1:.2f}%, min {min_profit_pct:.2f}%)"
+                ),
+                "tags": ["scalp", "profit_take", "long"],
+                "mom_1": mom_1,
+            }
+
+    if position_side == "short":
+        pnl_pct = (entry_price - price) / entry_price * 100
+        if pnl_pct >= min_profit_pct and mom_1 >= fade_thresh:
+            return {
+                "symbol": symbol,
+                "side": "buy",
+                "price": price,
+                "confidence": 0.72,
+                "reasoning": (
+                    f"Short profit take +{pnl_pct:.2f}% on fade "
+                    f"(5m +{mom_1:.2f}%, min {min_profit_pct:.2f}%)"
+                ),
+                "tags": ["scalp", "profit_take", "short"],
+                "mom_1": mom_1,
+            }
 
     return None
 
