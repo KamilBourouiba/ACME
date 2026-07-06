@@ -261,3 +261,85 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class PaperAccount(Base):
+    """Paper trading account — one per quant tenant."""
+
+    __tablename__ = "paper_accounts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
+    cash: Mapped[float] = mapped_column(Float, default=1_000_000.0)
+    starting_cash: Mapped[float] = mapped_column(Float, default=1_000_000.0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PaperPosition(Base):
+    """Open position in paper account."""
+
+    __tablename__ = "paper_positions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    symbol: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, default=0.0)
+    avg_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PaperTrade(Base):
+    """Executed paper trade linked to belief reasoning."""
+
+    __tablename__ = "paper_trades"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    symbol: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
+    side: Mapped[str] = mapped_column(String(8), nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    notional: Mapped[float] = mapped_column(Float, nullable=False)
+    belief_graph_id: Mapped[str | None] = mapped_column(String(256), index=True)
+    belief_label: Mapped[str | None] = mapped_column(String(512))
+    reasoning: Mapped[str] = mapped_column(Text, default="")
+    crs_at_trade: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class PortfolioSnapshot(Base):
+    """Periodic NAV snapshot for equity curve."""
+
+    __tablename__ = "portfolio_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    nav: Mapped[float] = mapped_column(Float, nullable=False)
+    total_pnl_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    positions_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
+class QuantCycleState(Base):
+    """Tracks quant research cycle metadata."""
+
+    __tablename__ = "quant_cycle_state"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(80), unique=True, index=True, nullable=False)
+    cycle_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_cycle_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_ingested: Mapped[int] = mapped_column(Integer, default=0)
+    trace_steps: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    trace_nodes: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    trace_edges: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)

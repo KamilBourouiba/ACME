@@ -85,6 +85,70 @@ _SCHEMA_PATCHES: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS chat_messages_session_idx ON chat_messages (session_id, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS paper_accounts (
+        id UUID PRIMARY KEY,
+        tenant_id VARCHAR(80) UNIQUE NOT NULL,
+        cash DOUBLE PRECISION DEFAULT 1000000,
+        starting_cash DOUBLE PRECISION DEFAULT 1000000,
+        created_at TIMESTAMPTZ DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS paper_accounts_tenant_idx ON paper_accounts (tenant_id)",
+    """
+    CREATE TABLE IF NOT EXISTS paper_positions (
+        id UUID PRIMARY KEY,
+        account_id UUID NOT NULL,
+        tenant_id VARCHAR(80) NOT NULL,
+        symbol VARCHAR(16) NOT NULL,
+        quantity DOUBLE PRECISION DEFAULT 0,
+        avg_cost DOUBLE PRECISION DEFAULT 0,
+        updated_at TIMESTAMPTZ DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS paper_positions_account_idx ON paper_positions (account_id, symbol)",
+    """
+    CREATE TABLE IF NOT EXISTS paper_trades (
+        id UUID PRIMARY KEY,
+        account_id UUID NOT NULL,
+        tenant_id VARCHAR(80) NOT NULL,
+        symbol VARCHAR(16) NOT NULL,
+        side VARCHAR(8) NOT NULL,
+        quantity DOUBLE PRECISION NOT NULL,
+        price DOUBLE PRECISION NOT NULL,
+        notional DOUBLE PRECISION NOT NULL,
+        belief_graph_id VARCHAR(256),
+        belief_label VARCHAR(512),
+        reasoning TEXT DEFAULT '',
+        crs_at_trade DOUBLE PRECISION,
+        created_at TIMESTAMPTZ DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS paper_trades_tenant_idx ON paper_trades (tenant_id, created_at DESC)",
+    """
+    CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+        id UUID PRIMARY KEY,
+        tenant_id VARCHAR(80) NOT NULL,
+        nav DOUBLE PRECISION NOT NULL,
+        total_pnl_pct DOUBLE PRECISION DEFAULT 0,
+        positions_json JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS portfolio_snapshots_tenant_idx ON portfolio_snapshots (tenant_id, created_at DESC)",
+    """
+    CREATE TABLE IF NOT EXISTS quant_cycle_state (
+        id UUID PRIMARY KEY,
+        tenant_id VARCHAR(80) UNIQUE NOT NULL,
+        cycle_count INTEGER DEFAULT 0,
+        last_cycle_at TIMESTAMPTZ,
+        last_ingested INTEGER DEFAULT 0,
+        trace_steps JSONB DEFAULT '[]'::jsonb,
+        trace_nodes JSONB DEFAULT '[]'::jsonb,
+        trace_edges JSONB DEFAULT '[]'::jsonb
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS quant_cycle_state_tenant_idx ON quant_cycle_state (tenant_id)",
 )
 
 

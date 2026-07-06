@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e14" />
+  <title>ACME Quant — Belief-Driven Paper Trading</title>
+  <meta name="description" content="Real market data, ACME beliefs, paper trading dashboard with reasoning trails." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/style.css?v=1" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-icon">Q</span>
+        <div>
+          <h1>ACME Quant</h1>
+          <p>Belief-driven paper trading · demo only</p>
+        </div>
+      </div>
+      <div class="topbar-stats">
+        <div class="stat-pill" id="nav-pill">
+          <span class="label">NAV</span>
+          <span class="value" id="nav-value">—</span>
+        </div>
+        <div class="stat-pill" id="pnl-pill">
+          <span class="label">P&amp;L</span>
+          <span class="value" id="pnl-value">—</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">Cycles</span>
+          <span class="value" id="cycle-count">0</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" id="btn-cycle" class="btn btn-ghost">Run cycle</button>
+        <button type="button" id="btn-refresh" class="btn btn-primary">Refresh</button>
+      </div>
+    </header>
+
+    <div class="ticker" id="ticker" aria-label="Live quotes"></div>
+
+    <main class="grid">
+      <section class="panel panel-portfolio">
+        <header class="panel-head">
+          <h2>Portfolio</h2>
+          <span class="badge" id="cash-badge">Cash —</span>
+        </header>
+        <div class="portfolio-summary">
+          <div class="metric">
+            <span class="metric-label">Total P&amp;L</span>
+            <span class="metric-value" id="total-pnl">—</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Daily</span>
+            <span class="metric-value" id="daily-pnl">—</span>
+          </div>
+        </div>
+        <canvas id="equity-chart" height="80" aria-label="Equity curve"></canvas>
+        <div class="table-wrap">
+          <table class="data-table" id="positions-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Qty</th>
+                <th>Avg</th>
+                <th>Mkt</th>
+                <th>P&amp;L</th>
+                <th>Wt%</th>
+              </tr>
+            </thead>
+            <tbody id="positions-body">
+              <tr><td colspan="6" class="empty">No positions</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel-trace">
+        <header class="panel-head">
+          <h2>Belief trail</h2>
+          <div class="scrubber">
+            <button type="button" id="trace-prev" class="btn-icon" aria-label="Previous step">‹</button>
+            <input type="range" id="trace-slider" min="0" max="0" value="0" />
+            <button type="button" id="trace-next" class="btn-icon" aria-label="Next step">›</button>
+            <span id="trace-title" class="trace-title">—</span>
+            <span id="trace-crs" class="crs-badge">CRS —</span>
+          </div>
+        </header>
+        <div class="trace-body">
+          <svg id="trace-graph" viewBox="0 0 640 360" aria-label="Reasoning graph"></svg>
+          <aside class="trace-inspector" id="trace-inspector">
+            <p class="inspector-empty">Scrub the timeline to inspect belief formation and trades.</p>
+          </aside>
+        </div>
+        <div class="episodes" id="trace-episodes"></div>
+      </section>
+
+      <section class="panel panel-beliefs">
+        <header class="panel-head"><h2>Beliefs</h2></header>
+        <ul class="belief-list" id="belief-list">
+          <li class="empty">Loading beliefs…</li>
+        </ul>
+      </section>
+
+      <section class="panel panel-trades">
+        <header class="panel-head">
+          <h2>Trade blotter</h2>
+          <a href="#" id="signals-export" class="link-sm">Copy-trade API ↗</a>
+        </header>
+        <div class="table-wrap">
+          <table class="data-table" id="trades-table">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Side</th>
+                <th>Symbol</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>CRS</th>
+                <th>Belief</th>
+              </tr>
+            </thead>
+            <tbody id="trades-body">
+              <tr><td colspan="7" class="empty">No trades yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Paper trading · Real Yahoo Finance data · Not investment advice</span>
+      <span id="last-updated">—</span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="assets/app.js?v=1"></script>
+</body>
+</html>

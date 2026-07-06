@@ -128,5 +128,16 @@ class Settings(BaseSettings):
     chat_message_history_limit: int = 24
     chat_clean_legacy_demo_on_start: bool = True
 
+    # Quant belief-driven paper trading demo
+    quant_demo_enabled: bool = False
+    quant_tenant_id: str = "quant-demo"
+    quant_symbols: str = "AAPL,MSFT,NVDA,GOOGL,AMZN,META,SPY,QQQ"
+    quant_starting_cash: float = 1_000_000.0
+    quant_cycle_interval_sec: int = 300
+    quant_max_position_pct: float = 0.15
+    quant_min_belief_crs: float = 0.55
+    quant_news_per_symbol: int = 3
+    quant_max_trades_per_cycle: int = 2
+
 
 settings = Settings()

@@ -498,6 +498,28 @@ API routes: `POST /api/v1/chat/sessions`, `POST /api/v1/chat/sessions/{id}/messa
 
 ---
 
+## ACME Quant — belief-driven paper trading
+
+**Docs:** [`quant/README.md`](quant/README.md) · **Dashboard:** `/api/v1/quant/` (when `QUANT_DEMO_ENABLED=true`)
+
+Showcase that ingests **real market data** (Yahoo Finance) and news, builds CRS-scored beliefs via the core ACME pipeline, executes **paper trades** on a demo account, and exposes a **dashboard** with portfolio tracking, belief reasoning trails, and a **copy-trade API** (`GET /api/v1/quant/signals`).
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `QUANT_DEMO_ENABLED` | `false` | Enable quant dashboard + background cycle |
+| `QUANT_TENANT_ID` | `quant-demo` | Isolated tenant for beliefs/episodes |
+| `QUANT_SYMBOLS` | `AAPL,MSFT,NVDA,...` | Watchlist |
+| `QUANT_STARTING_CASH` | `1000000` | Paper account starting NAV |
+| `QUANT_CYCLE_INTERVAL_SEC` | `300` | Research cycle interval |
+
+```bash
+export QUANT_DEMO_ENABLED=true
+uvicorn acme.main:app --reload
+open http://localhost:8000/api/v1/quant/
+```
+
+---
+
 ## Future work
 
 - arXiv submission of `docs/PAPER.pdf` (checklist: `docs/ARXIV_SUBMISSION.md`)

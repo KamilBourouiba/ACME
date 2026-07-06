@@ -3,71 +3,104 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#07080d" />
+  <meta name="theme-color" content="#06080f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>ACME Memory Chat</title>
+  <meta name="description" content="Chat with a memory agent — episodic memory, beliefs, web browse, file upload." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/chat/assets/style.css" />
+  <link rel="stylesheet" href="assets/style.css?v=2" />
 </head>
 <body>
   <div class="app">
-    <header class="mobile-bar">
-      <button type="button" id="btn-menu" class="icon-btn" aria-label="Agent panel">☰</button>
-      <div class="mobile-title">
-        <strong>ACME</strong>
-        <span>Memory Chat</span>
+    <div id="sidebar-backdrop" class="backdrop" hidden></div>
+
+    <aside id="sidebar" class="sidebar" aria-label="Agent panel">
+      <div class="sidebar-inner">
+        <header class="brand">
+          <div class="brand-mark" aria-hidden="true">A</div>
+          <div>
+            <h1>ACME</h1>
+            <p>Memory you can audit</p>
+          </div>
+        </header>
+
+        <section class="card session-card">
+          <div class="card-label">Your agent</div>
+          <code id="session-id" class="session-id">…</code>
+          <div class="btn-row">
+            <button type="button" id="btn-copy" class="btn btn-ghost">Copy ID</button>
+            <button type="button" id="btn-new" class="btn btn-primary">New agent</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-label">Skills</div>
+          <ul id="skill-list" class="chips"></ul>
+        </section>
+
+        <section class="card memory-card" id="memory-panel">
+          <div class="card-label">Live memory</div>
+          <div class="stat-grid" id="memory-stats">
+            <div class="stat"><span>Episodes</span><strong id="stat-episodes">0</strong></div>
+            <div class="stat"><span>Beliefs</span><strong id="stat-beliefs">0</strong></div>
+            <div class="stat"><span>Graph</span><strong id="stat-graph">0</strong></div>
+            <div class="stat"><span>Promoted</span><strong id="stat-promoted">0</strong></div>
+          </div>
+          <ul id="belief-list" class="belief-list"></ul>
+        </section>
       </div>
-      <button type="button" id="btn-memory" class="icon-btn" aria-label="Memory stats">◎</button>
-    </header>
-
-    <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
-
-    <aside id="sidebar" class="sidebar">
-      <header class="brand">
-        <h1>ACME</h1>
-        <p>Memory you can audit</p>
-      </header>
-      <section class="session-box">
-        <label>Your agent ID</label>
-        <code id="session-id">—</code>
-        <div class="session-actions">
-          <button type="button" id="btn-copy" class="ghost">Copy</button>
-          <button type="button" id="btn-new" class="primary">New agent</button>
-        </div>
-      </section>
-      <section class="skills">
-        <h2>Skills</h2>
-        <ul id="skill-list"></ul>
-      </section>
-      <section class="memory-panel" id="memory-panel">
-        <h2>Memory</h2>
-        <div class="stat-grid" id="memory-stats">
-          <div><span>Episodes</span><strong id="stat-episodes">0</strong></div>
-          <div><span>Beliefs</span><strong id="stat-beliefs">0</strong></div>
-          <div><span>Graph</span><strong id="stat-graph">0</strong></div>
-          <div><span>Promoted</span><strong id="stat-promoted">0</strong></div>
-        </div>
-        <ul id="belief-list" class="belief-list"></ul>
-      </section>
-      <button type="button" id="btn-close-sidebar" class="ghost sidebar-close">Close</button>
+      <button type="button" id="btn-close-sidebar" class="btn btn-ghost sidebar-close">Close panel</button>
     </aside>
 
-    <main class="chat">
-      <div id="messages" class="messages" role="log" aria-live="polite"></div>
-      <form id="composer" class="composer">
-        <div class="composer-row">
-          <label class="attach-btn" title="Attach file">
-            <input type="file" id="file-input" multiple hidden />
-            <span aria-hidden="true">📎</span>
-          </label>
-          <textarea id="input" rows="1" placeholder="Message your agent…" enterkeyhint="send"></textarea>
-          <button type="submit" id="btn-send" class="primary send-btn" aria-label="Send">↑</button>
+    <div class="main">
+      <header class="topbar">
+        <button type="button" id="btn-menu" class="btn-icon" aria-label="Open panel">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="topbar-center">
+          <span class="topbar-title">Memory Chat</span>
+          <span class="topbar-sub" id="topbar-status">Connecting…</span>
         </div>
+        <button type="button" id="btn-memory" class="btn-icon" aria-label="Memory stats">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        </button>
+      </header>
+
+      <div class="chat-scroll">
+        <div id="empty-state" class="empty-state" hidden>
+          <div class="empty-icon" aria-hidden="true">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="22" stroke="currentColor" stroke-width="1.5" opacity=".35"/><path d="M16 28c2-4 6-6 8-6s6 2 8 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="18" cy="20" r="1.5" fill="currentColor"/><circle cx="30" cy="20" r="1.5" fill="currentColor"/></svg>
+          </div>
+          <h2>Your private memory agent</h2>
+          <p>Everything you share becomes episodic memory — extracted into a graph, scored as beliefs, and recalled in future turns.</p>
+          <div class="prompt-grid">
+            <button type="button" class="prompt-chip" data-prompt="Remember that I'm building a product called ACME — a cognitive memory engine for LLMs.">Introduce yourself & remember my project</button>
+            <button type="button" class="prompt-chip" data-prompt="Search your memory — what do you know about me so far?">What do you remember about me?</button>
+            <button type="button" class="prompt-chip" data-prompt="Browse https://kamilbourouiba.github.io/ACME/ and summarize what ACME is.">Browse the ACME paper site</button>
+          </div>
+        </div>
+        <div id="messages" class="messages" role="log" aria-live="polite"></div>
+      </div>
+
+      <form id="composer" class="composer">
         <div id="file-chips" class="file-chips"></div>
+        <div class="composer-box">
+          <label class="btn-icon attach-label" title="Attach file">
+            <input type="file" id="file-input" multiple hidden />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          </label>
+          <textarea id="input" rows="1" placeholder="Message your agent…" enterkeyhint="send" autocomplete="off"></textarea>
+          <button type="submit" id="btn-send" class="btn-send" aria-label="Send" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+        <p class="composer-hint">Enter to send · Shift+Enter for newline · Attach notes, code, or docs</p>
       </form>
-    </main>
+    </div>
   </div>
-  <script src="/chat/assets/app.js"></script>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="assets/app.js?v=2"></script>
 </body>
 </html>

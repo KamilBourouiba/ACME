@@ -140,7 +140,10 @@ async def delete_session(
 @router.get("/")
 async def chat_ui() -> FileResponse:
     _require_chat_enabled()
-    return FileResponse(_STATIC / "index.html")
+    return FileResponse(
+        _STATIC / "index.html",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @router.get("/assets/{path:path}")
@@ -151,4 +154,4 @@ async def chat_assets(path: str) -> FileResponse:
         raise HTTPException(404)
     if not target.is_file():
         raise HTTPException(404)
-    return FileResponse(target)
+    return FileResponse(target, headers={"Cache-Control": "public, max-age=3600"})
