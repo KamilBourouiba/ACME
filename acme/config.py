@@ -140,7 +140,8 @@ class Settings(BaseSettings):
     quant_crypto_momentum_floor_pct: float = 0.02
     quant_crypto_position_pct: float = 0.03
     quant_starting_cash: float = 1_000_000.0
-    quant_cycle_interval_sec: int = 10
+    quant_cycle_interval_sec: int = 3
+    quant_cycle_startup_delay_sec: int = 2
     quant_bar_interval: str = "5m"
     quant_max_position_pct: float = 0.15
     quant_scalp_position_pct: float = 0.06
@@ -157,12 +158,12 @@ class Settings(BaseSettings):
     quant_scalp_momentum_threshold_pct: float = 0.05
     quant_scalp_momentum_floor_pct: float = 0.015
     quant_trade_only_market_hours: bool = True
-    quant_cycle_interval_closed_sec: int = 10
+    quant_cycle_interval_closed_sec: int = 3
     quant_min_belief_crs: float = 0.55
     quant_news_per_symbol: int = 1
     quant_news_every_n_cycles: int = 90
     quant_max_trades_per_cycle: int = 6
-    quant_quote_cache_sec: int = 8
+    quant_quote_cache_sec: int = 2
     quant_ingest_every_n_cycles: int = 6
     quant_light_ingest: bool = True
     quant_leverage_enabled: bool = True

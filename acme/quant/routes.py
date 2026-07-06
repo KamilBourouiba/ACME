@@ -116,12 +116,18 @@ async def reset_demo(session: AsyncSession = Depends(get_db_session)) -> dict:
     from acme.db.models import QuantCycleState
     from acme.demo.reset import cleanup_demo_tenant
     from acme.graph.neo4j_client import neo4j_client
+    from acme.quant.market import quote_cache
     from sqlalchemy import delete
 
     await quant_service.broker.reset(session)
-    await cleanup_demo_tenant(session, neo4j_client, tenant_id=quant_service.tenant_id)
+    stats = await cleanup_demo_tenant(session, neo4j_client, tenant_id=quant_service.tenant_id)
     await session.execute(
         delete(QuantCycleState).where(QuantCycleState.tenant_id == quant_service.tenant_id)
     )
     await session.commit()
-    return {"ok": True, "message": "Paper account and tenant memory reset"}
+    quote_cache.ttl_sec = float(settings.quant_quote_cache_sec)
+    return {
+        "ok": True,
+        "message": "Fresh start — paper account, beliefs, episodes, and graph wiped",
+        "cleanup": stats,
+    }

@@ -349,7 +349,7 @@
     renderBeliefs(data.beliefs);
     renderTrades(data.trades);
     renderTrace(data.trace);
-    $("#last-updated").textContent = "Updated " + new Date().toLocaleTimeString();
+    $("#last-updated").textContent = "Live · " + new Date().toLocaleTimeString();
     $("#signals-export").href = API + "/signals";
   }
 
@@ -402,5 +402,5 @@
   });
 
   refresh();
-  setInterval(refresh, 30000);
+  setInterval(refresh, 3000);
 })();

@@ -122,7 +122,7 @@ class QuantService:
         logger.info("Quant demo stopped")
 
     async def _loop(self) -> None:
-        await asyncio.sleep(5)
+        await asyncio.sleep(settings.quant_cycle_startup_delay_sec)
         while self._running:
             try:
                 await self.run_cycle()
