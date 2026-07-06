@@ -211,6 +211,97 @@ async def fetch_bars(symbol: str, period: str = "5d") -> list[dict]:
     return await loop.run_in_executor(None, partial(_fetch_bars_sync, symbol, period))
 
 
+def _fetch_intraday_sync(symbol: str, interval: str = "5m", period: str = "1d") -> list[dict]:
+    try:
+        import yfinance as yf
+    except ImportError:
+        return []
+
+    try:
+        df = yf.Ticker(symbol.upper()).history(period=period, interval=interval)
+        if df.empty:
+            return []
+        bars = []
+        for idx, row in df.iterrows():
+            bars.append(
+                {
+                    "date": idx.isoformat(),
+                    "open": round(float(row["Open"]), 4),
+                    "high": round(float(row["High"]), 4),
+                    "low": round(float(row["Low"]), 4),
+                    "close": round(float(row["Close"]), 4),
+                    "volume": int(row["Volume"]),
+                }
+            )
+        return bars
+    except Exception as exc:
+        logger.warning("Intraday fetch failed for %s %s: %s", symbol, interval, exc)
+        return []
+
+
+def _fetch_intraday_batch_sync(symbols: list[str], interval: str = "5m") -> dict[str, list[dict]]:
+    try:
+        import yfinance as yf
+    except ImportError:
+        return {}
+
+    syms = [s.strip().upper() for s in symbols if s.strip()]
+    out: dict[str, list[dict]] = {}
+    try:
+        if len(syms) == 1:
+            out[syms[0]] = _fetch_intraday_sync(syms[0], interval)
+            return out
+        raw = yf.download(
+            syms,
+            period="1d",
+            interval=interval,
+            group_by="ticker",
+            progress=False,
+            threads=True,
+            auto_adjust=True,
+        )
+        if raw.empty:
+            raise ValueError("empty intraday batch")
+        for sym in syms:
+            try:
+                sub = raw[sym].dropna(how="all")
+                bars = []
+                for idx, row in sub.iterrows():
+                    bars.append(
+                        {
+                            "date": idx.isoformat(),
+                            "open": round(float(row["Open"]), 4),
+                            "high": round(float(row["High"]), 4),
+                            "low": round(float(row["Low"]), 4),
+                            "close": round(float(row["Close"]), 4),
+                            "volume": int(row["Volume"]),
+                        }
+                    )
+                if bars:
+                    out[sym] = bars
+            except (KeyError, TypeError, ValueError):
+                continue
+    except Exception as exc:
+        logger.warning("Intraday batch failed: %s", exc)
+        for sym in syms:
+            if sym not in out:
+                bars = _fetch_intraday_sync(sym, interval)
+                if bars:
+                    out[sym] = bars
+    return out
+
+
+async def fetch_intraday_bars(
+    symbols: list[str],
+    interval: str | None = None,
+) -> dict[str, list[dict]]:
+    iv = interval or settings.quant_bar_interval
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, partial(_fetch_intraday_batch_sync, symbols, iv)
+    )
+
+
 def format_quote_experience(quote: dict) -> str:
     sym = quote["symbol"]
     price = quote["price"]

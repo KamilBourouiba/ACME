@@ -130,15 +130,24 @@ class Settings(BaseSettings):
 
     # Quant belief-driven paper trading demo
     quant_demo_enabled: bool = False
+    quant_scalp_mode: bool = True
     quant_tenant_id: str = "quant-demo"
     quant_symbols: str = "AAPL,MSFT,NVDA,GOOGL,AMZN,META,SPY,QQQ"
     quant_starting_cash: float = 1_000_000.0
-    quant_cycle_interval_sec: int = 300
+    quant_cycle_interval_sec: int = 60
+    quant_bar_interval: str = "5m"
     quant_max_position_pct: float = 0.15
+    quant_scalp_position_pct: float = 0.05
+    quant_scalp_max_hold_sec: int = 300
+    quant_scalp_take_profit_pct: float = 0.25
+    quant_scalp_stop_loss_pct: float = 0.18
+    quant_scalp_momentum_threshold_pct: float = 0.06
     quant_min_belief_crs: float = 0.55
-    quant_news_per_symbol: int = 3
-    quant_max_trades_per_cycle: int = 2
-    quant_quote_cache_sec: int = 60
+    quant_news_per_symbol: int = 1
+    quant_news_every_n_cycles: int = 15
+    quant_max_trades_per_cycle: int = 3
+    quant_quote_cache_sec: int = 30
+    quant_light_ingest: bool = True
 
 
 settings = Settings()

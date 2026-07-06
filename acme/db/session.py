@@ -149,6 +149,7 @@ _SCHEMA_PATCHES: tuple[str, ...] = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS quant_cycle_state_tenant_idx ON quant_cycle_state (tenant_id)",
+    "ALTER TABLE paper_positions ADD COLUMN IF NOT EXISTS opened_at TIMESTAMPTZ",
 )
 
 

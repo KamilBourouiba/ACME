@@ -176,6 +176,20 @@ def test_parse_trade_decision_json():
     assert result["symbol"] == "NVDA"
 
 
+def test_scalp_signal_buy():
+    from acme.quant.scalp import scalp_signal
+
+    bars = [
+        {"close": 100.0, "volume": 1000},
+        {"close": 100.05, "volume": 1000},
+        {"close": 100.08, "volume": 1000},
+        {"close": 100.15, "volume": 5000},
+    ]
+    sig = scalp_signal("NVDA", bars, momentum_threshold_pct=0.05)
+    assert sig is not None
+    assert sig["side"] == "buy"
+
+
 @pytest.mark.asyncio
 async def test_quote_cache_returns_cached_without_refetch():
     from acme.quant.market import QuoteCache

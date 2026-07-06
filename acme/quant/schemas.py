@@ -104,6 +104,9 @@ class QuantStateOut(BaseModel):
     cycle_count: int
     last_cycle_at: datetime | None = None
     watchlist: list[str]
+    scalp_mode: bool = False
+    bar_interval: str = "5m"
+    cycle_interval_sec: int = 60
 
 
 class CycleResultOut(BaseModel):

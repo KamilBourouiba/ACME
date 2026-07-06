@@ -8,7 +8,7 @@
   <meta name="description" content="Real market data, ACME beliefs, paper trading dashboard with reasoning trails." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/style.css?v=1" />
+  <link rel="stylesheet" href="assets/style.css?v=2" />
 </head>
 <body>
   <div class="app">
@@ -17,7 +17,7 @@
         <span class="brand-icon">Q</span>
         <div>
           <h1>ACME Quant</h1>
-          <p>Belief-driven paper trading · demo only</p>
+          <p>5m scalp · belief-driven paper trading · demo only</p>
         </div>
       </div>
       <div class="topbar-stats">
@@ -32,6 +32,10 @@
         <div class="stat-pill">
           <span class="label">Cycles</span>
           <span class="value" id="cycle-count">0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">Bar</span>
+          <span class="value" id="bar-interval">5m</span>
         </div>
       </div>
       <div class="topbar-actions">
@@ -138,6 +142,6 @@
   </div>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="assets/app.js?v=1"></script>
+  <script src="assets/app.js?v=2"></script>
 </body>
 </html>

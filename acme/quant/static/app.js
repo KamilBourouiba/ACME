@@ -250,6 +250,9 @@
   function renderAll(data) {
     state = data;
     $("#cycle-count").textContent = data.cycle_count || 0;
+    if (data.scalp_mode) {
+      $("#bar-interval").textContent = data.bar_interval || "5m";
+    }
     renderTicker(data.quotes);
     renderPortfolio(data.portfolio);
     renderEquity(data.equity_curve);
@@ -309,5 +312,5 @@
   });
 
   refresh();
-  setInterval(refresh, 60000);
+  setInterval(refresh, 30000);
 })();

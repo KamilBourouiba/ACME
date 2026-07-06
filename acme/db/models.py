@@ -288,6 +288,7 @@ class PaperPosition(Base):
     symbol: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
     quantity: Mapped[float] = mapped_column(Float, default=0.0)
     avg_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

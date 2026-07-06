@@ -18,9 +18,17 @@ from acme.engines.belief import BeliefEngine
 from acme.graph.neo4j_client import neo4j_client
 from acme.llm.factory import get_llm_client
 from acme.orchestrator import ACMEOrchestrator
-from acme.quant.market import fetch_bars, fetch_quotes, format_bar_summary, format_quote_experience, quote_cache
+from acme.quant.market import (
+    fetch_bars,
+    fetch_intraday_bars,
+    fetch_quotes,
+    format_bar_summary,
+    format_quote_experience,
+    quote_cache,
+)
 from acme.quant.news import fetch_news, format_news_experience
 from acme.quant.paper_broker import PaperBroker
+from acme.quant.scalp import format_scalp_experience, rank_scalp_signals, scalp_signal
 from acme.quant.schemas import BeliefOut, CycleResultOut, QuantStateOut, QuoteOut, SignalOut, SnapshotPoint
 from acme.quant.trace import append_cycle_step, build_trace
 from acme.schemas import CognitiveProfile, ExperienceCreate, QueryRequest, SourceType
@@ -116,6 +124,223 @@ class QuantService:
         return state
 
     async def run_cycle(self) -> CycleResultOut:
+        if settings.quant_scalp_mode:
+            return await self._run_scalp_cycle()
+        return await self._run_research_cycle()
+
+    async def _run_scalp_cycle(self) -> CycleResultOut:
+        """Fast 5m scalp cycle — rule signals, TP/SL exits, light belief ingest."""
+        ingested = 0
+        trades_executed = 0
+        symbols = _symbols()
+
+        async with SessionLocal() as session:
+            orch = ACMEOrchestrator(session, neo4j_client, get_llm_client(), tenant_id=self.tenant_id)
+            cycle_state = await self._cycle_state(session)
+
+            quotes_raw = await fetch_quotes(symbols, force=True)
+            quote_map = {q["symbol"]: q["price"] for q in quotes_raw}
+            intraday = await fetch_intraday_bars(symbols)
+
+            # 1. Risk exits first (TP / SL / max hold)
+            exit_trades = await self.broker.process_scalp_exits(session, quote_map)
+            trades_executed += len(exit_trades)
+
+            # 2. Scalp signals from 5m (or 1m) bars
+            signals: list[dict] = []
+            held = {p.symbol for p in (await self.broker.get_positions(session))}
+            for sym, bars in intraday.items():
+                sig = scalp_signal(
+                    sym,
+                    bars,
+                    momentum_threshold_pct=settings.quant_scalp_momentum_threshold_pct,
+                )
+                if sig:
+                    signals.append(sig)
+
+            ranked = rank_scalp_signals(signals)
+            sells = [s for s in ranked if s["side"] == "sell" and s["symbol"] in held]
+            buys = [s for s in ranked if s["side"] == "buy" and s["symbol"] not in held]
+
+            belief_engine = BeliefEngine(session, tenant_id=self.tenant_id)
+            belief_rows = await belief_engine.list_beliefs(min_confidence=0.0)
+            beliefs_out = [_belief_out(b) for b in belief_rows[:20]]
+
+            def _belief_for(sym: str) -> tuple[str | None, str | None, float | None]:
+                for b in beliefs_out:
+                    if sym in b.label.upper():
+                        return b.graph_id, b.label, b.crs
+                return None, None, None
+
+            portfolio = await self.broker.portfolio(session, quote_map)
+            max_trades = settings.quant_max_trades_per_cycle
+            trade_budget = max_trades - trades_executed
+
+            for sig in sells[:trade_budget]:
+                price = quote_map.get(sig["symbol"], sig["price"])
+                pos = next((p for p in portfolio.positions if p.symbol == sig["symbol"]), None)
+                if not pos:
+                    continue
+                bid, blabel, bcrs = _belief_for(sig["symbol"])
+                trade = await self.broker.execute_market_order(
+                    session,
+                    symbol=sig["symbol"],
+                    side="sell",
+                    quantity=pos.quantity,
+                    price=price,
+                    belief_graph_id=bid,
+                    belief_label=blabel or "scalp_momentum",
+                    reasoning=sig["reasoning"],
+                    crs_at_trade=bcrs or sig.get("confidence"),
+                )
+                if trade:
+                    trades_executed += 1
+                    trade_budget -= 1
+
+            portfolio = await self.broker.portfolio(session, quote_map)
+            for sig in buys[:trade_budget]:
+                price = quote_map.get(sig["symbol"], sig["price"])
+                if price <= 0:
+                    continue
+                max_notional = portfolio.nav * settings.quant_scalp_position_pct
+                qty = min(max_notional / price, portfolio.cash / price)
+                if qty < 0.001:
+                    continue
+                bid, blabel, bcrs = _belief_for(sig["symbol"])
+                trade = await self.broker.execute_market_order(
+                    session,
+                    symbol=sig["symbol"],
+                    side="buy",
+                    quantity=qty,
+                    price=price,
+                    belief_graph_id=bid,
+                    belief_label=blabel or "scalp_momentum",
+                    reasoning=sig["reasoning"],
+                    crs_at_trade=bcrs or sig.get("confidence"),
+                )
+                if trade:
+                    trades_executed += 1
+
+            # 3. Light ingest — top movers only (keeps beliefs fresh without slow full ingest)
+            if settings.quant_light_ingest:
+                movers = sorted(
+                    [(sym, bars) for sym, bars in intraday.items() if bars],
+                    key=lambda x: abs(
+                        (x[1][-1]["close"] - x[1][-2]["close"]) / x[1][-2]["close"] * 100
+                        if len(x[1]) > 1 and x[1][-2]["close"]
+                        else 0
+                    ),
+                    reverse=True,
+                )[:3]
+                for sym, bars in movers:
+                    exp = ExperienceCreate(
+                        content=format_scalp_experience(sym, bars, settings.quant_bar_interval),
+                        action="scalp_bar",
+                        tags=["scalp", sym, settings.quant_bar_interval, "momentum"],
+                        source_type=SourceType.API,
+                        source_id=f"yahoo-{settings.quant_bar_interval}:{sym}",
+                        source_credibility=0.95,
+                        cognitive_profile=CognitiveProfile.STRATEGIC,
+                        context={"symbol": sym, "interval": settings.quant_bar_interval},
+                        tenant_id=self.tenant_id,
+                    )
+                    await orch.ingest_experience(exp)
+                    ingested += 1
+            else:
+                for q in quotes_raw:
+                    await orch.ingest_experience(
+                        ExperienceCreate(
+                            content=format_quote_experience(q),
+                            action="market_tick",
+                            tags=["market", q["symbol"], "scalp"],
+                            source_type=SourceType.API,
+                            source_id=f"yahoo-quote:{q['symbol']}",
+                            source_credibility=0.95,
+                            cognitive_profile=CognitiveProfile.STRATEGIC,
+                            tenant_id=self.tenant_id,
+                        )
+                    )
+                    ingested += 1
+
+            # News only every N cycles in scalp mode
+            if cycle_state.cycle_count % settings.quant_news_every_n_cycles == 0:
+                for headline in await fetch_news(symbols[:4], settings.quant_news_per_symbol):
+                    await orch.ingest_experience(
+                        ExperienceCreate(
+                            content=format_news_experience(headline),
+                            action="news_headline",
+                            tags=["news", headline["symbol"], "scalp"],
+                            source_type=SourceType.WEB,
+                            source_id=headline.get("source_id"),
+                            source_credibility=0.7,
+                            cognitive_profile=CognitiveProfile.STRATEGIC,
+                            tenant_id=self.tenant_id,
+                        )
+                    )
+                    ingested += 1
+
+            beliefs_out = [
+                _belief_out(b)
+                for b in (await belief_engine.list_beliefs(min_confidence=0.0))[:20]
+            ]
+            quote_map = {q["symbol"]: q["price"] for q in quotes_raw}
+            portfolio = await self.broker.portfolio(session, quote_map)
+            await self.broker.record_snapshot(
+                session,
+                nav=portfolio.nav,
+                total_pnl_pct=portfolio.total_pnl_pct,
+                positions_json=[p.model_dump() for p in portfolio.positions],
+            )
+
+            trades = await self.broker.list_trades(session, limit=10)
+            ep_result = await session.execute(
+                select(Episode)
+                .where(Episode.tenant_id == self.tenant_id)
+                .order_by(Episode.created_at.desc())
+                .limit(12)
+            )
+            episodes = [
+                {"text": e.content[:120], "time": e.created_at.strftime("%H:%M") if e.created_at else ""}
+                for e in ep_result.scalars().all()
+            ]
+            trace = build_trace(
+                episodes=episodes,
+                beliefs=beliefs_out,
+                trades=trades,
+                existing_nodes=cycle_state.trace_nodes,
+                existing_edges=cycle_state.trace_edges,
+                existing_steps=cycle_state.trace_steps,
+            )
+            now_str = datetime.now(timezone.utc).strftime("%H:%M")
+            max_crs = max((b.crs for b in beliefs_out), default=0.4)
+            new_steps = append_cycle_step(
+                trace.steps,
+                title=f"Scalp {cycle_state.cycle_count + 1}",
+                crs=max_crs,
+                episode_text=f"{settings.quant_bar_interval} scalp: {trades_executed} trade(s), {len(ranked)} signals",
+                time_str=now_str,
+                active_nodes=[n["id"] for n in trace.nodes[:6]],
+            )
+            cycle_state.cycle_count += 1
+            cycle_state.last_cycle_at = datetime.now(timezone.utc)
+            cycle_state.last_ingested = ingested
+            cycle_state.trace_nodes = trace.nodes
+            cycle_state.trace_edges = trace.edges
+            cycle_state.trace_steps = new_steps
+            await session.commit()
+
+            return CycleResultOut(
+                ok=True,
+                ingested=ingested,
+                beliefs_count=len(beliefs_out),
+                trades_executed=trades_executed,
+                message=(
+                    f"Scalp cycle {cycle_state.cycle_count}: {trades_executed} trades, "
+                    f"{len(ranked)} signals ({settings.quant_bar_interval})"
+                ),
+            )
+
+    async def _run_research_cycle(self) -> CycleResultOut:
         ingested = 0
         trades_executed = 0
         symbols = _symbols()
@@ -411,6 +636,9 @@ class QuantService:
             cycle_count=cycle_state.cycle_count,
             last_cycle_at=cycle_state.last_cycle_at,
             watchlist=symbols,
+            scalp_mode=settings.quant_scalp_mode,
+            bar_interval=settings.quant_bar_interval,
+            cycle_interval_sec=settings.quant_cycle_interval_sec,
         )
 
 

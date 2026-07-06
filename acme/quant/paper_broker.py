@@ -110,6 +110,7 @@ class PaperBroker:
                     symbol=symbol,
                     quantity=quantity,
                     avg_cost=price,
+                    opened_at=datetime.now(timezone.utc),
                 )
                 session.add(pos)
             else:
@@ -124,6 +125,48 @@ class PaperBroker:
 
         await session.flush()
         return trade
+
+    async def process_scalp_exits(
+        self,
+        session: AsyncSession,
+        quotes: dict[str, float],
+    ) -> list[PaperTrade]:
+        """Close positions on take-profit, stop-loss, or max hold time."""
+        exits: list[PaperTrade] = []
+        now = datetime.now(timezone.utc)
+        positions = await self.get_positions(session)
+
+        for pos in positions:
+            price = quotes.get(pos.symbol, pos.avg_cost)
+            if pos.avg_cost <= 0:
+                continue
+            pnl_pct = (price - pos.avg_cost) / pos.avg_cost * 100
+            opened = pos.opened_at or pos.updated_at or now
+            if opened.tzinfo is None:
+                opened = opened.replace(tzinfo=timezone.utc)
+            hold_sec = (now - opened).total_seconds()
+
+            reason = None
+            if pnl_pct >= settings.quant_scalp_take_profit_pct:
+                reason = f"Scalp TP +{pnl_pct:.2f}%"
+            elif pnl_pct <= -settings.quant_scalp_stop_loss_pct:
+                reason = f"Scalp SL {pnl_pct:.2f}%"
+            elif hold_sec >= settings.quant_scalp_max_hold_sec:
+                reason = f"Scalp max hold {int(hold_sec)}s ({pnl_pct:+.2f}%)"
+
+            if reason:
+                trade = await self.execute_market_order(
+                    session,
+                    symbol=pos.symbol,
+                    side="sell",
+                    quantity=pos.quantity,
+                    price=price,
+                    belief_label="scalp_exit",
+                    reasoning=reason,
+                )
+                if trade:
+                    exits.append(trade)
+        return exits
 
     async def portfolio(
         self,
